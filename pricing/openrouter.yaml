@@ -1,0 +1,24 @@
+# Derived pricing for OpenRouter models from OpenRouter's official per-model
+# metadata (GET https://openrouter.ai/api/v1/models, USD per token), recorded in
+# tests_spend/fixtures/openrouter_models_glm53.json. No runtime fetch: rows are
+# transcribed from the recorded fixture and cross-checked by test against it.
+#
+# z-ai/glm-5.3-flash (created 1787752741 = 2026-08-26T13:59:01Z):
+#   prompt 0.000000075 -> $0.075 / MTok, completion 0.00000025 -> $0.25 / MTok,
+#   input_cache_read 0.000000015 -> $0.015 / MTok, no cache-write field (0).
+#
+# The promo row ends at the published promo boundary 2026-09-09T16:00:00Z and
+# MUST NOT silently apply afterwards: from that instant openrouter:glm-5.3-flash
+# is unpriced again until refreshed official OpenRouter model metadata is
+# recorded. Underlying provider rates and third-party pages are not authority.
+provider: openrouter
+exactness: derived
+prices:
+  - model_key: openrouter:glm-5.3-flash
+    input_per_mtok: 0.075
+    cached_input_per_mtok: 0.015
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 0.25
+    effective_from: 2026-08-26T13:59:01Z
+    effective_to: 2026-09-09T16:00:00Z
+    source_url: https://openrouter.ai/api/v1/models?q=glm-5.3-flash

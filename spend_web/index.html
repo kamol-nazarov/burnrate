@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0d10" />
+    <meta name="application-name" content="BURNRATE" />
+    <meta name="description" content="Private AI usage, capacity, and cost intelligence." />
+    <title>BURNRATE · AI Cost Intelligence</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+    <script>
+      // Start the first data requests before spend.js has even downloaded.
+      // spend.js consumes window.__prefetch once; nothing here renders.
+      (() => {
+        const keys = new Set(["15m", "30m", "1h", "3h", "6h", "12h", "1d", "1w", "1mo", "mtd", "ytd", "all"]);
+        const requested = String(new URLSearchParams(location.search).get("window") || "1d").toLowerCase();
+        const key = keys.has(requested) ? requested : "1d";
+        window.__prefetch = {
+          window: key,
+          summary: fetch(`/api/spend/summary?window=${encodeURIComponent(key)}&tool=all`, {cache: "no-store"}),
+          health: fetch("/api/spend/health", {cache: "no-store"})
+        };
+      })();
+    </script>
+    <link rel="stylesheet" href="/spend.css?v=42" />
+    <script src="/spend.js?v=42" defer></script>
+  </head>
+  <body class="loading">
+    <a class="skip-link" href="#main">Skip to dashboard</a>
+    <header class="burnrate-nav" role="banner">
+      <div class="burnrate-nav__inner">
+        <button class="burnrate-brand" id="home-button" type="button" aria-label="Return to spend overview">
+          <span class="burnrate-mark" aria-hidden="true">
+            <img src="/favicon.svg?v=1" alt="" width="42" height="42" />
+          </span>
+          <span class="burnrate-lockup">
+            <span class="burnrate-wordmark"><span>BURN</span><strong>RATE</strong></span>
+            <span class="burnrate-tagline">AI cost intelligence</span>
+          </span>
+        </button>
+        <div class="burnrate-nav__stats">
+          <div class="burnrate-stat burnrate-stat--rate">
+            <span class="burnrate-stat__label">Burn rate</span>
+            <span class="burnrate-stat__value burnrate-stat__value--rate burnrate-skeleton" id="nav-run-rate" aria-label="Burn rate loading"></span>
+          </div>
+          <div class="burnrate-stat burnrate-stat--today">
+            <span class="burnrate-stat__label">Today</span>
+            <span class="burnrate-stat__value burnrate-stat__value--today burnrate-skeleton" id="nav-today" aria-label="Today's spend loading"></span>
+          </div>
+          <button class="burnrate-stat burnrate-stat--status" id="diagnostics-button" type="button" aria-live="polite" data-state="loading" aria-label="Metering status loading">
+            <span class="burnrate-status-row"><i class="burnrate-status-dot"></i><span id="nav-status-label">Metering</span></span>
+            <span class="burnrate-status-detail" id="nav-status-detail">Waiting for telemetry</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="coverage-banner" id="coverage-banner" role="status">
+      <span class="coverage-banner__mark"><i></i><strong id="coverage-title">Pricing coverage</strong></span>
+      <span class="coverage-banner__note" id="coverage-note">Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated.</span>
+      <span class="coverage-banner__exact mono" id="coverage-exact">exact: —</span>
+    </div>
+
+    <div class="error-banner" id="error-banner" role="alert" hidden>
+      <strong>Spend data could not be loaded.</strong><span id="error-message"></span>
+      <button type="button" id="retry-button">Retry</button>
+    </div>
+
+    <main id="main">
+      <section id="overview-view">
+        <h1 class="overview-h1" id="overview-heading">Spend overview</h1>
+        <div class="split-row">
+          <article class="panel capacity-panel" aria-label="Provider usage limits">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow">Capacity</p>
+                <h2>What runs out first</h2>
+              </div>
+              <div class="panel-meta">
+                <span id="capacity-checked">checked —</span>
+                <strong id="capacity-headline" class="capacity-headline">Loading capacity</strong>
+              </div>
+            </header>
+            <div id="capacity-body">
+              <div class="skel-stack" aria-hidden="true">
+                <span class="skel skel-w50"></span>
+                <span class="skel skel-bar"></span>
+                <span class="skel skel-w70"></span>
+                <span class="skel skel-bar"></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel activity-panel" aria-label="Live activity">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow">Activity</p>
+                <h2>Running now</h2>
+              </div>
+              <span class="live-pill idle" id="live-pill"><i></i><span id="live-count" class="burnrate-skeleton" aria-label="Live activity loading"></span></span>
+            </header>
+            <div id="activity-body">
+              <div class="skel-stack" aria-hidden="true">
+                <span class="skel skel-w60"></span>
+                <span class="skel skel-w40"></span>
+                <span class="skel skel-w80"></span>
+              </div>
+            </div>
+            <p class="activity-foot">Usage posts when a turn completes, so a live run contributes nothing to the figures below until it finishes.</p>
+          </article>
+        </div>
+
+        <div class="window-row">
+          <div>
+            <span class="eyebrow">Analysis window</span>
+            <span class="window-note" id="window-note">Usage and value across tools</span>
+          </div>
+          <div class="range-switch" id="range-switch" role="radiogroup" aria-label="Spend window"></div>
+        </div>
+
+        <section class="kpi-grid" id="kpi-grid" aria-label="Spend KPIs">
+          <article class="kpi-card">
+            <div><span>Tracked value</span><b id="tracked-chip">—</b></div>
+            <strong class="kpi-value"><span class="marker" id="tracked-marker"></span><span id="tracked-value" class="burnrate-skeleton"></span></strong>
+            <p id="tracked-note">—</p>
+          </article>
+          <article class="kpi-card">
+            <div><span>Measured tokens</span><b id="tokens-chip" class="good">exact</b></div>
+            <strong class="kpi-value"><span id="measured-tokens" class="burnrate-skeleton"></span></strong>
+            <p id="tokens-note">—</p>
+          </article>
+          <article class="kpi-card">
+            <div><span>API cost per 1M tokens</span><b id="effective-rate-chip">API rates</b></div>
+            <strong class="kpi-value"><span class="marker" id="effective-rate-marker"></span><span id="effective-rate" class="burnrate-skeleton"></span></strong>
+            <p id="effective-rate-note">—</p>
+          </article>
+          <article class="kpi-card">
+            <div><span>Cache reuse</span><b id="cache-chip" class="good">exact</b></div>
+            <strong class="kpi-value"><span id="cache-reuse" class="burnrate-skeleton"></span></strong>
+            <p id="cache-note">—</p>
+          </article>
+          <article class="kpi-card">
+            <div><span>Sessions</span><b id="sessions-chip" class="neutral">activity</b></div>
+            <strong class="kpi-value"><span id="sessions-value" class="burnrate-skeleton"></span></strong>
+            <p id="sessions-note">—</p>
+          </article>
+        </section>
+
+        <div class="split-row">
+          <article class="panel trend-panel">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow">Trend</p>
+                <h2>Token activity</h2>
+              </div>
+              <div class="trend-actions">
+                <div class="hover-readout">
+                  <span id="hover-label">Window total</span>
+                  <strong class="mono" id="hover-value">—</strong>
+                </div>
+                <div class="mode-switch" role="group" aria-label="Chart mode">
+                  <button type="button" data-mode="stacked" class="active" aria-pressed="true">Stacked</button>
+                  <button type="button" data-mode="cumulative" aria-pressed="false">Cumulative</button>
+                </div>
+              </div>
+            </header>
+            <div class="chart-shell" id="chart-shell">
+              <div class="value-gutter" id="value-gutter"></div>
+              <div class="plot" id="stacked-plot"></div>
+              <svg class="cumulative-plot" id="cumulative-plot" viewBox="0 0 600 222" preserveAspectRatio="none" hidden>
+                <defs>
+                  <linearGradient id="cf" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#78a8f8" stop-opacity=".32"></stop>
+                    <stop offset="100%" stop-color="#78a8f8" stop-opacity="0"></stop>
+                  </linearGradient>
+                </defs>
+                <path class="area" id="cumulative-area" fill="url(#cf)"></path>
+                <path class="line" id="cumulative-line"></path>
+                <circle class="end" id="cumulative-end" r="3.5"></circle>
+              </svg>
+              <div class="chart-hit-targets" id="chart-hit-targets"></div>
+              <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
+              <div class="sr-only" aria-live="polite" id="chart-live"></div>
+            </div>
+            <div class="chart-axis mono" id="chart-axis"></div>
+            <div class="legend-cards" id="legend-cards"></div>
+            <div class="sr-only">
+              <table>
+                <caption>Token activity over time</caption>
+                <thead><tr><th>Bucket</th><th>Total</th><th>Tool breakdown</th></tr></thead>
+                <tbody id="chart-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <div class="side-stack">
+            <article class="panel waste-panel">
+              <p class="eyebrow">Recoverable</p>
+              <h2>Where money leaks</h2>
+              <div class="waste-headline">
+                <span class="marker" id="waste-marker">≈</span>
+                <strong class="mono" id="waste-headline">—</strong>
+                <span id="waste-headline-note">per day</span>
+              </div>
+              <p class="waste-copy">Priced against each provider's own published cached-input discount, not a target I invented.</p>
+              <div id="waste-items"></div>
+              <div class="savings-row">
+                <span><i></i>Saved versus no cache</span>
+                <strong class="mono" id="cache-savings">—</strong>
+              </div>
+            </article>
+            <article class="panel forecast-panel">
+              <p class="eyebrow">Forecast</p>
+              <h2>Plans against value</h2>
+              <div class="forecast-value">
+                <span class="marker" id="projected-marker">≈</span>
+                <strong class="big-number mono" id="forecast-value">—</strong>
+                <span id="forecast-delta"></span>
+              </div>
+              <p id="forecast-note">—</p>
+              <div class="pace-track"><i id="pace-bar"></i><b></b></div>
+              <div class="pace-labels mono">
+                <span id="pace-label">usage —</span>
+                <span id="run-rate">plans —</span>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="split-row split-row--start">
+          <article class="panel table-panel">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow">Unit economics</p>
+                <h2>Cost by model</h2>
+              </div>
+              <span>click a row to drill in</span>
+            </header>
+            <div class="model-table">
+              <div class="model-table-head" id="model-table-head"></div>
+              <div id="model-table-body"></div>
+            </div>
+          </article>
+
+          <div class="side-stack">
+            <article class="panel mix-panel">
+              <button class="collapse-toggle" id="mix-toggle" type="button" aria-expanded="true">
+                <span>
+                  <span class="eyebrow">Token structure</span>
+                  <span class="collapse-title">What you pay for</span>
+                </span>
+                <span class="collapse-meta mono"><span id="mix-summary">—</span><span id="mix-caret">▲</span></span>
+              </button>
+              <div class="mix-bar" id="mix-bar"></div>
+              <div id="mix-details">
+                <div id="mix-rows"></div>
+                <p id="mix-note">—</p>
+              </div>
+            </article>
+            <article class="panel subscription-panel">
+              <button class="collapse-toggle" id="subs-toggle" type="button" aria-expanded="false">
+                <span>
+                  <span class="eyebrow">Fixed costs</span>
+                  <span class="collapse-title">Configured subscriptions</span>
+                </span>
+                <span class="collapse-meta mono"><span id="subs-summary">—</span><span id="subs-caret">▼</span></span>
+              </button>
+              <div id="subs-details" hidden>
+                <div id="subscription-rows"></div>
+                <div class="subs-total"><span>Monthly equivalent</span><strong class="mono" id="subscription-total">—</strong></div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <article class="panel heat-panel">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">Rhythm</p>
+              <h2>When you spend</h2>
+            </div>
+            <div class="hover-readout">
+              <span id="heat-label">Peak window</span>
+              <strong class="mono" id="heat-value">—</strong>
+            </div>
+          </header>
+          <div class="heat-warning" id="heat-warning" hidden>
+            <i></i>
+            <strong>Window too short for a weekly pattern</strong>
+            <span id="heat-note">Showing the trailing 7-day pattern. Switch to 1w or longer for figures that match the selected window.</span>
+          </div>
+          <div class="heatmap" id="heatmap"></div>
+          <div class="heat-legend">
+            <div class="mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+            <div class="heat-scale">Low<div><i></i><i></i><i></i><i></i></div>High</div>
+          </div>
+          <div class="sr-only">
+            <table>
+              <caption>Spend by weekday and hour</caption>
+              <tbody id="heat-table-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="detail-view" hidden>
+        <button class="back-button" id="detail-back" type="button">← Overview</button>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow" id="detail-kind">Detail</p>
+            <h1 id="detail-heading"><i id="detail-swatch"></i><span id="detail-name">—</span><span class="chip" id="detail-plan">—</span><span class="chip" id="detail-cov">—</span></h1>
+            <p id="detail-sub">—</p>
+          </div>
+          <div class="range-switch detail-ranges" id="detail-ranges" role="radiogroup" aria-label="Detail window"></div>
+        </div>
+        <div class="share-strip">
+          <span>Share of tracked value</span>
+          <div class="share-bar"><i id="detail-share-bar"></i><b></b></div>
+          <strong class="mono" id="detail-share-label">—</strong>
+        </div>
+        <section class="kpi-grid detail-kpis" id="detail-kpis"></section>
+        <div class="split-row">
+          <article class="panel">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow">Trend</p>
+                <h2>Token activity</h2>
+              </div>
+              <div class="hover-readout">
+                <span id="detail-hover-label">Window total</span>
+                <strong class="mono" id="detail-hover-value">—</strong>
+              </div>
+            </header>
+            <div class="chart-shell chart-shell--detail" id="detail-chart-shell">
+              <div class="value-gutter" id="detail-gutter"></div>
+              <div class="plot" id="detail-bars"></div>
+              <div class="chart-hit-targets" id="detail-hits"></div>
+            </div>
+            <div class="chart-axis mono" id="detail-axis"></div>
+            <div class="detail-mix-cards" id="detail-mix-cards"></div>
+          </article>
+          <div class="side-stack">
+            <article class="panel opportunity-panel" id="opportunity-panel">
+              <p class="eyebrow">Opportunity</p>
+              <h2 id="opp-title">—</h2>
+              <div class="forecast-value">
+                <span class="marker" id="opp-marker">≈</span>
+                <strong class="big-number mono" id="opp-value">—</strong>
+                <span id="opp-unit">in this window</span>
+              </div>
+              <p id="opp-detail">—</p>
+              <span class="fix-chip" id="opp-fix"><i></i>—</span>
+              <div class="savings-row opportunity-saved">
+                <span>Saved versus no cache</span>
+                <strong class="mono" id="opp-saved">—</strong>
+              </div>
+            </article>
+            <article class="panel">
+              <header class="panel-header">
+                <div>
+                  <p class="eyebrow">Capacity</p>
+                  <h2 id="entity-limit-title">Limits</h2>
+                </div>
+                <span class="mono" id="entity-limit-plan">—</span>
+              </header>
+              <div id="entity-limits"></div>
+            </article>
+          </div>
+        </div>
+        <article class="panel sessions-panel">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow">Attribution</p>
+              <h2>Most expensive sessions</h2>
+            </div>
+            <span id="sessions-foot">—</span>
+          </header>
+          <div class="sessions-table">
+            <div class="sessions-head"><span>Session</span><span>Project</span><span>Duration</span><span>Tokens</span><span>Cache</span><span>Value</span></div>
+            <div id="sessions-body"></div>
+          </div>
+        </article>
+      </section>
+
+      <section id="diagnostics-view" hidden>
+        <button class="back-button" id="diagnostics-back" type="button">← Overview</button>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Diagnostics</p>
+            <h1>Data health</h1>
+            <p>Ingest, quota polls, pricing gaps, and provider versus computed variance.</p>
+          </div>
+        </div>
+        <div class="diagnostic-grid" id="diagnostic-grid"></div>
+        <article class="panel">
+          <p class="eyebrow">Quotas</p>
+          <h2>Quota pollers</h2>
+          <div id="quota-polls"></div>
+        </article>
+        <article class="panel">
+          <p class="eyebrow">Pricing</p>
+          <h2>Unpriced models</h2>
+          <div id="pricing-gaps"></div>
+        </article>
+        <article class="panel">
+          <p class="eyebrow">Variance</p>
+          <h2>Provider vs computed</h2>
+          <p id="variance-note">—</p>
+        </article>
+      </section>
+
+      <pre id="probe-report" hidden></pre>
+      <div class="empty-state" id="empty-state" hidden>
+        <strong>No usage events in this window.</strong>
+        <span>Try a longer range. Empty panels name the figure they would otherwise show.</span>
+      </div>
+      <footer>
+        <span>Published rates where available · unpriced and incomplete coverage is never estimated</span>
+        <span class="mono" id="range-label">—</span>
+      </footer>
+    </main>
+  </body>
+</html>

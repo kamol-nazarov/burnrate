@@ -1,0 +1,4 @@
+Date,Kind,User,Model,Input With Cache Write Tokens,Input Without Cache Write Tokens,Cache Read Tokens,Cache Write Tokens,Output Tokens,Cost (USD),Max Mode,Agent ID,Client Type
+2026-08-30T12:00:00.000Z,Auto,dev@example.invalid,grok-4.6,1500,100,900,500,200,0.125,false,agent_csv_1,IDE
+2026-08-30T12:05:00.000Z,Auto,dev@example.invalid,composer-2.5,600,400,150,50,100,0.04,false,,IDE
+2026-08-30T12:10:00.000Z,Auto,dev@example.invalid,gemini-3.7-flash,900,800,50,50,120,0.02,false,agent_csv_3,IDE

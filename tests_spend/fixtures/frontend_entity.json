@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-09-01T01:00:00Z",
+  "name": "gpt-5.6-sol",
+  "kind": "model",
+  "providerKey": "codex",
+  "providerName": "Codex",
+  "plan": "Pro",
+  "isExact": true,
+  "color": "#78a8f8",
+  "value": 52.8,
+  "shareOfTrackedValue": 55.0,
+  "tokens": 7200000,
+  "shareOfTokens": 60.0,
+  "cachePct": 80.0,
+  "outputTokens": 360000,
+  "cachedInputTokens": 5040000,
+  "runs": 3,
+  "valuePerRun": 17.6,
+  "tokensPerRun": 2400000,
+  "series": [
+    {"bucketStart": "2026-08-31T04:00:00Z", "label": "00:00", "tokens": 240000},
+    {"bucketStart": "2026-08-31T12:00:00Z", "label": "08:00", "tokens": 240000},
+    {"bucketStart": "2026-08-31T20:00:00Z", "label": "16:00", "tokens": 240000}
+  ],
+  "mix": [
+    {"key": "cached_input", "label": "Cached input", "tokens": 5040000, "share": 70.0}
+  ],
+  "opportunity": {
+    "kind": "cache",
+    "title": "Cache reuse gap",
+    "amount": 3.0,
+    "detail": "Reuse is below the priced discount.",
+    "fix": "Keep context stable",
+    "alreadySaved": 8.0
+  },
+  "providerLimits": [
+    {"limitKey": "weekly", "label": "Weekly", "pct": 25, "used": 25, "allowance": 100, "unit": "%", "resetsAt": "2026-09-06T00:00:00Z", "etaLabel": "to reset", "source": "native rate-limit telemetry"}
+  ],
+  "sessions": {
+    "shownShare": 0.68,
+    "shownTotal": 36.0,
+    "rows": [
+      {"id": "demo-sess-01", "project": "docs-site", "startedAt": "2026-08-31T20:00:00Z", "durationMin": 40, "tokens": 2400000, "cachePct": 80.0, "value": 16.0, "sharePct": 44.4},
+      {"id": "demo-sess-02", "project": "invoice-api", "startedAt": "2026-08-31T16:00:00Z", "durationMin": 20, "tokens": 1800000, "cachePct": 80.0, "value": 12.0, "sharePct": 33.3},
+      {"id": "demo-sess-03", "project": "design-system", "startedAt": "2026-08-31T12:00:00Z", "durationMin": 15, "tokens": 1200000, "cachePct": 80.0, "value": 8.0, "sharePct": 22.2}
+    ]
+  }
+}

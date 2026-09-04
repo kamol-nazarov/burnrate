@@ -1,0 +1,39 @@
+{
+  "window": {"key": "1d", "label": "1d", "from": "2026-08-31T04:00:00Z", "to": "2026-09-01T04:00:00Z", "buckets": 24},
+  "generatedAt": "2026-08-31T12:00:00Z",
+  "cadenceSeconds": 15,
+  "cadenceMinutes": 0.25,
+  "status": "stale",
+  "failingSource": null,
+  "navigation": {"burnRatePerDay": 24.0, "todayUsd": 18.0},
+  "coverage": {
+    "exactProviders": ["Codex", "Claude"],
+    "derivedProviders": ["Cursor"],
+    "note": "Exact figures use billed or published rates. Derived values are marked ≈."
+  },
+  "totals": {
+    "trackedValue": 96.0,
+    "priced": 72.0,
+    "publishedRate": 24.0,
+    "tokens": 12000000,
+    "records": 48,
+    "sessions": 6,
+    "meanSessionValue": 16.0,
+    "cacheReusePct": 80.0,
+    "cachedInputTokens": 8400000,
+    "freshInputTokens": 3000000,
+    "outputTokens": 600000
+  },
+  "capacity": [],
+  "activity": [],
+  "waste": {"perDay": 3.0, "perMonth": 90.0, "items": []},
+  "cacheSavings": 12.0,
+  "projected": {"value": 720.0, "planCost": 240.0, "multiple": 3.0, "method": "month-to-date published-rate equivalent"},
+  "mix": [],
+  "series": [],
+  "tools": [],
+  "models": [],
+  "subscriptions": [],
+  "heatmap": [],
+  "heatmapFallback": true
+}

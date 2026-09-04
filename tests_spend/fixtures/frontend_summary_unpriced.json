@@ -1,0 +1,78 @@
+{
+  "window": {"key": "1d", "label": "1d", "from": "2026-08-31T04:00:00Z", "to": "2026-09-01T04:00:00Z", "buckets": 24},
+  "generatedAt": "2026-09-01T01:00:00Z",
+  "cadenceSeconds": 15,
+  "cadenceMinutes": 0.25,
+  "status": "live",
+  "failingSource": null,
+  "navigation": {"burnRatePerDay": 24.0, "todayUsd": 18.0},
+  "coverage": {
+    "exactProviders": ["Codex", "Claude"],
+    "derivedProviders": ["Cursor", "OpenRouter"],
+    "note": "Unpriced usage is counted in tokens and never estimated in dollars."
+  },
+  "totals": {
+    "trackedValue": null,
+    "priced": 72.0,
+    "publishedRate": 24.0,
+    "tokens": 12000000,
+    "records": 48,
+    "sessions": 6,
+    "meanSessionValue": null,
+    "cacheReusePct": 80.0,
+    "cachedInputTokens": 8400000,
+    "freshInputTokens": 3000000,
+    "outputTokens": 600000
+  },
+  "capacity": [
+    {
+      "providerKey": "cursor",
+      "providerName": "Cursor",
+      "plan": "Ultra",
+      "isPayg": false,
+      "peakPct": null,
+      "reason": "credential missing",
+      "rows": [
+        {"limitKey": "cursor-models", "label": "Cursor models", "pct": null, "used": null, "allowance": null, "unit": "%", "resetsAt": null, "etaLabel": null, "source": "credential missing"}
+      ]
+    },
+    {
+      "providerKey": "openrouter",
+      "providerName": "OpenRouter",
+      "plan": "Pay as you go",
+      "isPayg": true,
+      "peakPct": null,
+      "monthToDateUsd": null,
+      "rows": [
+        {"limitKey": "payg", "label": "Metered API usage", "pct": null, "used": null, "allowance": null, "unit": "usd", "resetsAt": null, "etaLabel": "this month", "source": "per-token rates · no quota to exhaust", "isPayg": true, "monthToDateUsd": null}
+      ]
+    }
+  ],
+  "activity": [
+    {"id": "a1", "name": "Docs rewriter", "modelKey": "opus[1m]", "state": "running", "startedAt": "2026-09-01T00:20:00Z", "lastSeenAt": "2026-09-01T01:00:00Z"},
+    {"id": "a2", "name": "Idle Codex", "modelKey": "gpt-5.6-sol", "state": "no_data", "startedAt": "2026-09-01T00:10:00Z", "lastSeenAt": "2026-09-01T00:40:00Z"}
+  ],
+  "waste": {"perDay": null, "perMonth": null, "items": []},
+  "cacheSavings": 12.0,
+  "projected": {"value": null, "planCost": 240.0, "multiple": null, "method": "month-to-date published-rate equivalent"},
+  "mix": [
+    {"key": "cached_input", "label": "Cached input", "tokens": 8400000, "share": 70.0},
+    {"key": "fresh_input", "label": "Fresh input", "tokens": 3000000, "share": 25.0},
+    {"key": "output", "label": "Output", "tokens": 600000, "share": 5.0}
+  ],
+  "series": [
+    {"bucketStart": "2026-08-31T04:00:00Z", "label": "00:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}}
+  ],
+  "tools": [
+    {"key": "codex", "name": "Codex", "tokens": 7200000, "value": 52.8, "cachePct": 80.0, "isExact": true, "share": 55.0}
+  ],
+  "models": [
+    {"key": "gpt56", "name": "gpt-5.6-sol", "toolKey": "codex", "value": 52.8, "tokens": 7200000, "cachePct": 80.0, "runs": 3, "isExact": true},
+    {"key": "cursor-opus", "name": "cursor:claude-opus-5", "toolKey": "cursor", "value": null, "tokens": 400000, "cachePct": 80.0, "runs": 1, "isExact": false}
+  ],
+  "subscriptions": [
+    {"name": "Codex", "toolKey": "codex", "amountUsd": 20, "cadence": "monthly", "note": "Demo Pro plan", "monthlyEquivalent": 20}
+  ],
+  "heatmap": [{"weekday": 0, "hour": 9, "value": 400000}],
+  "heatmapFallback": true
+}

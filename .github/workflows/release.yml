@@ -1,0 +1,49 @@
+name: Release
+
+# Manual approval only. This workflow MUST NOT run on push and MUST NOT
+# publish artifacts to GitHub Releases. The "publish" environment is the
+# protection gate; steps stop before `gh release create`.
+"on":
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to prepare (does not publish a GitHub Release)
+        required: true
+        type: string
+        default: "0.1.0-beta.1"
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare (stop before publish)
+    runs-on: windows-latest
+    environment: publish
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Confirm dispatch-only gate
+        shell: pwsh
+        run: |
+          Write-Host "Release workflow is workflow_dispatch only."
+          Write-Host "Environment: publish"
+          Write-Host "Requested version: ${{ inputs.version }}"
+          Write-Host "This job does not run on push, does not change repository visibility, and does not use provider secrets."
+
+      - name: Stop before GitHub Release
+        shell: pwsh
+        run: |
+          Write-Host "waiting for PUBLISH"
+          Write-Host "Stopped before gh release create. No GitHub Release is published by this workflow."
+
+      # Intentionally omitted (do not enable on this workflow):
+      #   gh release create
+      #   actions/create-release
+      #   softprops/action-gh-release
+      #   any step that uploads assets to GitHub Releases
+      #   any step that changes repository visibility

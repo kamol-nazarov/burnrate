@@ -1,0 +1,22 @@
+# BURNRATE gitleaks config.
+# Allowlists are path/rule based. Do not copy fixture secret values here.
+title = "BURNRATE"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic pytest fixtures under tests_spend (path allowlist; not live credentials)"
+paths = [
+    '''(^|/)tests_spend/''',
+]
+
+[[allowlists]]
+description = "Public Claude Code OAuth client id assignment (not an access token)"
+paths = [
+    '''(^|/)spend_app/limits\.py$''',
+]
+regexTarget = "line"
+regexes = [
+    '''CLAUDE_OAUTH_CLIENT_ID\s*=''',
+]

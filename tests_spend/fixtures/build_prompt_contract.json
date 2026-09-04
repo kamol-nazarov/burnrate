@@ -1,0 +1,129 @@
+{
+  "windows": [
+    {"key": "15m", "label": "15m", "buckets": 15, "unit": "min"},
+    {"key": "30m", "label": "30m", "buckets": 15, "unit": "min"},
+    {"key": "1h", "label": "1h", "buckets": 20, "unit": "min"},
+    {"key": "3h", "label": "3h", "buckets": 18, "unit": "hour"},
+    {"key": "6h", "label": "6h", "buckets": 24, "unit": "hour"},
+    {"key": "12h", "label": "12h", "buckets": 24, "unit": "hour"},
+    {"key": "1d", "label": "1d", "buckets": 24, "unit": "hour"},
+    {"key": "1w", "label": "1w", "buckets": 28, "unit": "day"},
+    {"key": "1mo", "label": "1mo", "buckets": 30, "unit": "day"},
+    {"key": "mtd", "label": "MTD", "buckets": 28, "unit": "day"},
+    {"key": "ytd", "label": "YTD", "buckets": 32, "unit": "week"},
+    {"key": "all", "label": "All", "buckets": 32, "unit": "week"}
+  ],
+  "windowAliases": {"7d": "1w", "30d": "1mo", "MTD": "mtd", "YTD": "ytd", "All": "all"},
+  "summaryRequired": {
+    "root": [
+      "window", "generatedAt", "cadenceSeconds", "cadenceMinutes", "status", "navigation",
+      "coverage", "totals", "capacity", "activity", "waste", "cacheSavings",
+      "projected", "mix", "series", "tools", "models", "subscriptions", "heatmap"
+    ],
+    "window": ["key", "label", "from", "to", "buckets"],
+    "navigation": ["burnRatePerDay", "todayUsd"],
+    "coverage": ["exactProviders", "derivedProviders", "note"],
+    "totals": [
+      "trackedValue", "priced", "publishedRate", "tokens", "records",
+      "sessions", "meanSessionValue", "cacheReusePct"
+    ],
+    "capacityProvider": ["providerKey", "providerName", "plan", "isPayg", "peakPct", "monthToDateUsd", "rows"],
+    "capacityRow": ["limitKey", "label", "pct", "used", "allowance", "unit", "resetsAt", "etaLabel", "source"],
+    "activity": ["id", "name", "modelKey", "state", "startedAt", "lastSeenAt"],
+    "waste": ["perDay", "perMonth", "items"],
+    "wasteItem": ["key", "title", "detail", "fix", "perDay"],
+    "projected": ["value", "planCost", "multiple", "method"],
+    "mix": ["key", "label", "tokens", "share"],
+    "series": ["bucketStart", "label", "total", "byTool"],
+    "tool": ["key", "name", "tokens", "value", "cachePct", "isExact", "share"],
+    "model": ["key", "name", "toolKey", "value", "tokens", "cachePct", "runs", "isExact"],
+    "subscription": ["name", "toolKey", "amountUsd", "cadence", "note", "monthlyEquivalent"],
+    "heatmap": ["weekday", "hour", "value"]
+  },
+  "entityRequired": {
+    "root": [
+      "name", "kind", "providerKey", "providerName", "plan", "isExact", "color",
+      "value", "shareOfTrackedValue", "tokens", "shareOfTokens", "cachePct",
+      "outputTokens", "runs", "valuePerRun", "tokensPerRun", "series", "mix",
+      "opportunity", "providerLimits", "sessions", "generatedAt"
+    ],
+    "series": ["bucketStart", "label", "tokens"],
+    "opportunity": ["kind", "amount", "detail", "fix", "alreadySaved"],
+    "sessions": ["shownShare", "shownTotal", "rows"],
+    "sessionRow": ["id", "project", "startedAt", "durationMin", "tokens", "cachePct", "value"]
+  },
+  "healthRequired": {
+    "root": ["ingest", "quotas", "pricingGaps", "providerVsComputedVariancePct", "generatedAt"],
+    "ingest": ["source", "lastSuccess", "status", "eventsLast24h", "error"],
+    "quota": ["providerKey", "lastPoll", "status", "reason"]
+  },
+  "exactTools": ["codex", "claude-code"],
+  "derivedTools": ["cursor", "opencode", "grok", "openrouter"],
+  "exactProviders": ["Codex / OpenAI", "Claude Code / Anthropic"],
+  "derivedProviders": ["Cursor", "Z.AI / OpenCode", "SuperGrok / Grok Build", "OpenRouter"],
+  "requiredLimits": {
+    "claude-code": [["5h", "5-hour session"], ["weekly", "weekly all models"]],
+    "grok": [["weekly", "weekly"]],
+    "codex": [["weekly", "weekly"]],
+    "cursor": [["cursor_models", "Cursor models"], ["other_models", "other models"]],
+    "opencode": [["5h", "5-hour credits"], ["weekly", "weekly credits"]],
+    "openrouter": [["payg", "pay-as-you-go"]]
+  },
+  "pressure": [
+    {"lt": 30, "color": "#63c689"},
+    {"lt": 60, "color": "#78a8f8"},
+    {"lt": 85, "color": "#d9a441"},
+    {"else": true, "color": "#dc6c78"}
+  ],
+  "palette": {
+    "page": "#0b0d10",
+    "panels": "#111419",
+    "insets": ["#0f1216", "#0e1116"],
+    "hover": "#161a20",
+    "borders": ["#252a32", "#1c2128", "#2c333d"],
+    "text": "#eef1f5",
+    "secondary": "#b1b7c1",
+    "muted": "#858c98",
+    "dim": "#5d646f",
+    "accent": "#78a8f8",
+    "green": "#63c689",
+    "amber": "#d9a441",
+    "red": "#dc6c78",
+    "violet": "#9b7bff",
+    "cyan": "#5cd6e8",
+    "warnBg": "#16130e",
+    "warnBorder": "#3a3226",
+    "dangerBg": "#171316",
+    "dangerBorder": "#3a2a2e",
+    "goodBg": "#101613",
+    "goodBorder": "#253026",
+    "navBg": "rgba(10,12,15,.94)"
+  },
+  "meter": [
+    {"name": "meterLow", "durationS": 4.4, "delayS": -0.6, "heightPx": 10},
+    {"name": "meterLow", "durationS": 3.9, "delayS": -2.1, "heightPx": 16},
+    {"name": "meterMid", "durationS": 4.2, "delayS": -1.2, "heightPx": 23},
+    {"name": "meterTall", "durationS": 5.1, "delayS": -3.4, "heightPx": 34},
+    {"name": "burn", "durationS": 3.6, "delayS": 0, "heightPx": 19}
+  ],
+  "motion": {
+    "easeRate": 0.13,
+    "pollMs": 15000,
+    "headroomPct": 8,
+    "plotPct": 92,
+    "gutterPx": 46,
+    "barGrowMs": 600,
+    "barEase": ".2,.7,.25,1",
+    "pillBreatheS": 2.6,
+    "liveDotS": 2.2,
+    "livePulseS": 2.2,
+    "sweepS": 3.4,
+    "staggerMs": 260,
+    "dimOpacity": 0.42,
+    "heatmapDimOpacity": 0.34,
+    "navBlurPx": 14,
+    "navMinHeightPx": 78
+  },
+  "viewports": [390, 768, 1024, 1440, 1920],
+  "touchMinPx": 44
+}

@@ -1,0 +1,40 @@
+# Secrets and local overrides
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime state, telemetry, and local databases
+data/
+logs/
+run/
+backups/
+validation/
+*.db
+*.db-shm
+*.db-wal
+
+# Downloaded/extracted third-party binaries and transient investigations
+bin/
+downloads/
+plugins/
+work/
+
+# Test and browser artifacts
+test-results/
+playwright-report/
+.qa-shots/
+.qa-visual/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.log

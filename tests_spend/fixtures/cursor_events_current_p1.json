@@ -1,0 +1,41 @@
+{
+  "usageEvents": [
+    {
+      "id": "ident_cur_1",
+      "timestamp": "2026-08-30T12:00:00.000Z",
+      "model": "grok-4.6",
+      "userId": "user_fixture",
+      "user": "fixture@example.invalid",
+      "kind": "Auto",
+      "isTokenBasedCall": true,
+      "isChargeable": true,
+      "clientType": "IDE",
+      "maxMode": false,
+      "agent": "agent_fixture_1",
+      "inputTokens": 1000,
+      "outputTokens": 200,
+      "cacheReadTokens": 400,
+      "cacheWriteTokens": 100,
+      "chargedCents": 12.5
+    },
+    {
+      "id": "ident_cur_2",
+      "timestamp": "2026-08-30T12:05:00.000Z",
+      "model": "composer-2.5",
+      "userId": "user_fixture",
+      "user": "fixture@example.invalid",
+      "kind": "Auto",
+      "isTokenBasedCall": true,
+      "isChargeable": true,
+      "clientType": "IDE",
+      "maxMode": false,
+      "agent": "agent_fixture_2",
+      "inputTokens": 500,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "chargedCents": 2.5
+    }
+  ],
+  "pagination": {"page": 1, "pageSize": 2, "numPages": 2, "hasNextPage": true}
+}

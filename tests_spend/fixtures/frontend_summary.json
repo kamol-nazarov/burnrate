@@ -1,0 +1,129 @@
+{
+  "window": {"key": "1d", "label": "1d", "from": "2026-08-31T04:00:00Z", "to": "2026-09-01T04:00:00Z", "buckets": 24},
+  "generatedAt": "2026-09-01T01:00:00Z",
+  "cadenceSeconds": 15,
+  "cadenceMinutes": 0.25,
+  "status": "live",
+  "failingSource": null,
+  "navigation": {"burnRatePerDay": 24.0, "todayUsd": 18.0},
+  "coverage": {
+    "exactProviders": ["Codex", "Claude"],
+    "derivedProviders": ["Cursor", "OpenRouter"],
+    "note": "Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated."
+  },
+  "totals": {
+    "trackedValue": 96.0,
+    "priced": 72.0,
+    "publishedRate": 24.0,
+    "effectiveCostPerMillionTokens": 8.0,
+    "knownEffectiveCostPerMillionTokens": 8.0,
+    "effectiveCostPricedTokens": 12000000,
+    "effectiveCostCoveragePct": 100.0,
+    "effectiveCostComplete": true,
+    "tokens": 12000000,
+    "records": 48,
+    "sessions": 6,
+    "meanSessionValue": 16.0,
+    "cacheReusePct": 80.0,
+    "cachedInputTokens": 8400000,
+    "freshInputTokens": 3000000,
+    "outputTokens": 600000
+  },
+  "capacity": [
+    {
+      "providerKey": "claude",
+      "providerName": "Claude Code",
+      "plan": "Max",
+      "isPayg": false,
+      "peakPct": 40,
+      "rows": [
+        {"limitKey": "weekly", "label": "Weekly · all models", "pct": 40, "used": 40, "allowance": 100, "unit": "%", "resetsAt": "2026-09-02T16:00:00Z", "etaLabel": "to reset", "source": "read-only provider quota"},
+        {"limitKey": "session", "label": "5-hour session", "pct": 12, "used": 12, "allowance": 100, "unit": "%", "resetsAt": "2026-09-01T06:00:00Z", "etaLabel": "to reset", "source": "rolling window"}
+      ]
+    },
+    {
+      "providerKey": "codex",
+      "providerName": "Codex",
+      "plan": "Pro",
+      "isPayg": false,
+      "peakPct": 25,
+      "rows": [
+        {"limitKey": "weekly", "label": "Weekly", "pct": 25, "used": 25, "allowance": 100, "unit": "%", "resetsAt": "2026-09-06T00:00:00Z", "etaLabel": "to reset", "source": "native rate-limit telemetry"}
+      ]
+    },
+    {
+      "providerKey": "openrouter",
+      "providerName": "OpenRouter",
+      "plan": "Pay as you go",
+      "isPayg": true,
+      "peakPct": null,
+      "monthToDateUsd": null,
+      "rows": [
+        {"limitKey": "payg", "label": "Metered API usage", "pct": null, "used": null, "allowance": null, "unit": "usd", "resetsAt": null, "etaLabel": "this month", "source": "per-token rates · no quota to exhaust", "isPayg": true, "monthToDateUsd": null}
+      ]
+    }
+  ],
+  "activity": [
+    {"id": "a1", "name": "Docs rewriter", "modelKey": "opus[1m]", "state": "live", "startedAt": "2026-09-01T00:20:00Z", "lastSeenAt": "2026-09-01T01:00:00Z"},
+    {"id": "a2", "name": "CI flake hunter", "modelKey": "gpt-5.6-sol", "state": "live", "startedAt": "2026-09-01T00:40:00Z", "lastSeenAt": "2026-09-01T01:00:00Z"}
+  ],
+  "waste": {
+    "perDay": 3.0,
+    "perMonth": 90.0,
+    "items": [
+      {"key": "cache", "title": "Cache reuse gap", "detail": "Priced against the provider cached-input discount.", "fix": "Keep context stable", "perDay": 3.0}
+    ]
+  },
+  "cacheSavings": 12.0,
+  "projected": {"value": 720.0, "planCost": 240.0, "multiple": 3.0, "method": "month-to-date published-rate equivalent"},
+  "mix": [
+    {"key": "cached_input", "label": "Cached input", "tokens": 8400000, "share": 70.0},
+    {"key": "fresh_input", "label": "Fresh input", "tokens": 3000000, "share": 25.0},
+    {"key": "output", "label": "Output", "tokens": 600000, "share": 5.0}
+  ],
+  "series": [
+    {"bucketStart": "2026-08-31T04:00:00Z", "label": "00:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-08-31T05:00:00Z", "label": "01:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T06:00:00Z", "label": "02:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-08-31T07:00:00Z", "label": "03:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T08:00:00Z", "label": "04:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-08-31T09:00:00Z", "label": "05:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T10:00:00Z", "label": "06:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-08-31T11:00:00Z", "label": "07:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T12:00:00Z", "label": "08:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-08-31T13:00:00Z", "label": "09:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T14:00:00Z", "label": "10:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-08-31T15:00:00Z", "label": "11:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T16:00:00Z", "label": "12:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-08-31T17:00:00Z", "label": "13:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T18:00:00Z", "label": "14:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-08-31T19:00:00Z", "label": "15:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T20:00:00Z", "label": "16:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-08-31T21:00:00Z", "label": "17:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-08-31T22:00:00Z", "label": "18:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-08-31T23:00:00Z", "label": "19:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-09-01T00:00:00Z", "label": "20:00", "total": 400000, "byTool": {"codex": 240000, "claude": 160000}},
+    {"bucketStart": "2026-09-01T01:00:00Z", "label": "21:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}},
+    {"bucketStart": "2026-09-01T02:00:00Z", "label": "22:00", "total": 600000, "byTool": {"codex": 360000, "claude": 240000}},
+    {"bucketStart": "2026-09-01T03:00:00Z", "label": "23:00", "total": 500000, "byTool": {"codex": 300000, "claude": 200000}}
+  ],
+  "tools": [
+    {"key": "codex", "name": "Codex", "tokens": 7200000, "value": 52.8, "cachePct": 80.0, "isExact": true, "share": 55.0},
+    {"key": "claude", "name": "Claude", "tokens": 4800000, "value": 43.2, "cachePct": 80.0, "isExact": true, "share": 45.0}
+  ],
+  "models": [
+    {"key": "gpt56", "name": "gpt-5.6-sol", "toolKey": "codex", "value": 52.8, "tokens": 7200000, "cachePct": 80.0, "runs": 3, "isExact": true},
+    {"key": "opus", "name": "claude-opus-5", "toolKey": "claude", "value": 43.2, "tokens": 4800000, "cachePct": 80.0, "runs": 3, "isExact": true}
+  ],
+  "subscriptions": [
+    {"name": "Codex", "toolKey": "codex", "amountUsd": 20, "cadence": "monthly", "note": "Demo Pro plan", "monthlyEquivalent": 20}
+  ],
+  "heatmap": [
+    {"weekday": 0, "hour": 9, "value": 400000},
+    {"weekday": 1, "hour": 14, "value": 800000},
+    {"weekday": 2, "hour": 10, "value": 600000},
+    {"weekday": 3, "hour": 16, "value": 200000}
+  ],
+  "heatmapTrailing": true,
+  "heatmapFallback": true
+}

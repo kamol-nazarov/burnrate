@@ -1,0 +1,21 @@
+# Owner-asserted derived pricing for the Codex CLI Daybreak preview id.
+# OpenAI publishes no Daybreak page; rates were supplied as matching Sol.
+# Never invoice-exact.
+provider: openai
+exactness: derived
+source_policy: owner-asserted
+prices:
+  - model_key: gpt-daybreak-blue-latest
+    input_per_mtok: 4.00
+    cached_input_per_mtok: 0.40
+    cache_write_per_mtok: 5.00
+    output_per_mtok: 20.00
+    long_context_threshold: 272000
+    long_input_multiplier: 2
+    long_output_multiplier: 1.5
+    effective_from: 2026-09-01T00:00:00Z
+    source_url: https://developers.openai.com/api/docs/models/gpt-5.6-sol
+    source_note: >-
+      Preview model exposed by the Codex CLI. Rates match the official Sol
+      card and were owner-asserted on 2026-09-02 until OpenAI publishes a
+      Daybreak page.

@@ -1,0 +1,23 @@
+# Derived pricing for xAI models from the official xAI pricing page.
+# https://docs.x.ai/developers/pricing
+# xAI documents no cache-write fee, so cache writes are not a billed class (0).
+# Long-context tiers: "requests whose prompt reaches the listed token threshold
+# are billed at the higher rate for all tokens in the request" — the 200k
+# threshold is therefore inclusive.
+# SuperGrok/Grok Build subscription usage is attributed at these published API
+# rates, so it is a derived (approximate) value, never metered billing.
+provider: xai
+exactness: derived
+prices:
+  - model_key: xai:grok-4.6
+    aliases: [supergrok:grok-4.6]
+    input_per_mtok: 2.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 6.00
+    long_context_threshold: 200000
+    long_context_inclusive: true
+    long_input_multiplier: 2
+    long_output_multiplier: 2
+    effective_from: 2026-08-12T00:00:00Z
+    source_url: https://docs.x.ai/developers/pricing

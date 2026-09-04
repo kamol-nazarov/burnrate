@@ -1,0 +1,51 @@
+# Derived pricing for Cursor models from official Cursor model documentation.
+# https://cursor.com/docs/models-and-pricing
+# First-party Cursor models list no cache-write fee ("-"), so cache writes are
+# not a billed class (0). Cursor documents no long-context tier for its Grok
+# variant (its 4/1/12 row is the separate Fast speed variant), so none is
+# asserted here. These are published usage rates for included-capacity
+# attribution, not metered billing: values are approximate (derived).
+provider: cursor
+exactness: derived
+prices:
+  - model_key: cursor:grok-4.6
+    input_per_mtok: 2.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 6.00
+    effective_from: 2026-08-12T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:gemini-3.7-flash
+    # Billed from the Other Models pool at the model's API rate.
+    # effective_from is the official Google launch date of Gemini 3.7 Flash
+    # (2026-08-13); the Cursor rate page establishes rates, not dates.
+    # https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-3-7-flash/
+    input_per_mtok: 0.75
+    cached_input_per_mtok: 0.075
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 3.50
+    effective_from: 2026-08-13T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:gemini-3.8-flash
+    aliases: [cursor:gemini-3.8-flash-high]
+    # Cursor Other Models table and the Gemini 3.8 Flash model page:
+    # $0.75 input / — cache write / $0.075 cache read / $3.50 output.
+    # Cache write is unbilled ("-"), not OpenRouter's $0.04167 write or
+    # Google's $3.75 output. Official:
+    # https://cursor.com/docs/models-and-pricing
+    # https://cursor.com/docs/models/gemini-3-8-flash
+    input_per_mtok: 0.75
+    cached_input_per_mtok: 0.075
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 3.50
+    effective_from: 2026-09-02T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:composer-2.5
+    # effective_from is Cursor's official Composer 2.5 launch date (2026-05-18).
+    # https://cursor.com/blog/composer-2-5
+    input_per_mtok: 0.50
+    cached_input_per_mtok: 0.20
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 2.50
+    effective_from: 2026-05-18T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing

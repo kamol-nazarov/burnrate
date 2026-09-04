@@ -1,0 +1,37 @@
+# Single pricing authority for OpenAI models: official OpenAI model pages only.
+# Long context: 2x input-class pricing above the documented threshold; cache
+# writes bill at 1.25x the uncached input rate.
+provider: openai
+exactness: exact
+prices:
+  - model_key: gpt-5.6-sol
+    aliases: [gpt-5.6]
+    input_per_mtok: 4.00
+    cached_input_per_mtok: 0.40
+    cache_write_per_mtok: 5.00
+    output_per_mtok: 20.00
+    long_context_threshold: 272000
+    long_input_multiplier: 2
+    long_output_multiplier: 1.5
+    effective_from: 2026-08-30T00:00:00Z
+    source_url: https://developers.openai.com/api/docs/models/gpt-5.6-sol
+  - model_key: gpt-5.6-terra
+    input_per_mtok: 2.00
+    cached_input_per_mtok: 0.20
+    cache_write_per_mtok: 2.50
+    output_per_mtok: 12.00
+    long_context_threshold: 272000
+    long_input_multiplier: 2
+    long_output_multiplier: 1.5
+    effective_from: 2026-08-30T00:00:00Z
+    source_url: https://developers.openai.com/api/docs/models/gpt-5.6-terra
+  - model_key: gpt-5.6-luna
+    input_per_mtok: 0.20
+    cached_input_per_mtok: 0.02
+    cache_write_per_mtok: 0.25
+    output_per_mtok: 1.20
+    long_context_threshold: 272000
+    long_input_multiplier: 2
+    long_output_multiplier: 1.5
+    effective_from: 2026-08-30T00:00:00Z
+    source_url: https://developers.openai.com/api/docs/models/gpt-5.6-luna

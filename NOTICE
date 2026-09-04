@@ -1,0 +1,47 @@
+BURNRATE
+Copyright 2026 BURNRATE contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file in the same directory.
+
+Apache-2.0 is prepared as the default proposal; public GitHub
+publication waits for the copyright holder to confirm the license.
+
+This product is not affiliated with, endorsed by, sponsored by, or
+approved by OpenAI, Anthropic, Cursor, xAI, Google, Z.AI, OpenRouter,
+Requesty, Traycer, or any of their parents, subsidiaries, or related
+companies. Provider names are used only to identify compatible local
+files and documented APIs.
+
+ChatGPT, Codex, GPT, and related names are trademarks of OpenAI.
+Claude, Claude Code, and Anthropic are trademarks of Anthropic.
+Cursor is a trademark of Anysphere / Cursor. Grok, SuperGrok, Grok
+Build, and xAI are trademarks of xAI. Gemini, Google, Google AI, and
+Antigravity are trademarks of Google. GLM, Z.AI, and ZCode are
+trademarks of Z.AI / Zhipu. OpenRouter is a trademark of OpenRouter.
+Requesty is a trademark of Requesty. Traycer is a trademark of
+Traycer. OpenCode is a trademark of Anomaly. Inter is a trademark of
+the Inter Project. JetBrains and JetBrains Mono are trademarks of
+JetBrains. Grafana is a trademark of Grafana Labs. Prometheus is a
+trademark of the Linux Foundation. OpenTelemetry is a trademark of
+the Cloud Native Computing Foundation. Tailscale is a trademark of
+Tailscale Inc.
+
+Product and plan names (including ChatGPT Pro, Claude Max, SuperGrok
+Heavy, Cursor Ultra, and Z.AI Coding Plan) appear only to identify
+local files, documented APIs, and user-configured subscriptions.
+BURNRATE does not proxy inference traffic and does not claim to be an
+official dashboard, plugin, or billing statement for any provider.
+
+Google Fonts are not bundled. This distribution does not include Inter,
+JetBrains Mono, or other font files, and the default dashboard uses a
+system/UI font stack rather than loading fonts from a CDN.
+
+Grafana is not part of BURNRATE. This distribution does not include
+Grafana binaries, Grafana source, Prometheus, or the OpenTelemetry
+Collector.
+
+Third-party software used at runtime is installed from PyPI and retains
+its own licenses. BURNRATE does not vendor those sources. If a later
+release redistributes Apache-licensed binaries that ship their own
+NOTICE files, those notices must be preserved with the artifact.

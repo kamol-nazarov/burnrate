@@ -1,0 +1,21 @@
+{
+  "usageEvents": [
+    {
+      "id": "event_legacy_p1_1",
+      "timestamp": 1788130800000,
+      "model": "grok-4.6",
+      "userId": "user_fixture",
+      "isTokenBasedCall": true,
+      "isChargeable": true,
+      "chargedCents": 10.0,
+      "tokenUsage": {
+        "inputTokens": 900,
+        "outputTokens": 150,
+        "cacheWriteTokens": 50,
+        "cacheReadTokens": 300,
+        "totalCents": 8.0
+      }
+    }
+  ],
+  "pagination": {"page": 1, "pageSize": 25, "totalPages": 2}
+}

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "burnrate"
+version = "0.1.0b1"
+description = "Private, local-first dashboard for AI coding-agent token usage, cache efficiency, subscription capacity, and API-equivalent cost."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Apache-2.0" }
+authors = [{ name = "BURNRATE contributors" }]
+keywords = ["ai", "usage", "cost", "dashboard", "local-first"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Environment :: Win32 (MS Windows)",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Monitoring",
+]
+dependencies = [
+  "fastapi>=0.116,<1",
+  "starlette>=1.3.1,<2",
+  "uvicorn>=0.35,<1",
+  "APScheduler>=3.11,<4",
+  "PyYAML>=6.0,<7",
+  "python-dotenv>=1.1,<2",
+  "httpx>=0.28,<1",
+  "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<10",
+  "ruff>=0.6",
+  "httpx>=0.28,<1",
+]
+
+[project.scripts]
+burnrate = "spend_app.cli:main"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "spend_app/**",
+  "spend_web/**",
+  "pricing/**",
+  "tests_spend/**",
+  "README.md",
+  "pyproject.toml",
+]
+exclude = [
+  "**/__pycache__",
+  "**/*.pyc",
+  "apps/**",
+  "web/**",
+  "config/**",
+  "dashboards/**",
+  "provisioning/**",
+  "exporters/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["spend_app", "spend_web"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"pricing" = "pricing"

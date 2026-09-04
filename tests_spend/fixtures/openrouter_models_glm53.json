@@ -1,0 +1,16 @@
+{
+  "source_url": "https://openrouter.ai/api/v1/models?q=glm-5.3-flash",
+  "captured_at": "2026-09-01T00:00:00Z",
+  "note": "Recorded official OpenRouter model metadata. Pricing is USD per token; no runtime fetch is performed - pricing/openrouter.yaml rows must be cross-checked against this fixture.",
+  "data": [
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "created": 1787752741,
+      "pricing": {
+        "prompt": "0.000000075",
+        "completion": "0.00000025",
+        "input_cache_read": "0.000000015"
+      }
+    }
+  ]
+}

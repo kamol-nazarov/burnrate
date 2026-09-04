@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "starting_at": "2026-08-30T00:00:00Z",
+      "ending_at": "2026-08-31T00:00:00Z",
+      "results": [
+        {
+          "amount": "250.5",
+          "currency": "USD",
+          "description": "Claude Opus 5 token usage",
+          "model": "claude-opus-5",
+          "workspace_id": "wrkspc_fixture",
+          "cost_type": "tokens",
+          "token_type": "uncached_input_tokens",
+          "context_window": "0-200k",
+          "service_tier": "standard"
+        }
+      ]
+    }
+  ],
+  "has_more": false,
+  "next_page": null
+}

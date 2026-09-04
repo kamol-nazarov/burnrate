@@ -1,0 +1,725 @@
+{
+ "recorded_from": "chat.db chat_projection (usage and settings metadata only)",
+ "sanitized": [
+  "chat id",
+  "every prompt, response, and tool text field dropped"
+ ],
+ "chats": [
+  {
+   "chatId": "rec-chat-01",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1787959064452,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 167790,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 165426,
+      "outputTokens": 29,
+      "totalTokens": 167790
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-02",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1787975075145,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 178314,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 178279,
+      "outputTokens": 26,
+      "totalTokens": 178314
+     }
+    },
+    {
+     "timestamp": 1787975201299,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 179359,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 178520,
+      "outputTokens": 0,
+      "totalTokens": 179359
+     }
+    },
+    {
+     "timestamp": 1787976379644,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 276416,
+      "contextTokens": 278231,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 691,
+      "outputTokens": 1039,
+      "totalTokens": 278231
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-03",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1787973838769,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 122063,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 109210,
+      "outputTokens": 14,
+      "totalTokens": 122063
+     }
+    },
+    {
+     "timestamp": 1787974303000,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 128,
+      "contextTokens": 138035,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 136813,
+      "outputTokens": 833,
+      "totalTokens": 138035
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-04",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1787976578921,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 64,
+      "contextTokens": 241147,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 240069,
+      "outputTokens": 932,
+      "totalTokens": 241147
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-05",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1787974760574,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 118794,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 118761,
+      "outputTokens": 23,
+      "totalTokens": 118794
+     }
+    },
+    {
+     "timestamp": 1787976212437,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 195648,
+      "contextTokens": 197450,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 692,
+      "outputTokens": 854,
+      "totalTokens": 197450
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-06",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:z-ai/glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1788073531237,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 71496,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 71489,
+      "outputTokens": 0,
+      "totalTokens": 71496
+     }
+    },
+    {
+     "timestamp": 1788074083880,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 116415,
+      "contextWindow": 1310720,
+      "costUsd": 0,
+      "inputTokens": 84414,
+      "outputTokens": 0,
+      "totalTokens": 116415
+     }
+    }
+   ],
+   "recordedFor": "unclassified-glm"
+  },
+  {
+   "chatId": "rec-chat-07",
+   "rootSettings": {
+    "harnessId": "codex",
+    "model": "gpt-5.6-sol"
+   },
+   "events": [
+    {
+     "timestamp": 1787675954383,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "claude",
+       "model": "opus[1m]"
+      }
+     }
+    },
+    {
+     "timestamp": 1787676095307,
+     "usage": {
+      "cacheCreationInputTokens": 4330,
+      "cacheReadInputTokens": 108101,
+      "contextTokens": 112433,
+      "contextWindow": 1000000,
+      "costUsd": 1.6695264999999997,
+      "inputTokens": 2,
+      "outputTokens": 4,
+      "totalTokens": 6
+     }
+    },
+    {
+     "timestamp": 1787676450537,
+     "usage": {
+      "cacheCreationInputTokens": 1848,
+      "cacheReadInputTokens": 176415,
+      "contextTokens": 178265,
+      "contextWindow": 1000000,
+      "costUsd": 3.926767499999999,
+      "inputTokens": 2,
+      "outputTokens": 4,
+      "totalTokens": 6
+     }
+    },
+    {
+     "timestamp": 1787708947305,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "codex",
+       "model": "gpt-5.6-sol"
+      }
+     }
+    },
+    {
+     "timestamp": 1787765566549,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "claude",
+       "model": "opus[1m]"
+      }
+     }
+    },
+    {
+     "timestamp": 1787935758631,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "codex",
+       "model": "gpt-5.6-sol"
+      }
+     }
+    },
+    {
+     "timestamp": 1787975238388,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "claude",
+       "model": "opus[1m]"
+      }
+     }
+    },
+    {
+     "timestamp": 1787976579570,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "grok",
+       "model": "grok-4.6"
+      }
+     }
+    },
+    {
+     "timestamp": 1787976700542,
+     "usage": {
+      "cacheCreationInputTokens": 745,
+      "cacheReadInputTokens": 242330,
+      "contextTokens": 243077,
+      "contextWindow": 1000000,
+      "costUsd": 12.476783500000003,
+      "inputTokens": 2,
+      "outputTokens": 1,
+      "totalTokens": 3
+     }
+    },
+    {
+     "timestamp": 1787977115522,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "codex",
+       "model": "gpt-5.6-sol"
+      }
+     }
+    }
+   ],
+   "recordedFor": "grok-reported-cost"
+  },
+  {
+   "chatId": "rec-chat-08",
+   "rootSettings": {
+    "harnessId": "openrouter",
+    "model": "openrouter:stealth/ox-alpha"
+   },
+   "events": [
+    {
+     "timestamp": 1787417436544,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 18112,
+      "contextTokens": 18359,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 174,
+      "outputTokens": 73,
+      "totalTokens": 18359
+     }
+    }
+   ],
+   "recordedFor": "stealth-reported-cost"
+  },
+  {
+   "chatId": "rec-chat-09",
+   "rootSettings": {
+    "harnessId": "claude",
+    "model": "sonnet"
+   },
+   "events": [
+    {
+     "timestamp": 1787367999212,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "cursor",
+       "model": "gemini-3.7-flash"
+      }
+     }
+    },
+    {
+     "timestamp": 1787368836524,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 16940923,
+      "contextTokens": 17641905,
+      "inputTokens": 17641905,
+      "outputTokens": 69179,
+      "totalTokens": 17711084
+     }
+    },
+    {
+     "timestamp": 1787368924352,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 2119013,
+      "contextTokens": 2293280,
+      "inputTokens": 2293280,
+      "outputTokens": 5553,
+      "totalTokens": 2298833
+     }
+    },
+    {
+     "timestamp": 1787370898816,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "openrouter",
+       "model": "openrouter:stealth/ox-alpha"
+      }
+     }
+    },
+    {
+     "timestamp": 1787374144888,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 104064,
+      "contextTokens": 124935,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 20672,
+      "outputTokens": 199,
+      "totalTokens": 124935
+     }
+    },
+    {
+     "timestamp": 1787374406050,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 126528,
+      "contextTokens": 126854,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 211,
+      "outputTokens": 115,
+      "totalTokens": 126854
+     }
+    },
+    {
+     "timestamp": 1787374732004,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 131200,
+      "contextTokens": 132237,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 987,
+      "outputTokens": 50,
+      "totalTokens": 132237
+     }
+    },
+    {
+     "timestamp": 1787377115745,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 173696,
+      "contextTokens": 175054,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1175,
+      "outputTokens": 183,
+      "totalTokens": 175054
+     }
+    },
+    {
+     "timestamp": 1787378160136,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 195456,
+      "contextTokens": 196410,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 770,
+      "outputTokens": 184,
+      "totalTokens": 196410
+     }
+    },
+    {
+     "timestamp": 1787396847265,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 72448,
+      "contextTokens": 73609,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 964,
+      "outputTokens": 197,
+      "totalTokens": 73609
+     }
+    },
+    {
+     "timestamp": 1787397926470,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 99328,
+      "contextTokens": 99570,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 164,
+      "outputTokens": 78,
+      "totalTokens": 99570
+     }
+    },
+    {
+     "timestamp": 1787398074671,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 100544,
+      "contextTokens": 101670,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1057,
+      "outputTokens": 69,
+      "totalTokens": 101670
+     }
+    },
+    {
+     "timestamp": 1787399807358,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 142144,
+      "contextTokens": 143286,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1067,
+      "outputTokens": 75,
+      "totalTokens": 143286
+     }
+    },
+    {
+     "timestamp": 1787400779203,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 164864,
+      "contextTokens": 165850,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 911,
+      "outputTokens": 75,
+      "totalTokens": 165850
+     }
+    },
+    {
+     "timestamp": 1787402754725,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 217344,
+      "contextTokens": 218705,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1200,
+      "outputTokens": 161,
+      "totalTokens": 218705
+     }
+    },
+    {
+     "timestamp": 1787403886577,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 239168,
+      "contextTokens": 240905,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1505,
+      "outputTokens": 232,
+      "totalTokens": 240905
+     }
+    },
+    {
+     "timestamp": 1787407067210,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 292224,
+      "contextTokens": 294814,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 2434,
+      "outputTokens": 156,
+      "totalTokens": 294814
+     }
+    },
+    {
+     "timestamp": 1787407686894,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 299840,
+      "contextTokens": 301089,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1050,
+      "outputTokens": 199,
+      "totalTokens": 301089
+     }
+    },
+    {
+     "timestamp": 1787408916177,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 322368,
+      "contextTokens": 323654,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 1078,
+      "outputTokens": 208,
+      "totalTokens": 323654
+     }
+    },
+    {
+     "timestamp": 1787410067413,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 324864,
+      "contextTokens": 328633,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 2811,
+      "outputTokens": 958,
+      "totalTokens": 328633
+     }
+    },
+    {
+     "timestamp": 1787410302246,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "contextTokens": 329222,
+      "contextWindow": 1048576,
+      "costUsd": 0,
+      "inputTokens": 328887,
+      "outputTokens": 335,
+      "totalTokens": 329222
+     }
+    },
+    {
+     "timestamp": 1787411824137,
+     "usage": {
+      "cacheCreationInputTokens": 2071,
+      "cacheReadInputTokens": 263547,
+      "contextTokens": 265620,
+      "contextWindow": 967000,
+      "costUsd": 10.237238699999999,
+      "inputTokens": 2,
+      "outputTokens": 2,
+      "totalTokens": 4
+     }
+    }
+   ],
+   "recordedFor": "mixed-into-openrouter"
+  },
+  {
+   "chatId": "rec-chat-10",
+   "rootSettings": {
+    "harnessId": "grok",
+    "model": "grok-4.6"
+   },
+   "events": [
+    {
+     "timestamp": 1787626467497,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "codex",
+       "model": "gpt-5.6-sol"
+      }
+     }
+    },
+    {
+     "timestamp": 1787626708507,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "grok",
+       "model": "grok-4.6"
+      }
+     }
+    },
+    {
+     "timestamp": 1787628465635,
+     "usage": {
+      "cacheReadInputTokens": 88832,
+      "contextBaselineTokens": 12000,
+      "contextTokens": 91571,
+      "contextWindow": 258400,
+      "inputTokens": 91377,
+      "outputTokens": 194,
+      "totalTokens": 91571
+     }
+    },
+    {
+     "timestamp": 1787628465683,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "codex",
+       "model": "gpt-5.6-sol"
+      }
+     }
+    },
+    {
+     "timestamp": 1787628465717,
+     "settingsTransition": {
+      "shape": "item",
+      "settings": {
+       "harnessId": "grok",
+       "model": "grok-4.6"
+      }
+     }
+    }
+   ],
+   "recordedFor": "grok-codex-grok"
+  },
+  {
+   "chatId": "rec-chat-11",
+   "rootSettings": {
+    "harnessId": "opencode",
+    "model": "zai-coding-plan:glm-5.3-flash"
+   },
+   "events": [
+    {
+     "timestamp": 1788145202608,
+     "usage": {
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 10496,
+      "contextTokens": 11372,
+      "contextWindow": 1000000,
+      "costUsd": 0,
+      "inputTokens": 529,
+      "outputTokens": 193,
+      "totalTokens": 11372
+     }
+    }
+   ],
+   "recordedFor": "opencode-delegated"
+  }
+ ]
+}

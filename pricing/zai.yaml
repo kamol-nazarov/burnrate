@@ -1,0 +1,37 @@
+# Derived pricing for Z.AI coding-plan models from the official Z.AI pricing page.
+# https://docs.z.ai/guides/overview/pricing.md
+#
+# GLM-5.3-Flash promo card: $0.075 input / $0.015 cached input / $0.25 output per
+# MTok (struck list $0.15 / $0.03 / $0.50). The promo ends 2026-09-09 24:00 UTC+8
+# = 2026-09-09T16:00:00Z; the struck list rates apply afterwards. No cache-write
+# fee is listed (storage is "Limited-time Free"), so cache writes are not a billed
+# class (0).
+#
+# effective_from floor: 2026-08-26T13:59:01Z is the official OpenRouter model
+# creation timestamp for z-ai/glm-5.3-flash (created 1787752741), the earliest
+# verifiable evidence of the published listing. Events before that instant remain
+# unpriced rather than back-dated.
+#
+# These are published API rates used for derived (approximate) attribution of
+# coding-plan usage; credits are not invoice USD. Third-party aggregators remain
+# non-authority.
+provider: zai
+exactness: derived
+prices:
+  - model_key: opencode:glm-5.3-flash
+    aliases: [zcode:glm-5.3-flash]
+    input_per_mtok: 0.075
+    cached_input_per_mtok: 0.015
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 0.25
+    effective_from: 2026-08-26T13:59:01Z
+    effective_to: 2026-09-09T16:00:00Z
+    source_url: https://docs.z.ai/guides/overview/pricing.md
+  - model_key: opencode:glm-5.3-flash
+    aliases: [zcode:glm-5.3-flash]
+    input_per_mtok: 0.15
+    cached_input_per_mtok: 0.03
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 0.50
+    effective_from: 2026-09-09T16:00:00Z
+    source_url: https://docs.z.ai/guides/overview/pricing.md

@@ -1,0 +1,248 @@
+name: CI
+
+"on":
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Intentionally empty of provider keys. Do not add OPENAI_ADMIN_KEY,
+# ANTHROPIC_ADMIN_KEY, CURSOR_API_KEY, OPENROUTER_MANAGEMENT_KEY,
+# SPEND_REAL_DB_COPY, or BURNRATE_CLAUDE_OAUTH_REFRESH.
+env:
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refuse provider credentials
+        run: ./.github/scripts/assert-no-provider-env.ps1
+
+      - name: Install Python dependencies
+        run: ./.github/scripts/install-python-ci.ps1
+
+      - name: Run pytest (synthetic fixtures; skip live DB and Chrome)
+        run: |
+          python -m pytest tests_spend -q `
+            --ignore=tests_spend/test_s01_real_db.py `
+            --ignore=tests_spend/test_s02_real_db.py `
+            --ignore=tests_spend/test_s03_real_db.py `
+            --ignore=tests_spend/test_frontend_viewports.py `
+            --ignore=tests_spend/test_performance_phase2.py `
+            -m "not real_db and not browser"
+
+  lint:
+    name: ruff or compileall
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refuse provider credentials
+        run: ./.github/scripts/assert-no-provider-env.ps1
+
+      - name: Syntax gate (ruff if declared, else compileall)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff
+          python -m compileall -q spend_app tests_spend
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $declared = $false
+          if (Test-Path -LiteralPath "pyproject.toml") {
+            if ((Get-Content -LiteralPath "pyproject.toml" -Raw) -match '(?m)^\s*ruff\b') {
+              $declared = $true
+            }
+          }
+          if (Test-Path -LiteralPath "requirements-spend.txt") {
+            if ((Get-Content -LiteralPath "requirements-spend.txt" -Raw) -match '(?m)^\s*ruff\b') {
+              $declared = $true
+            }
+          }
+
+          python -m ruff check spend_app tests_spend
+          $ruffCode = $LASTEXITCODE
+          if ($declared) {
+            if ($ruffCode -ne 0) { exit $ruffCode }
+            python -m ruff format --check spend_app tests_spend
+            exit $LASTEXITCODE
+          }
+          if ($ruffCode -ne 0) {
+            Write-Host "ruff is not a declared dependency yet; compileall is the gate."
+          }
+          exit 0
+
+  pip-audit:
+    name: pip-audit
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refuse provider credentials
+        run: ./.github/scripts/assert-no-provider-env.ps1
+
+      - name: Install Python dependencies
+        run: ./.github/scripts/install-python-ci.ps1
+
+      - name: Audit installed packages
+        run: python -m pip_audit
+
+  frontend:
+    name: frontend
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Refuse provider credentials
+        run: ./.github/scripts/assert-no-provider-env.ps1
+
+      - name: Install Python dependencies
+        run: ./.github/scripts/install-python-ci.ps1
+
+      - name: node --check (skip if node missing)
+        run: |
+          if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            Write-Host "node not available; skipping node --check"
+            exit 0
+          }
+          $scripts = Get-ChildItem -Path spend_web -Filter *.js -File -ErrorAction SilentlyContinue
+          if (-not $scripts) {
+            Write-Host "no spend_web/*.js files"
+            exit 0
+          }
+          foreach ($script in $scripts) {
+            Write-Host "node --check $($script.FullName)"
+            node --check $script.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Frontend contract tests
+        run: |
+          python -m pytest -q `
+            tests_spend/test_frontend_contract.py `
+            tests_spend/test_frontend_states.py `
+            tests_spend/test_navbar.py `
+            tests_spend/test_capacity_strip.py `
+            tests_spend/test_chart_polish.py `
+            tests_spend/test_build_prompt_api_contract.py `
+            tests_spend/test_build_prompt_consistency.py `
+            tests_spend/test_build_prompt_motion.py `
+            tests_spend/test_build_prompt_responsive.py `
+            tests_spend/test_build_prompt_null_zero_approx.py `
+            tests_spend/test_build_prompt_quota_activity.py `
+            tests_spend/test_performance_phase1.py `
+            tests_spend/test_performance_phase3.py `
+            tests_spend/test_performance_phase4.py `
+            tests_spend/test_performance_phase5.py
+
+      - name: Headless browser tests (skip if Chrome missing)
+        run: |
+          $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+          if (-not (Test-Path -LiteralPath $chrome)) {
+            Write-Host "Chrome not at $chrome; skipping headless browser tests."
+            exit 0
+          }
+          python -m pytest -q `
+            tests_spend/test_frontend_viewports.py `
+            tests_spend/test_performance_phase2.py
+
+  secret-scan:
+    name: secret-scan
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refuse provider credentials
+        run: ./.github/scripts/assert-no-provider-env.ps1
+
+      - name: Python redacted scan
+        run: python .github/scripts/redacted_secret_scan.py .
+
+      - name: Gitleaks Action
+        id: gitleaks_action
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .github/gitleaks.toml
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+      - name: Gitleaks CLI fallback
+        if: steps.gitleaks_action.outcome != 'success'
+        run: |
+          $ver = "8.30.1"
+          $zip = Join-Path $env:RUNNER_TEMP "gitleaks.zip"
+          $dir = Join-Path $env:RUNNER_TEMP "gitleaks"
+          $url = "https://github.com/gitleaks/gitleaks/releases/download/v$ver/gitleaks_${ver}_windows_x64.zip"
+          Write-Host "gitleaks-action did not succeed; running CLI $ver"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+          $exe = Join-Path $dir "gitleaks.exe"
+          & $exe detect --source . --config .github/gitleaks.toml --redact --no-banner --exit-code 1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

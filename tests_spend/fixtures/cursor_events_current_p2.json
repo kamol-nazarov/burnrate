@@ -1,0 +1,22 @@
+{
+  "usageEvents": [
+    {
+      "id": "ident_cur_3",
+      "timestamp": "2026-08-30T12:10:00.000Z",
+      "model": "gemini-3.7-flash",
+      "userId": "user_fixture",
+      "user": "fixture@example.invalid",
+      "kind": "Auto",
+      "isTokenBasedCall": true,
+      "isChargeable": true,
+      "clientType": "IDE",
+      "maxMode": false,
+      "inputTokens": 300,
+      "outputTokens": 60,
+      "cacheReadTokens": 100,
+      "cacheWriteTokens": 0,
+      "chargedCents": 1.0
+    }
+  ],
+  "pagination": {"page": 2, "pageSize": 2, "numPages": 2, "hasNextPage": false}
+}

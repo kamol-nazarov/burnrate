@@ -1,0 +1,36 @@
+{
+  "window": {"key": "15m", "label": "15m", "from": "2026-09-01T00:45:00Z", "to": "2026-09-01T01:00:00Z", "buckets": 15},
+  "generatedAt": "2026-09-01T01:00:00Z",
+  "cadenceSeconds": 15,
+  "cadenceMinutes": 0.25,
+  "status": "live",
+  "failingSource": null,
+  "navigation": {"burnRatePerDay": null, "todayUsd": null},
+  "coverage": {
+    "exactProviders": ["Codex", "Claude"],
+    "derivedProviders": ["Cursor", "OpenRouter"],
+    "note": "Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated."
+  },
+  "totals": {
+    "trackedValue": null,
+    "priced": null,
+    "publishedRate": null,
+    "tokens": 0,
+    "records": 0,
+    "sessions": 0,
+    "meanSessionValue": null,
+    "cacheReusePct": null
+  },
+  "capacity": [],
+  "activity": [],
+  "waste": {"perDay": null, "perMonth": null, "items": []},
+  "cacheSavings": null,
+  "projected": {"value": null, "planCost": null, "multiple": null, "method": "month-to-date published-rate equivalent"},
+  "mix": [],
+  "series": [],
+  "tools": [],
+  "models": [],
+  "subscriptions": [],
+  "heatmap": [],
+  "heatmapFallback": true
+}

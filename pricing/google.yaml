@@ -1,0 +1,30 @@
+# Derived API-equivalent pricing for Antigravity Gemini usage.
+# Official Google Gemini Developer API pricing (Standard):
+# https://ai.google.dev/gemini-api/docs/pricing
+# Intro $0.75 input / $0.075 cache-read / $3.75 output per MTok through
+# 2026-12-31; standard $1.50 / $0.15 / $7.50 from 2027-01-01.
+# Google bills cache storage hourly ($0.50 / 1M tokens / hour intro;
+# $1.00 from 2027-01-01), not a per-MTok cache write. This product does not
+# invent OpenRouter's $0.04167 write as a Google SKU; cache writes are not a
+# billed per-token class (0). Antigravity is subscription usage, so this is
+# value attribution, not a bill.
+provider: google
+exactness: derived
+prices:
+  - model_key: antigravity:gemini-3.8-flash
+    aliases: [antigravity:gemini-3.8-flash-high]
+    input_per_mtok: 0.75
+    cached_input_per_mtok: 0.075
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 3.75
+    effective_from: 2026-09-02T00:00:00Z
+    effective_to: 2027-01-01T00:00:00Z
+    source_url: https://ai.google.dev/gemini-api/docs/pricing
+  - model_key: antigravity:gemini-3.8-flash
+    aliases: [antigravity:gemini-3.8-flash-high]
+    input_per_mtok: 1.50
+    cached_input_per_mtok: 0.15
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 7.50
+    effective_from: 2027-01-01T00:00:00Z
+    source_url: https://ai.google.dev/gemini-api/docs/pricing

@@ -1,0 +1,4 @@
+{"timestamp": "2026-08-30T20:00:00Z", "type": "session_meta", "payload": {"id": "build-prompt-codex", "timestamp": "2026-08-30T20:00:00Z", "cwd": "C:\\demo\\northwind", "originator": "Codex Desktop"}}
+{"timestamp": "2026-08-30T20:00:01Z", "type": "turn_context", "payload": {"model": "gpt-5.6-sol", "turn_id": "turn-1"}}
+{"timestamp": "2026-08-30T20:00:02Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"last_token_usage": {"input_tokens": 1000, "cached_input_tokens": 400, "cache_write_input_tokens": 100, "output_tokens": 200, "reasoning_output_tokens": 50, "total_tokens": 1200}}}}
+{"timestamp": "2026-08-30T20:00:03Z", "type": "event_msg", "payload": {"type": "token_count", "info": {"last_token_usage": {"input_tokens": 500, "cached_input_tokens": 250, "cache_write_input_tokens": 0, "output_tokens": 100, "reasoning_output_tokens": 20, "total_tokens": 600}}}}

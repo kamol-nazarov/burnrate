@@ -1,0 +1,30 @@
+# Owner-asserted derived pricing for the Codex auto-review pseudo-model.
+#
+# OpenAI publishes no model page for `codex-auto-review`
+# (https://developers.openai.com/api/docs/models/codex-auto-review is a 404 as
+# of 2026-09-02). The product owner supplied a pricing screenshot on 2026-09-02
+# showing input $2.50 / output $15.00 / cache read $0.25 per MTok. No cache-write
+# rate was shown; it is set at 1.25x input, the same convention openai.yaml
+# documents for OpenAI models (0 cache-write tokens have been observed for this
+# model so far).
+#
+# `source_policy: owner-asserted` bypasses the official-host check on purpose
+# and forces `exactness: derived`, so these rows render with the ≈ marker and
+# never count as exact. Replace source_url and drop the policy line if OpenAI
+# publishes an official card.
+provider: openai
+exactness: derived
+source_policy: owner-asserted
+prices:
+  - model_key: codex-auto-review
+    input_per_mtok: 2.50
+    cached_input_per_mtok: 0.25
+    cache_write_per_mtok: 3.125
+    output_per_mtok: 15.00
+    effective_from: 2026-09-01T00:00:00Z
+    source_url: https://api.airforce/models/codex-auto-review/
+    source_note: >-
+      Figures from the product owner's pricing screenshot on 2026-09-02
+      (input 2.50, output 15.00, cache read 0.25). The linked reseller page is
+      the only public listing for this model id and shows different numbers;
+      the owner's figures are authoritative here until an official page exists.

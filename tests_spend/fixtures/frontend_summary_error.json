@@ -1,0 +1,32 @@
+{
+  "window": {"key": "1d", "label": "1d", "from": "2026-08-31T04:00:00Z", "to": "2026-09-01T04:00:00Z", "buckets": 24},
+  "generatedAt": "2026-09-01T01:48:00Z",
+  "cadenceSeconds": 15,
+  "cadenceMinutes": 0.25,
+  "status": "error",
+  "failingSource": "openai_admin",
+  "navigation": {"burnRatePerDay": null, "todayUsd": null},
+  "coverage": {"exactProviders": [], "derivedProviders": [], "note": "Ingest failed."},
+  "totals": {
+    "trackedValue": null,
+    "priced": null,
+    "publishedRate": null,
+    "tokens": null,
+    "records": null,
+    "sessions": null,
+    "meanSessionValue": null,
+    "cacheReusePct": null
+  },
+  "capacity": [],
+  "activity": [],
+  "waste": {"perDay": null, "perMonth": null, "items": []},
+  "cacheSavings": null,
+  "projected": {"value": null, "planCost": null, "multiple": null, "method": null},
+  "mix": [],
+  "series": [],
+  "tools": [],
+  "models": [],
+  "subscriptions": [],
+  "heatmap": [],
+  "heatmapFallback": false
+}

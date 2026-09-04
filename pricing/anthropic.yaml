@@ -1,0 +1,74 @@
+# Single pricing authority for Anthropic models: the official Anthropic pricing
+# page (includes launch dates and prompt-cache multipliers; 1h cache write is
+# 1.6x the 5m write rate).
+# effective_from for claude-sonnet-4-6 / claude-haiku-4-5 is the telemetry
+# assertion floor (2026-01-01), not a documented launch date.
+provider: anthropic
+exactness: exact
+prices:
+  # Claude Fable 5.1 succeeds Claude Fable 5 in the same tier at the same
+  # per-token base price ($10 / $50 per MTok) with cache reads at $0.25/MTok
+  # per the official pricing page. effective_from is the telemetry assertion
+  # floor (the first local Fable 5.1 usage observed), not a documented launch
+  # date.
+  - model_key: claude-fable-5-1
+    input_per_mtok: 10.00
+    cached_input_per_mtok: 0.25
+    cache_write_per_mtok: 12.50
+    cache_write_1h_per_mtok: 20.00
+    output_per_mtok: 50.00
+    effective_from: 2026-09-01T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-fable-5
+    input_per_mtok: 10.00
+    cached_input_per_mtok: 1.00
+    cache_write_per_mtok: 12.50
+    cache_write_1h_per_mtok: 20.00
+    output_per_mtok: 50.00
+    effective_from: 2026-06-09T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-opus-4-8
+    input_per_mtok: 5.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
+    cache_write_1h_per_mtok: 10.00
+    output_per_mtok: 25.00
+    effective_from: 2026-05-28T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-opus-5
+    aliases: ["claude-opus-5[1m]"]
+    input_per_mtok: 5.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
+    cache_write_1h_per_mtok: 10.00
+    output_per_mtok: 25.00
+    effective_from: 2026-07-24T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-sonnet-5
+    # Launched 2026-06-30 at introductory $2/$10 per MTok. Anthropic's official
+    # pricing page states the scheduled 2026-09-01 increase to $3/$15 will not
+    # occur: the introductory price is now the standard price, so this card is
+    # open-ended and no $3/$15 revision may be added without a new official source.
+    input_per_mtok: 2.00
+    cached_input_per_mtok: 0.20
+    cache_write_per_mtok: 2.50
+    cache_write_1h_per_mtok: 4.00
+    output_per_mtok: 10.00
+    effective_from: 2026-06-30T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-sonnet-4-6
+    input_per_mtok: 3.00
+    cached_input_per_mtok: 0.30
+    cache_write_per_mtok: 3.75
+    cache_write_1h_per_mtok: 6.00
+    output_per_mtok: 15.00
+    effective_from: 2026-01-01T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-haiku-4-5
+    input_per_mtok: 1.00
+    cached_input_per_mtok: 0.10
+    cache_write_per_mtok: 1.25
+    cache_write_1h_per_mtok: 2.00
+    output_per_mtok: 5.00
+    effective_from: 2026-01-01T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing

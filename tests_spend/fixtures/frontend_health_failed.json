@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-09-01T01:48:00Z",
+  "ingest": [
+    {"source": "openai_admin", "lastSuccess": null, "status": "failed", "eventsLast24h": 0, "error": "admin key rejected"}
+  ],
+  "quotas": [
+    {"providerKey": "codex", "lastPoll": null, "status": "unavailable", "reason": "credential missing"}
+  ],
+  "pricingGaps": ["cursor:claude-opus-5"],
+  "providerVsComputedVariancePct": null
+}

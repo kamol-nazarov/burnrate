@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-09-01T01:00:00Z",
+  "ingest": [
+    {"source": "codex_local", "lastSuccess": "2026-09-01T01:00:00Z", "status": "success", "eventsLast24h": 48, "error": null}
+  ],
+  "quotas": [
+    {"providerKey": "codex", "lastPoll": "2026-09-01T01:00:00Z", "status": "success", "reason": null}
+  ],
+  "pricingGaps": [],
+  "providerVsComputedVariancePct": 0.0
+}

@@ -1,0 +1,14 @@
+{
+  "teamMemberSpend": [
+    {
+      "userId": "user_fixture",
+      "name": "Fixture User",
+      "email": "fixture@example.invalid",
+      "spendCents": 12.5,
+      "overallSpendCents": 20.0
+    }
+  ],
+  "subscriptionCycleStart": 1788048000000,
+  "totalMembers": 1,
+  "totalPages": 1
+}
