@@ -995,3 +995,62 @@ def test_s03_18_no_future_subscription_money(tmp_path: Path) -> None:
     assert walk_money(before) == walk_money(after)
     assert before["projected"]["planCost"] == after["projected"]["planCost"]
     assert before["totals"]["subscriptionUsd"] == after["totals"]["subscriptionUsd"]
+
+
+def test_zcode_entity_includes_shared_opencode_plan(tmp_path: Path) -> None:
+    database = tmp_path / "zcode-plan.db"
+    initialize(database)
+    pricing = PricingEngine.load(ROOT / "pricing")
+    persist_rows(
+        database_path=database,
+        pricing=pricing,
+        source="zcode_local",
+        usage_rows=[
+            _usage(
+                source="zcode_local",
+                tool_key="zcode",
+                model_key="zcode:glm-5.3-flash",
+                raw_id="zcode-local:entity",
+                session_id="zcode-1",
+                occurred_at=datetime(2026, 8, 30, 16, tzinfo=UTC),
+                input_tokens=1_000,
+                cached_input_tokens=100,
+                cache_write_tokens=0,
+                output_tokens=50,
+            )
+        ],
+    )
+    with connect(database) as connection:
+        add_subscription(
+            connection,
+            tool_key="opencode",
+            name="Z.AI Coding Plan",
+            amount_usd=400.0,
+            cadence="quarterly",
+            start_date="2026-07-01",
+            end_date=None,
+        )
+        materialize_subscription_days(connection, start=date(2026, 8, 1), end=date(2026, 8, 30))
+    summary = aggregate_summary(
+        database_path=database,
+        pricing=pricing,
+        window_key="1d",
+        tool="zcode",
+        timezone=TZ,
+        cache_threshold=0.75,
+        now=NOW,
+    )
+    entity = aggregate_entity(
+        database_path=database,
+        pricing=pricing,
+        kind="tool",
+        key="zcode",
+        window_key="1d",
+        timezone=TZ,
+        cache_threshold=0.75,
+        now=NOW,
+    )
+    assert summary["totals"]["subscriptionUsd"]
+    assert entity["value"] is not None
+    assert abs(entity["value"] - summary["totals"]["trackedValue"]) < 1e-6
+    assert entity["value"] > summary["totals"]["publishedRate"]

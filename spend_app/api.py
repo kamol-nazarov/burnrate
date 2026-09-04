@@ -20,6 +20,7 @@ GZIP_MINIMUM_SIZE = 1024
 ASSET_SETTLE_SECONDS = 5
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
 )
 _ASSET_VERSIONS: dict[str, tuple[tuple[int, int], str]] = {}

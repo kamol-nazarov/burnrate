@@ -26,7 +26,7 @@ Column-level, in the BURNRATE database only:
 - File contents, source code, clipboard
 - Environment variables, `.env` values, API keys, OAuth refresh tokens, CSRF tokens
 - Raw admin API bodies, trajectory JSON, Composer documents
-- Credential-shaped strings in logs (`bearer`, `basic`, `sk-…`, `x-api-key` are stripped before `ingest_runs.error` is written)
+- Credential-shaped strings in logs (`bearer`, `basic`, `sk-…`, `x-api-key`, `Authorization`, `zai_…`, `xai-…`, `or-v1-…`, and JWT-shaped tokens are stripped before `ingest_runs.error` is written)
 
 Some adapters parse a larger record in memory (a Claude JSONL line, a Traycer projection, an Antigravity PROD_UI trajectory, a Cursor Composer blob) and then keep only the metadata above. The extra content is discarded.
 
@@ -67,7 +67,7 @@ BURNRATE does not post prompts or chat completions to a model endpoint.
 
 - Default listener: `127.0.0.1:17331`. Not `0.0.0.0`.
 - No third-party analytics, no Google Fonts CDN, no browser calls to provider APIs.
-- CSP and the usual security headers are on. The dashboard reads `/api/spend/summary` and `/api/spend/health` only — persisted SQLite, not live provider probes.
+- CSP and the usual security headers are on. The dashboard reads `/api/spend/summary`, `/api/spend/health`, and `/api/spend/entity` (on drill-in) — persisted SQLite, not live provider probes. `/api/spend/nav` exists but is unused by the UI.
 
 Optional Tailscale Serve is an operator choice and is never enabled by BURNRATE. Funnel is not a product feature. See [tailscale.md](tailscale.md).
 

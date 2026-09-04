@@ -4,10 +4,8 @@ Thanks for helping improve a local-first dashboard for AI coding-agent usage.
 Please read this file and the [Code of Conduct](CODE_OF_CONDUCT.md) before
 opening a pull request.
 
-Apache-2.0 is prepared as the default proposal; public GitHub publication waits
-for the copyright holder to confirm the license. By contributing, you agree
-that your contribution may be licensed under Apache-2.0 if that proposal is
-confirmed.
+This project is licensed under Apache-2.0. By contributing, you agree that
+your contribution is licensed under Apache-2.0.
 
 ## Development setup
 
@@ -18,6 +16,7 @@ confirmed.
 - Run the suite from the repository root:
 
   ```text
+  python -m pip install -e ".[dev]"
   python -m pytest
   ```
 

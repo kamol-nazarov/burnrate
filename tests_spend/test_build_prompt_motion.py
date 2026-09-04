@@ -52,11 +52,14 @@ def test_one_shot_data_animations_rest_at_their_final_size() -> None:
 
 
 def test_prefers_reduced_motion_disables_looping_and_transitions() -> None:
-    _html, css, _js = sources()
+    _html, css, js = sources()
     assert "@media(prefers-reduced-motion:reduce)" in css.replace(" ", "")
     reduced = css.split("@media(prefers-reduced-motion:reduce)", 1)[1].split("@", 1)[0]
     assert "animation:none!important" in reduced.replace(" ", "")
     assert "transition:none!important" in reduced.replace(" ", "")
+    ranges = js.split("function renderRanges", 1)[1].split("function changeRange", 1)[0]
+    assert "prefers-reduced-motion" in ranges
+    assert 'behavior: reduceMotion ? "auto" : "smooth"' in ranges
 
 
 def test_easing_loop_is_one_raf_at_thirteen_percent() -> None:

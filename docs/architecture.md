@@ -38,10 +38,10 @@ Internal Python packages in this tree remain `spend_app` (application) and `spen
 | --- | --- |
 | Listen | `127.0.0.1:17331` only |
 | Installed data | `%LOCALAPPDATA%\BURNRATE` |
-| Dev / git checkout | repo-relative when `BURNRATE_DEV=1` or a `.git` directory is next to the package |
+| Dev checkout | repo-relative only when `BURNRATE_DEV=1` (a `.git` directory is not enough) |
 | Timezone | `UTC` unless `SPEND_TIMEZONE` is set to an IANA zone |
 
-Override `SPEND_DATABASE_PATH`, `SPEND_PRICING_PATH`, and `CURSOR_IMPORT_PATH` in `.env` if needed. Online backup uses `sqlite3.Connection.backup()` before upgrades; see [troubleshooting](troubleshooting.md).
+Override `SPEND_DATABASE_PATH`, `SPEND_PRICING_PATH`, and `CURSOR_IMPORT_PATH` in `.env` if needed. `backup_database()` uses `sqlite3.Connection.backup()` and is available for operators; `initialize` does not call it automatically. See [troubleshooting](troubleshooting.md) for the stop-then-copy procedure.
 
 ## HTTP surface
 
@@ -50,9 +50,9 @@ Override `SPEND_DATABASE_PATH`, `SPEND_PRICING_PATH`, and `CURSOR_IMPORT_PATH` i
 | `GET /` | Dashboard HTML |
 | `GET /spend.css`, `/spend.js`, `/favicon.svg` | Static assets (content-hash cache busting) |
 | `GET /healthz` | Liveness `{"status": "ok"}` |
-| `GET /api/spend/summary` | Windowed aggregation (what the UI polls) |
-| `GET /api/spend/nav` | Navbar burn rate / today |
-| `GET /api/spend/entity` | Tool or model drill-in |
+| `GET /api/spend/summary` | Windowed aggregation (what the UI polls; navbar burn/today come from this payload) |
+| `GET /api/spend/nav` | Navbar burn rate / today. Present for compatibility; the dashboard does not fetch it |
+| `GET /api/spend/entity` | Tool or model drill-in (fetched when the UI opens a detail view) |
 | `GET /api/spend/health` | Ingest/quota health from SQLite |
 | `GET /api/spend/limits` | **Live compatibility probe.** Not used by the dashboard. Can reach authenticated quota collectors, including experimental ones. Do not expose it on a public surface. |
 

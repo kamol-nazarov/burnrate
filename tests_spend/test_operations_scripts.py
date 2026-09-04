@@ -161,6 +161,7 @@ def test_stop_only_targets_public_listener() -> None:
     assert "17331" in runtime
     assert "Stop-Process" in runtime
     assert "3060" not in runtime
+    assert "not listening on port" in runtime
 
 
 def test_powershell_scripts_parse() -> None:

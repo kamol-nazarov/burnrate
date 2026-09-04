@@ -207,6 +207,170 @@ def test_coverage_start_is_the_first_log_record(tmp_path: Path) -> None:
     assert grok_local.coverage_start(log) == datetime(2026, 9, 1, 12, 10, 40, 496000, tzinfo=UTC)
 
 
+def test_coverage_start_keeps_persisted_history_after_log_rotation(tmp_path: Path) -> None:
+    grok_local.reset_state()
+    database = tmp_path / "spend.db"
+    initialize(database)
+    pricing = PricingEngine.load(ROOT / "pricing")
+    log = tmp_path / "unified.jsonl"
+    _write_log(
+        log,
+        [
+            _line("2026-09-01T12:00:00Z", "model changed", {"model": "grok-4.6"}),
+            _turn("2026-09-01T12:00:01Z", SID, 1, 1000, 0, 100),
+        ],
+    )
+    grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
+    first = grok_local.coverage_start(log, database)
+    assert first == datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+    _write_log(
+        log,
+        [
+            _line("2026-09-02T12:00:00Z", "model changed", {"model": "grok-4.6"}),
+            _turn("2026-09-02T12:00:01Z", SID, 1, 10, 0, 1),
+        ],
+    )
+    assert grok_local.coverage_start(log) == datetime(2026, 9, 2, 12, 0, tzinfo=UTC)
+    rotated = grok_local.coverage_start(log, database)
+    assert rotated == datetime(2026, 9, 1, 12, 0, 1, tzinfo=UTC)
+    assert rotated < datetime(2026, 9, 2, 12, 0, tzinfo=UTC)
+
+
+def test_rotated_grok_log_does_not_reopen_traycer_history(tmp_path: Path, monkeypatch) -> None:
+    grok_local.reset_state()
+    database = tmp_path / "spend.db"
+    initialize(database)
+    pricing = PricingEngine.load(ROOT / "pricing")
+    log = tmp_path / "unified.jsonl"
+    _write_log(
+        log,
+        [
+            _line("2026-09-01T12:00:00Z", "model changed", {"model": "grok-4.6"}),
+            _turn("2026-09-01T12:00:01Z", SID, 1, 1000, 0, 100),
+        ],
+    )
+    grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
+    _write_log(
+        log,
+        [
+            _line("2026-09-02T12:00:00Z", "model changed", {"model": "grok-4.6"}),
+            _turn("2026-09-02T12:00:01Z", SID, 1, 10, 0, 1),
+        ],
+    )
+    grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
+    boundary = grok_local.coverage_start(log, database)
+    t0 = datetime(2026, 9, 1, 12, 0, 1, tzinfo=UTC)
+
+    def row(when: datetime) -> UsageRow:
+        return UsageRow(
+            source="traycer_local",
+            tool_key="grok",
+            model_key="grok:m",
+            occurred_at=when,
+            session_id="traycer:c",
+            project="p",
+            input_tokens=1000,
+            cached_input_tokens=0,
+            cache_write_tokens=0,
+            cache_write_1h_tokens=0,
+            output_tokens=100,
+            reasoning_tokens=None,
+            cost_usd=None,
+            raw_id=f"traycer-grok-{when.isoformat()}",
+        )
+
+    fake_db = tmp_path / "chat.db"
+    fake_db.write_bytes(b"")
+    monkeypatch.setattr(traycer_local, "parse_database", lambda _path: [row(t0)])
+    seen: list[UsageRow] = []
+
+    def capture(**kwargs):
+        seen.extend(kwargs["usage_rows"])
+        return {"status": "success"}
+
+    monkeypatch.setattr(traycer_local, "persist_rows", capture)
+    result = traycer_local.ingest(
+        database_path=database,
+        pricing=None,
+        database_glob=str(fake_db),
+        grok_covered_from=boundary,
+    )
+    assert result["mirroredGrokEvents"] == 1 and result["eventsSeen"] == 0
+    assert seen == []
+    summary = aggregate_summary(
+        database_path=database,
+        pricing=pricing,
+        window_key="all",
+        tool="grok",
+        timezone="UTC",
+        cache_threshold=0.5,
+        now=datetime(2026, 9, 3, tzinfo=UTC),
+    )
+    assert summary["totals"]["tokens"] == 1111
+
+
+def test_live_session_omits_model_when_current_model_id_is_missing(tmp_path: Path) -> None:
+    now = datetime(2026, 9, 2, 2, tzinfo=UTC)
+    sessions = tmp_path / "sessions"
+    project = sessions / "C%3A%5CDev%5CExampleProject"
+    (project / SID).mkdir(parents=True)
+    summary = project / SID / "summary.json"
+    summary.write_text(
+        json.dumps(
+            {
+                "info": {"id": SID, "cwd": "C:\\\\Dev\\\\ExampleProject"},
+                "session_summary": "Demo session",
+                "current_model_id": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    os.utime(summary, (now.timestamp(), now.timestamp()))
+    active = tmp_path / "active_sessions.json"
+    active.write_text(
+        json.dumps(
+            [
+                {
+                    "session_id": SID,
+                    "pid": 111,
+                    "cwd": "C:\\\\Dev\\\\ExampleProject",
+                    "opened_at": "2026-09-02T01:16:49.909310900Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    limits._GROK_SESSION_DIRS.clear()
+    live = limits._grok_active_sessions(active, sessions, alive=lambda pid: pid == 111, now=now)
+    assert live == [
+        {
+            "sessionId": SID,
+            "title": "Demo session",
+            "model": None,
+            "startedAt": "2026-09-02T01:16:49.909310900Z",
+        }
+    ]
+    records = agent_run_records({"activeAgents": [], "unmeteredTurns": [], "grokSessions": live})
+    assert records[0].model_key is None
+
+
+def test_grok_session_dir_rejects_path_escape_and_finds_nested_subagents(tmp_path: Path) -> None:
+    sessions = tmp_path / "sessions"
+    project = sessions / "proj"
+    nested = project / "parent-sid" / "subagents" / SID
+    nested.mkdir(parents=True)
+    secret = tmp_path / "secret-dir"
+    secret.mkdir()
+    limits._GROK_SESSION_DIRS.clear()
+    assert limits._grok_session_dir(SID, sessions) == nested.resolve()
+    limits._GROK_SESSION_DIRS.clear()
+    assert limits._grok_session_dir("..", sessions) is None
+    limits._GROK_SESSION_DIRS.clear()
+    assert limits._grok_session_dir(r"..\..\secret-dir", sessions) is None
+    limits._GROK_SESSION_DIRS.clear()
+    assert limits._grok_session_dir(str(secret), sessions) is None
+
+
 def test_traycer_drops_grok_rows_the_cli_log_already_covers(tmp_path: Path, monkeypatch) -> None:
     def row(tool: str, when: datetime) -> UsageRow:
         return UsageRow(source="traycer_local", tool_key=tool, model_key=f"{tool}:m", occurred_at=when, session_id="traycer:c", project="p",

@@ -6,18 +6,19 @@
 burnrate doctor
 ```
 
-Doctor is read-only. It does not ingest, does not call provider admin APIs, and does not print secrets.
+Doctor is read-only. It does not ingest, does not migrate, does not create `spend.db`, does not call provider admin APIs, and does not print secrets. Run `burnrate init` first.
 
 Typical checks:
 
 | Check | Pass means |
 | --- | --- |
 | Python | Interpreter is CPython 3.12 |
-| Bind | Default listener is `127.0.0.1:17331` (not a public interface) |
-| Database | Path is writable; `burnrate init` / migrate succeeded |
+| Imports | Runtime packages (`fastapi`, `uvicorn`, `yaml`, …) import |
+| tzdata | IANA timezone data loads for `SPEND_TIMEZONE` |
+| Database | `spend.db` already exists and `PRAGMA integrity_check` is `ok` (opened read-only) |
 | Pricing | Packaged `pricing/*.yaml` cards load |
-| Providers | Each enabled source either finds its local path or is reported **unavailable** with a reason |
-| Credentials | Keys are present-or-empty only; values are not echoed |
+| Web assets | Packaged `spend_web` HTML/CSS/JS/SVG are present |
+| Bind | Default listener is `127.0.0.1:17331` (not a public interface). Doctor does not probe whether the port is free |
 
 Treat doctor output as support data. Redact any remaining absolute paths before pasting it into a public issue.
 

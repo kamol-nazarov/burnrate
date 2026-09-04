@@ -36,7 +36,7 @@ Paths below use Windows conventions. `%USERPROFILE%` is `~`. `%APPDATA%` is typi
 | Cursor usage service | `%APPDATA%\Cursor\User\globalStorage\state.vscdb` (`cursorAuth/accessToken`) | `api2.cursor.sh` `POST …/DashboardService/GetFilteredUsageEvents` | Local Cursor bearer | **Experimental / undocumented** DashboardService | `usage_events` `source=cursor_usage_service` from 2026-09-02 on | Tokens exact; `cost_usd` from charged cents; computed spend derived | Token sent only to Cursor. Does not write `state.vscdb`. |
 | Cursor quota | same `state.vscdb` | `api2.cursor.sh` POSTs: `GetCurrentPeriodUsage`, `GetPlanInfo`, `GetHardLimit` | same bearer | **Experimental / undocumented** | `quotas` Cursor Models + Other Models `source=cursor_usage_service` unit `pct`. Included-value dollars are **read but not persisted**. | Exact % from service; 15 min active / 1 h idle | Read token; no file write |
 | Cursor live | same `state.vscdb` `composerHeaders` + `cursorDiskKV` | none | none | Observed local Composer state | `agent_runs` `id=cursor:<composerId>` | Live only if status is `generating` / `running` / `in_progress` and not archived | SQLite `mode=ro` |
-| Cursor CSV | `%LOCALAPPDATA%\BURNRATE\imports\cursor\*.csv` (or `CURSOR_IMPORT_PATH`) | none | none | Official export drop (CLI `backfill cursor-csv`) | `usage_events` `source=cursor_csv` | Tokens as exported; spend derived | Read-only CSVs. Not scheduled. |
+| Cursor CSV | checkout `data/imports/cursor/*.csv`, or `CURSOR_IMPORT_PATH` | none | none | Official export drop (CLI `backfill cursor-csv`) | `usage_events` `source=cursor_csv` | Tokens as exported; spend derived | Read-only CSVs. Not scheduled. Installed runs should set `CURSOR_IMPORT_PATH` (for example `%LOCALAPPDATA%\BURNRATE\imports\cursor`). |
 | Cursor admin | none | `api.cursor.com` `POST /teams/filtered-usage-events` | `CURSOR_API_KEY` Basic `key:` | Official Admin API | `usage_events` `source=cursor_admin` | Tokens exact; `cost_usd` from `chargedCents`; computed derived | No local file write. Skipped unless key set. |
 | OpenCode usage | `%USERPROFILE%\.local\share\opencode\opencode.db` | none | none | Observed local session aggregates | `usage_events` `source=opencode_local` `tool_key=opencode`; skips `providerID=traycer-openrouter` | **Session-level** tokens (not per-turn); spend derived | SQLite `mode=ro` |
 | Z.AI quota (OpenCode + ZCode) | OpenCode `auth.json` `zai-coding-plan.key`, else ZCode `%USERPROFILE%\.zcode\v2\config.json` | `api.z.ai` `GET /api/monitor/usage/quota/limit` | Coding Plan API key (`Authorization` header, no `Bearer` prefix) | Documented as official Z.AI Coding Plan quota | `quotas` `provider_key=opencode` 5h + weekly unit `credits` `source=zai_quota_endpoint` | Exact used/limit/%/reset. One card for both harnesses. | Key not persisted. Files read-only. |
@@ -65,7 +65,8 @@ HTTPS timeouts are 15–30 seconds depending on the client. Credential-bearing `
 | --- | --- |
 | Codex Desktop vs Traycer Codex | Local ingest keeps `originator = "Codex Desktop"` only. Traycer-launched Codex is not in `traycer_local.INGESTED_HARNESSES`. |
 | OpenCode vs Traycer OpenRouter | OpenCode skips `providerID=traycer-openrouter`. Per-turn authority is Traycer. |
-| Grok Build vs Traycer Grok | Native `unified.jsonl` wins from its first timestamp; Traycer Grok rows on/after that instant are skipped. |
+| Grok Build vs Traycer Grok | Native `unified.jsonl` wins from the earlier of the current log-head timestamp and any already-persisted `grok_local` `occurred_at`. Traycer Grok rows on/after that instant are skipped, so CLI log rotation cannot reopen history grok_local already stored. |
+| Cursor Admin vs DashboardService ingest | If `CURSOR_API_KEY` is set, experimental `cursor_usage_service` ingest is skipped. Cursor **quota** still uses DashboardService independently of the admin key. |
 | Cursor SDK-agent vs usage service | Cutover `2026-09-02T00:00:00Z`: `cursor_local` is historical only; `cursor_usage_service` owns current events. |
 | Cursor CSV vs other Cursor sources | Operator import; same `raw_id` upsert is idempotent, but CSV is not a substitute for the usage service. |
 | OpenCode vs ZCode quota | One Z.AI Coding Plan card (`provider_key=opencode`). Two harnesses, one quota. |
@@ -111,7 +112,7 @@ Live-session rule: a trailing `user` event without a terminal `assistant` `stop_
 
 ### Cursor — mixed
 
-Four ingest paths, one quota path, one activity path. `api.cursor.com` is official. `api2.cursor.sh` DashboardService is undocumented → **experimental**.
+Four ingest paths, one quota path, one activity path. `api.cursor.com` is official. `api2.cursor.sh` DashboardService is undocumented → **experimental**. If `CURSOR_API_KEY` is set, the experimental DashboardService ingest is skipped so official admin events are not double-counted with `cursor_usage_service`.
 
 Included plan dollars (`usedUsd`/`limitUsd`) are parsed and **dropped** by the quota product contract; they are not persisted as a capacity card.
 

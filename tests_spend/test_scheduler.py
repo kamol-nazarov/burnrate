@@ -13,7 +13,7 @@ from spend_app.config import (
     Settings,
 )
 from spend_app.pricing import PricingEngine
-from spend_app.providers import PROVIDERS, ProviderSpec
+from spend_app.providers import PROVIDERS, ProviderSpec, iter_admin_ingest, iter_local_ingest
 from spend_app.quotas import poll_activity, poll_quotas
 from spend_app.scheduler import create_scheduler
 
@@ -59,6 +59,23 @@ def make_settings(tmp_path: Path) -> Settings:
 
 def make_scheduler(tmp_path: Path):
     return create_scheduler(make_settings(tmp_path), PricingEngine.load(ROOT / "pricing"))
+
+
+def test_cursor_usage_service_is_skipped_when_admin_key_is_set(tmp_path: Path) -> None:
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    pricing = PricingEngine.load(ROOT / "pricing")
+    without_key = make_settings(tmp_path)
+    with_key = replace(without_key, cursor_api_key="fixture-admin-key")
+    local_without = [spec.key for spec, _kwargs in iter_local_ingest(without_key, pricing)]
+    local_with = [spec.key for spec, _kwargs in iter_local_ingest(with_key, pricing)]
+    assert "cursor_usage_service" in local_without
+    assert "cursor_usage_service" not in local_with
+    start = datetime(2026, 8, 1, tzinfo=UTC)
+    end = datetime(2026, 8, 31, tzinfo=UTC)
+    admin_with = [spec.key for spec, _kwargs in iter_admin_ingest(with_key, pricing, start=start, end=end)]
+    assert "cursor_admin" in admin_with
 
 
 def test_local_ingest_is_near_real_time_and_admin_jobs_stay_rate_limited(tmp_path: Path) -> None:

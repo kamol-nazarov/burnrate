@@ -444,7 +444,12 @@ function Stop-BurnrateDashboard {
     if ($pidValue) {
         $fromFile = Get-BurnrateProcessById -ProcessId $pidValue
         if (Test-BurnrateOwnedProcess -Process $fromFile) {
-            $targets += $pidValue
+            $ownsPort = @(Get-BurnrateListeners | Where-Object { [int]$_.OwningProcess -eq $pidValue }).Count -gt 0
+            if ($ownsPort) {
+                $targets += $pidValue
+            } else {
+                Write-Host "PID file $pidValue looks like BURNRATE but is not listening on port $($script:BurnratePort); leaving it running."
+            }
         } elseif ($fromFile -and -not $fromFile.CommandLine) {
             Write-Host "Refusing to stop PID $pidValue because the command line is unreadable."
         } elseif ($fromFile) {

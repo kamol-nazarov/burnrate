@@ -31,7 +31,10 @@ INCOMPLETE_TELEMETRY_ISSUE = (
     "Token components are incomplete; cache rate is unavailable for this event."
 )
 _CREDENTIAL_RE = re.compile(
-    r"(?i)(bearer\s+)\S+|(basic\s+)\S+|(sk-[a-z0-9-]+)|(x-api-key\s*[:=]\s*)\S+"
+    r"(?i)(?P<prefix>bearer\s+|basic\s+|x-api-key\s*[:=]\s*|"
+    r"authorization\s*[:=]\s*(?:bearer\s+|basic\s+)?)\S+"
+    r"|(?P<token>sk-[a-z0-9-]+|zai_[a-z0-9_-]+|xai-[a-z0-9_-]+|or-v1-[a-z0-9]+|"
+    r"eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)"
 )
 
 
@@ -79,13 +82,12 @@ class CostRow:
 
 def public_error(exc: BaseException) -> str:
     """Strip credential-shaped tokens from adapter errors before persistence."""
-    text = _CREDENTIAL_RE.sub(
-        lambda match: (match.group(1) or match.group(2) or match.group(4) or "") + "[redacted]"
-        if match.group(1) or match.group(2) or match.group(4)
-        else "[redacted]",
-        str(exc),
-    )
-    return text[:1000]
+
+    def _replace(match: re.Match[str]) -> str:
+        prefix = match.group("prefix")
+        return f"{prefix}[redacted]" if prefix else "[redacted]"
+
+    return _CREDENTIAL_RE.sub(_replace, str(exc))[:1000]
 
 
 def event_is_exact(source: str, price: Price) -> bool:

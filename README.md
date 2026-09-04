@@ -77,7 +77,7 @@ Open [http://127.0.0.1:17331](http://127.0.0.1:17331).
 
 Optional: copy `.env.example` to `.env` and leave the keys blank. Never commit a populated `.env`.
 
-Installed runs store SQLite and logs under `%LOCALAPPDATA%\BURNRATE`. A git checkout or `BURNRATE_DEV=1` keeps data repo-relative for development.
+Installed runs store SQLite and logs under `%LOCALAPPDATA%\BURNRATE`. Set `BURNRATE_DEV=1` to keep data repo-relative for development. A git checkout alone does not change the data directory.
 
 Then run `burnrate doctor` if you want a redacted health report before leaving the dashboard running. See [Troubleshooting](docs/troubleshooting.md).
 
@@ -180,7 +180,7 @@ Access URL: `https://<magicdns-name>/` — replace the placeholder with your own
 burnrate doctor
 ```
 
-Doctor checks CPython 3.12, the localhost bind, database migrate, pricing YAML load, and whether each enabled provider path exists or is reported unavailable. It does not print credentials.
+Doctor checks CPython 3.12, required imports, timezone data, a read-only SQLite integrity check, packaged pricing YAML, packaged web assets, and that the default bind is loopback. It does not migrate, does not walk provider paths, does not inspect credentials, and does not print secrets. Run `burnrate init` first; doctor will not create `spend.db`.
 
 Common cases:
 

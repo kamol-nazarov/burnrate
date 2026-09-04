@@ -5,12 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Apache-2.0 is prepared as the default proposal; public GitHub publication waits
-for the copyright holder to confirm the license.
+This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
-## [0.1.0-beta.1] - Unreleased
+## [0.1.0-beta.1] - 2026-09-04
 
 Initial public beta of BURNRATE: a local-first Windows dashboard for AI
 coding-agent token usage, cache efficiency, subscription capacity, and
@@ -40,7 +39,7 @@ not require a BURNRATE account, and does not ship Grafana.
 - Windows helpers that start, stop, status, install, and uninstall the
   dashboard only. Uninstall does not delete the user database unless
   `-PurgeData` is passed.
-- Community files: `LICENSE` (Apache-2.0 proposal), `NOTICE`, `SECURITY.md`,
+- Community files: `LICENSE` (Apache-2.0), `NOTICE`, `SECURITY.md`,
   `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
 
 ### Security
@@ -59,5 +58,4 @@ not require a BURNRATE account, and does not ship Grafana.
   change without a major version bump.
 - Grafana, Prometheus, and the OpenTelemetry Collector are not part of
   BURNRATE and are not distributed with this beta.
-- Apache-2.0 is prepared as the default proposal; public GitHub publication
-  waits for the copyright holder to confirm the license.
+- Licensed under Apache-2.0.

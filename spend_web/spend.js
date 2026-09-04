@@ -798,7 +798,8 @@ function renderRanges(scrollActive) {
   });
   if (scrollActive) {
     const active = document.querySelector("#range-switch button.active, #detail-ranges button.active");
-    active?.scrollIntoView({inline:"center", block:"nearest", behavior:"smooth"});
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    active?.scrollIntoView({inline:"center", block:"nearest", behavior: reduceMotion ? "auto" : "smooth"});
   }
 }
 function changeRange(key) {

@@ -93,7 +93,9 @@ def _traycer_kwargs(settings: Settings, pricing: PricingEngine, **_: object) -> 
     return {
         **_base_kwargs(settings, pricing),
         "database_glob": default_traycer_glob(),
-        "grok_covered_from": grok_coverage_start(default_grok_log()),
+        "grok_covered_from": grok_coverage_start(
+            default_grok_log(), settings.database_path
+        ),
     }
 
 

@@ -291,6 +291,7 @@ def test_api_security_headers_include_csp(tmp_path: Path) -> None:
     assert response.headers["X-Frame-Options"] == "DENY"
     csp = response.headers["Content-Security-Policy"]
     assert "default-src 'self'" in csp
+    assert "style-src 'self' 'unsafe-inline'" in csp
     assert "fonts.googleapis.com" not in csp
     assert "fonts.gstatic.com" not in csp
 

@@ -95,6 +95,7 @@ Forecasts are labeled as forecasts. Method text names the basis (for example mon
 | `pricing/openai.yaml` | exact | Codex Desktop / OpenAI admin |
 | `pricing/anthropic.yaml` | exact | Claude Code / Anthropic admin |
 | `pricing/openai-auto-review.yaml` | derived, owner-asserted | Codex auto-review when no official page exists |
+| `pricing/openai-daybreak.yaml` | derived, owner-asserted | Codex CLI Daybreak preview id (Sol rates until OpenAI publishes a page) |
 | `pricing/cursor.yaml` | derived | Cursor included-capacity attribution |
 | `pricing/google.yaml` | derived | Antigravity Gemini API-equivalent; not an Antigravity bill |
 | `pricing/xai.yaml` | derived | SuperGrok / Grok Build at published xAI API rates |

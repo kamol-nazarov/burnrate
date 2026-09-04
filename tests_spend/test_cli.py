@@ -7,7 +7,7 @@ import pytest
 
 from spend_app import cli
 from spend_app.config import Settings
-from spend_app.db import connect
+from spend_app.db import connect, initialize
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -275,7 +275,9 @@ def test_cli_init_db_alias(monkeypatch, tmp_path: Path, capsys) -> None:
 
 
 def test_cli_doctor(monkeypatch, tmp_path: Path, capsys) -> None:
-    monkeypatch.setattr(cli, "load_settings", lambda: _settings(tmp_path))
+    settings = _settings(tmp_path)
+    initialize(settings.database_path)
+    monkeypatch.setattr(cli, "load_settings", lambda: settings)
     monkeypatch.setattr("sys.argv", ["burnrate", "doctor"])
     assert cli.main() == 0
     payload = json.loads(capsys.readouterr().out)
@@ -285,6 +287,19 @@ def test_cli_doctor(monkeypatch, tmp_path: Path, capsys) -> None:
         assert by_id[key]["status"] == "ok", by_id[key]
     assert "127.0.0.1" in by_id["bind"]["detail"]
     assert "17331" in by_id["bind"]["detail"]
+
+
+def test_cli_doctor_does_not_create_the_database(monkeypatch, tmp_path: Path, capsys) -> None:
+    settings = _settings(tmp_path)
+    monkeypatch.setattr(cli, "load_settings", lambda: settings)
+    monkeypatch.setattr("sys.argv", ["burnrate", "doctor"])
+    assert cli.main() == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    database = next(check for check in payload["checks"] if check["id"] == "database")
+    assert database["status"] == "fail"
+    assert "not initialized" in database["detail"]
+    assert not settings.database_path.exists()
 
 
 def test_cli_doctor_does_not_import_api() -> None:

@@ -1,5 +1,8 @@
 """Grok Build (xAI ``grok`` CLI) local usage adapter.
 
+**Experimental:** the unified JSONL schema is observed, not an official
+documented export. Turns with no ``model changed`` line are skipped.
+
 Per-turn token usage is read from ``~/.grok/logs/unified.jsonl``: every
 ``shell.turn.inference_done`` line carries ``prompt_tokens``,
 ``cached_prompt_tokens``, ``completion_tokens`` and ``reasoning_tokens`` for
@@ -21,11 +24,13 @@ SuperGrok subscription usage has no metered price; rows carry no
 from __future__ import annotations
 
 import json
+import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 from spend_app.adapters.common import UsageRow, persist_rows, stable_id
-from spend_app.adapters.local_common import number, optional_number, parse_iso_time
+from spend_app.adapters.local_common import number, optional_number, parse_iso_time, sqlite_read_only
 from spend_app.pricing import PricingEngine
 
 
@@ -72,7 +77,8 @@ def parse_log(path: Path, state: dict | None = None) -> tuple[list[UsageRow], di
     if size < int(state.get("offset") or 0):
         # Truncated or rotated: start over; stable ids make the reread safe.
         state = _fresh_state()
-    with path.open("rb") as handle:
+    fd = os.open(path, os.O_RDONLY)
+    with os.fdopen(fd, "rb") as handle:
         handle.seek(int(state["offset"]))
         chunk = handle.read()
     # Only consume whole lines; a partially written last line waits.
@@ -141,23 +147,42 @@ def parse_log(path: Path, state: dict | None = None) -> tuple[list[UsageRow], di
     return rows, state
 
 
-def coverage_start(path: Path) -> datetime | None:
-    """Timestamp of the first record in the CLI log, or None without a log.
+def coverage_start(path: Path, database_path: Path | None = None) -> datetime | None:
+    """Earliest Grok-local coverage instant.
 
-    Traycer launches the same ``grok`` CLI, which logs every call here, so the
-    log is the authority for Grok usage from this instant on; the Traycer
-    projection keeps only the history from before the log began.
+    The CLI truncates ``unified.jsonl``, so the first remaining line can move
+    forward. Traycer skip uses the minimum of that head timestamp and any
+    already-persisted ``grok_local`` ``occurred_at``, so rotation cannot
+    re-open history Traycer already lost to grok_local.
     """
+    file_start = None
     try:
-        with path.open("rb") as handle:
+        fd = os.open(path, os.O_RDONLY)
+        with os.fdopen(fd, "rb") as handle:
             first = handle.readline()
-    except OSError:
-        return None
-    try:
         record = json.loads(first.decode("utf-8", errors="replace"))
-    except ValueError:
-        return None
-    return parse_iso_time(record.get("ts")) if isinstance(record, dict) else None
+        if isinstance(record, dict):
+            file_start = parse_iso_time(record.get("ts"))
+    except (OSError, ValueError):
+        file_start = None
+    db_start = None
+    db_file = Path(database_path) if database_path is not None else None
+    if db_file is not None and db_file.is_file():
+        try:
+            connection = sqlite_read_only(db_file)
+            try:
+                row = connection.execute(
+                    "SELECT MIN(occurred_at) FROM usage_events WHERE source=?",
+                    (SOURCE,),
+                ).fetchone()
+            finally:
+                connection.close()
+            if row and row[0]:
+                db_start = parse_iso_time(row[0])
+        except (OSError, sqlite3.Error):
+            db_start = None
+    candidates = [stamp for stamp in (file_start, db_start) if stamp is not None]
+    return min(candidates) if candidates else None
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, log_path: Path) -> dict:

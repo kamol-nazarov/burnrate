@@ -3,7 +3,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from spend_app.adapters.common import UsageRow, persist_rows
+from spend_app.adapters.common import UsageRow, persist_rows, public_error
 from spend_app.adapters.cursor_local import parse_database as parse_cursor
 from spend_app.adapters.local_common import (
     classify_traycer_usage,
@@ -22,6 +22,20 @@ from spend_app.reference_rates import compute as compute_reference_cost
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests_spend" / "fixtures"
+
+
+def test_public_error_redacts_unprefixed_tokens() -> None:
+    zai = public_error(Exception("Authorization: zai_live_unprefixed_secret_token_value"))
+    assert "zai_live_unprefixed_secret_token_value" not in zai
+    assert "[redacted]" in zai
+    assert "xai-secret-token" not in public_error(Exception("upstream xai-secret-token failed"))
+    assert "or-v1-abcdef" not in public_error(Exception("OpenRouter or-v1-abcdef rejected"))
+    jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature"
+    assert jwt not in public_error(Exception(f"token {jwt}"))
+    assert "sk-live-secret" not in public_error(Exception("sk-live-secret"))
+    bearer = public_error(Exception("Authorization: Bearer super-secret-value"))
+    assert "super-secret-value" not in bearer
+    assert "Authorization:" in bearer or "authorization:" in bearer.lower()
 
 
 def test_sqlite_read_only_sets_query_only_and_rejects_writes(tmp_path: Path) -> None:

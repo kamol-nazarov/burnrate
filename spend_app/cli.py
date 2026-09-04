@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, date, datetime, timedelta
 from importlib.resources import files
 from pathlib import Path
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from spend_app import __version__
@@ -136,12 +137,15 @@ def _check_tzdata(timezone: str) -> dict[str, str]:
 
 
 def _check_database(database_path: Path) -> dict[str, str]:
+    if not database_path.is_file():
+        return {
+            "id": "database",
+            "status": "fail",
+            "detail": "not initialized; run burnrate init",
+        }
     try:
-        database_path.parent.mkdir(parents=True, exist_ok=True)
-        probe = database_path.parent / ".burnrate-write-check"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink()
-        connection = sqlite3.connect(database_path)
+        uri_path = quote(database_path.resolve().as_posix(), safe="/:.")
+        connection = sqlite3.connect(f"file:{uri_path}?mode=ro", uri=True)
         try:
             integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         finally:
@@ -233,7 +237,7 @@ def main() -> int:
     subparsers.add_parser("init", aliases=["init-db"], help="Create the local database")
     subparsers.add_parser(
         "doctor",
-        help="Check Python, timezone data, database, pricing, and localhost bind",
+        help="Check Python, timezone data, existing database, pricing, web assets, and localhost bind",
     )
     serve = subparsers.add_parser("serve", help="Run the dashboard on 127.0.0.1")
     serve.add_argument("--host", default=DEFAULT_SERVE_HOST)

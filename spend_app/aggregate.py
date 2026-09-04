@@ -2355,7 +2355,8 @@ def aggregate_entity(
             _total, by_tool = _subscription_cost(
                 connection, window.start, window.end, timezone, cap_date=cap_date
             )
-            subscriptions = by_tool.get(key, Decimal(0))
+            subscription_tool = "opencode" if key == "zcode" else key
+            subscriptions = by_tool.get(subscription_tool, Decimal(0))
         parts = _tracked_from_loaded(
             events=events,
             unpriced=unpriced_events,

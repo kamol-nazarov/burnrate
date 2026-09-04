@@ -456,8 +456,16 @@ def _cursor_limits_uncached() -> dict:
         return {"key": "cursor", "name": "Cursor", "status": "error", "windows": [], "detail": f"Experimental Cursor DashboardService lookup failed ({type(exc).__name__}).", **_throttle_fields(exc)}
     pool = usage.get("planUsage") or {}
     limit_cents = int(pool.get("limit") or plan.get("includedAmountCents") or 0)
-    used_cents = int(pool.get("totalSpend") or 0)
-    remaining_cents = int(pool.get("remaining") or max(0, limit_cents - used_cents))
+    has_spend = pool.get("totalSpend") is not None
+    used_cents = int(pool["totalSpend"]) if has_spend else None
+    remaining_cents = None
+    if pool.get("remaining") is not None:
+        remaining_cents = int(pool["remaining"])
+    elif has_spend and limit_cents:
+        remaining_cents = max(0, limit_cents - used_cents)
+    included_pct = None
+    if has_spend and limit_cents:
+        included_pct = used_cents / limit_cents * 100
     return {
         "key": "cursor",
         "name": "Cursor",
@@ -468,10 +476,10 @@ def _cursor_limits_uncached() -> dict:
             {
                 "key": "included",
                 "label": "Included value",
-                "usedPct": used_cents / limit_cents * 100 if limit_cents else None,
-                "usedUsd": used_cents / 100,
+                "usedPct": included_pct,
+                "usedUsd": None if used_cents is None else used_cents / 100,
                 "limitUsd": limit_cents / 100 if limit_cents else None,
-                "remainingUsd": remaining_cents / 100 if limit_cents else None,
+                "remainingUsd": None if remaining_cents is None else remaining_cents / 100,
                 "resetAt": _iso_from_millis(usage.get("billingCycleEnd") or plan.get("billingCycleEnd")),
             },
             {"key": "cursor_models", "label": "Cursor Models", "usedPct": pool.get("autoPercentUsed")},
@@ -1257,16 +1265,27 @@ def _grok_session_dir(session_id: str, sessions_dir: Path = GROK_SESSIONS_DIR) -
     if key in _GROK_SESSION_DIRS:
         return _GROK_SESSION_DIRS[key]
     found: Path | None = None
+    root = sessions_dir.resolve()
+    if not session_id or session_id in {".", ".."} or "/" in session_id or "\\" in session_id or ":" in session_id:
+        _GROK_SESSION_DIRS[key] = None
+        return None
     try:
         for project_dir in sessions_dir.iterdir():
-            candidate = project_dir / session_id
-            if candidate.is_dir():
-                found = candidate
-                break
-            for parent in project_dir.iterdir() if project_dir.is_dir() else ():
-                nested = parent / "subagents" / session_id
-                if nested.is_dir():
-                    found = nested
+            if not project_dir.is_dir():
+                continue
+            candidates = [project_dir / session_id]
+            try:
+                candidates.extend(parent / "subagents" / session_id for parent in project_dir.iterdir())
+            except OSError:
+                pass
+            for candidate in candidates:
+                try:
+                    resolved = candidate.resolve()
+                    resolved.relative_to(root)
+                except (OSError, ValueError):
+                    continue
+                if resolved.is_dir():
+                    found = resolved
                     break
             if found:
                 break
@@ -1321,13 +1340,15 @@ def _grok_active_sessions(
                 summary = json.loads((session_dir / "summary.json").read_text(encoding="utf-8"))
                 title = summary.get("session_summary") or None
                 model = summary.get("current_model_id") or None
+                if not isinstance(model, str) or not model.strip():
+                    model = None
             except (OSError, ValueError):
                 pass
         sessions.append(
             {
                 "sessionId": session_id,
                 "title": str(title or f"Grok Build · {Path(cwd).name or 'session'}"),
-                "model": f"supergrok:{str(model or 'grok-4.6').lower()}",
+                "model": f"supergrok:{model.strip().lower()}" if model else None,
                 "startedAt": str(opened_at),
             }
         )
