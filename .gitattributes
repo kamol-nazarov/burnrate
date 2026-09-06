@@ -1,0 +1,3 @@
+spend_web/*.js text eol=lf
+spend_web/*.css text eol=lf
+spend_web/*.html text eol=lf

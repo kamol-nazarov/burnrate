@@ -102,4 +102,6 @@ def test_asset_size_gates() -> None:
     helper = (WEB / "request-state.js").read_bytes()
     assert len(helper) < 10_000
     assert len(gzip.compress(js_bytes, 6)) + len(gzip.compress(helper, 6)) < 30_000
+    # Include every production module, not just today's two script names.
+    assert sum(len(gzip.compress(path.read_bytes(), 6)) for path in WEB.glob("*.js")) < 30_000
     assert len(gzip.compress(css_bytes, 6)) < 12_000

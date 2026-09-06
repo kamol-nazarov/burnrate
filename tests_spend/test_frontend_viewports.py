@@ -17,7 +17,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "spend_web"
 FIXTURES = ROOT / "tests_spend" / "fixtures"
-CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+from tests_spend.browser_runtime import CHROME
 VIEWPORTS = (390, 768, 1024, 1440, 1920)
 
 
