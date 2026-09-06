@@ -21,6 +21,7 @@
   exact Decimal text alongside the legacy REAL compatibility field.
 - Latest source failures remain visible even when an earlier attempt succeeded.
 - Migration backup connections explicitly close, including on Windows.
+- Form arrow keys remain available while a background chart is pinned.
 
 ## Changed
 

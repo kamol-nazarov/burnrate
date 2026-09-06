@@ -10,8 +10,13 @@
   const submit = () => el("plan-form").requestSubmit();
   const saved = () => until(()=>el("plan-message").textContent.startsWith("Saved durably"));
   await until(()=>!document.body.classList.contains("loading"));
+  document.querySelector("#chart-hit-targets button")?.click();
   el("manage-plans").click();
   await until(()=>el("plan-message").textContent.includes("History loaded"));
+  el("plan-name").focus();
+  const arrow = new KeyboardEvent("keydown", {key:"ArrowLeft", bubbles:true, cancelable:true});
+  el("plan-name").dispatchEvent(arrow);
+  assert(!arrow.defaultPrevented, "pinned chart consumed a form arrow key");
   const phase=localStorage.getItem("product-test-phase");
   if (!phase) {
     set("plan-name","<img src=x> Example"); set("plan-amount","-1");set("plan-start","2026-09-01");

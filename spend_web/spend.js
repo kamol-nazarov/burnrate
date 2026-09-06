@@ -1974,6 +1974,7 @@ document.addEventListener("pointerdown", event => {
   clearPins();
 });
 window.addEventListener("keydown", event => {
+  if (event.target?.closest?.("input, textarea, select, dialog, [contenteditable='true']")) return;
   if (event.key === "Escape") clearPins();
   const series = state.view === "detail" ? state.entityData?.series : state.summary?.series;
   const pinnedKey = state.view === "detail" ? "dPinned" : "pinned";
