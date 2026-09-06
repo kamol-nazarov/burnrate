@@ -15,7 +15,7 @@ from spend_app.subscriptions import (
 )
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 EXACT_USAGE_SOURCES = ("codex_local", "openai_admin", "claude_local", "anthropic_admin")
 
@@ -510,6 +510,11 @@ def prune_ingest_runs(
 
 
 def initialize(path: Path) -> None:
+    from spend_app.subscription_schema import upgrade_database
+    upgrade_database(path, _initialize_base)
+
+
+def _initialize_base(path: Path) -> None:
     with connect(path) as connection:
         if schema_is_current(connection):
             # Cheap row-level migrations stay on every call: they only touch

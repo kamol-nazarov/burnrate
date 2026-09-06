@@ -298,7 +298,7 @@ def test_initialize_on_a_current_database_writes_nothing(tmp_path: Path) -> None
         observer.close()
     assert before == after
     with connect(database) as connection:
-        assert connection.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone()[0] == "9"
+        assert connection.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone()[0] == "10"
 
 
 def test_identical_reingest_does_not_rewrite_the_row(tmp_path: Path) -> None:

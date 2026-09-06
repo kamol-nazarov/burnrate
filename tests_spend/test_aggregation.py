@@ -720,11 +720,11 @@ def test_api_equivalent_fields_exclude_subscription_proration(tmp_path: Path) ->
         == without_plan["totals"]["effectiveCostPerMillionTokens"]
     )
     assert with_plan["totals"]["effectiveCostPerMillionTokens"] is not None
-    assert with_plan["totals"]["trackedValue"] == (
+    assert abs(with_plan["totals"]["trackedValue"] - (
         with_plan["totals"]["priced"]
         + with_plan["totals"]["publishedRate"]
         + with_plan["totals"]["subscriptionUsd"]
-    )
+    )) < 1e-12  # JSON floats may differ by one ULP from exact Decimal summation.
     assert with_plan["totals"]["trackedValue"] != (
         with_plan["totals"]["priced"] + with_plan["totals"]["publishedRate"]
     )

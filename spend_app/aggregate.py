@@ -14,6 +14,7 @@ from spend_app.db import EXACT_USAGE_SOURCES, connect
 from spend_app.pricing import PricingEngine, UnpricedModelError
 from spend_app.quotas import REQUIRED_LIMITS, split_quota_label
 from spend_app.subscriptions import daily_cost
+from spend_app.plan_service import effective_terms
 
 
 CENTS = Decimal("0.01")
@@ -209,7 +210,8 @@ def _range_fingerprint(connection, start: datetime, end: datetime, tool: str) ->
     subscriptions = tuple(
         tuple(row) for row in connection.execute("SELECT * FROM subscriptions ORDER BY id")
     )
-    return usage, unpriced, buckets, subscriptions
+    plans = tuple(tuple(row) for row in connection.execute("SELECT * FROM subscription_plans ORDER BY id"))
+    return usage, unpriced, buckets, subscriptions, plans
 EXACT_TOOLS = {"codex", "claude-code"}
 WINDOW_ALIASES = {
     "7d": "1w",
@@ -605,14 +607,14 @@ def _subscription_cost(
         end_date = min(end_date, cap_date)
     if end_date < start_date:
         return Decimal(0), {}
-    rows = connection.execute("SELECT * FROM subscriptions").fetchall()
+    rows = effective_terms(connection)
     by_tool: dict[str, Decimal] = defaultdict(Decimal)
     current = start_date
     while current <= end_date:
         day_start = datetime.combine(current, time.min, zone).astimezone(UTC)
         day_end = (datetime.combine(current, time.min, zone) + timedelta(days=1)).astimezone(UTC)
         overlap = max(0.0, (min(end, day_end) - max(start, day_start)).total_seconds())
-        fraction_of_day = Decimal(str(overlap / 86400)) if overlap else Decimal(0)
+        fraction_of_day = Decimal(str(overlap)) / Decimal(str((day_end - day_start).total_seconds())) if overlap else Decimal(0)
         if fraction_of_day:
             for row in rows:
                 if Decimal(str(row["amount_usd"])) <= 0:
@@ -638,7 +640,7 @@ def _monthly_equivalent(amount: Decimal, cadence: str) -> Decimal:
 
 def _monthly_subscription_cost(connection, tool: str, on_date: date) -> Decimal:
     total = Decimal(0)
-    for row in connection.execute("SELECT * FROM subscriptions"):
+    for row in effective_terms(connection):
         subscription_tool = "opencode" if tool == "zcode" else tool
         if tool != "all" and row["tool_key"] != subscription_tool:
             continue
@@ -2104,7 +2106,9 @@ def aggregate_summary(
         )
         monthly_plans: dict[str, tuple[str, Decimal]] = {}
         subscription_rows = []
-        for row in connection.execute("SELECT * FROM subscriptions"):
+        for row in effective_terms(connection):
+            if row["start_date"] > local_now.date().isoformat() or (row["end_date"] and row["end_date"] < local_now.date().isoformat()):
+                continue
             amount = Decimal(str(row["amount_usd"]))
             monthly = _monthly_equivalent(amount, row["cadence"])
             note = None
@@ -2130,7 +2134,9 @@ def aggregate_summary(
             active_end = date.fromisoformat(row["end_date"]) if row["end_date"] else None
             if local_now.date() < active_start or (active_end and local_now.date() > active_end):
                 continue
-            monthly_plans[row["tool_key"]] = (row["name"], monthly)
+            old_name, old_monthly = monthly_plans.get(row["tool_key"], (row["name"], Decimal(0)))
+            plan_name = TOOL_NAMES.get(row["tool_key"], row["tool_key"]) + " configured plans" if old_monthly else old_name
+            monthly_plans[row["tool_key"]] = (plan_name, old_monthly + monthly)
 
         quota_rows = quotas if quotas is not None else _load_quota_rows(connection)
         activity_rows = activity if activity is not None else _load_activity_rows(connection)
@@ -2244,7 +2250,9 @@ def aggregate_summary(
             capacity=capacity,
             window_days=window_days,
         )
-        plan_cost = _monthly_subscription_cost(connection, tool, local_now.date())
+        next_month = (local_now.replace(day=28) + timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        all_plan_cost, plan_costs = _subscription_cost(connection, month_start, next_month.astimezone(UTC), timezone)
+        plan_cost = all_plan_cost if tool == "all" else plan_costs.get("opencode" if tool == "zcode" else tool, Decimal(0))
         usage_month = month_parts.priced + month_parts.published
         projected_value = usage_month if month_parts.complete else None
         projected = {

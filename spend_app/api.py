@@ -49,7 +49,7 @@ def asset_version(path: Path) -> str:
 
 def render_index(web_root: Path) -> str:
     html = (web_root / "index.html").read_text(encoding="utf-8")
-    for name, marker in (("spend.css", "42"), ("spend.js", "42"), ("request-state.js", "1"), ("favicon.svg", "1")):
+    for name, marker in (("spend.css", "42"), ("spend.js", "42"), ("request-state.js", "1"), ("product.js", "1"), ("favicon.svg", "1")):
         html = html.replace(f"/{name}?v={marker}", f"/{name}?v={asset_version(web_root / name)}")
     return html
 
@@ -131,6 +131,8 @@ def create_app(
             resource_stack.close()
 
     app = FastAPI(title="BURNRATE", version=__version__, lifespan=lifespan)
+    from spend_app.product_api import product_router
+    app.include_router(product_router(settings))
     app.state._resource_stack = resource_stack
     # Compress HTML, CSS, JS and JSON for clients that accept it (143 KB of
     # static assets otherwise travel uncompressed over the tailnet).
@@ -265,6 +267,12 @@ def create_app(
             media_type="application/javascript",
             headers={"Cache-Control": _asset_cache_header(request, path)},
         )
+
+    @app.get("/product.js")
+    def product_js(request: Request):
+        path = web_root / "product.js"
+        return FileResponse(path, media_type="application/javascript",
+                            headers={"Cache-Control": _asset_cache_header(request, path)})
 
     @app.get("/favicon.svg")
     def favicon(request: Request):

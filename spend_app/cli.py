@@ -53,7 +53,7 @@ _RUNTIME_IMPORTS = (
     "tzdata",
     "starlette",
 )
-_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "favicon.svg")
+_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "favicon.svg")
 
 
 def _parse_utc(value: str | None, default: datetime) -> datetime:
@@ -272,6 +272,8 @@ def main() -> int:
     add.add_argument("--start-date", required=True)
     add.add_argument("--end-date")
     subscription_commands.add_parser("list")
+    apply = subscription_commands.add_parser("apply", help="Apply a validated effective-dated change; historical corrections require preview and confirmation")
+    apply.add_argument("--json", required=True)
     args = parser.parse_args()
 
     if args.command == "serve":
@@ -369,6 +371,18 @@ def main() -> int:
     if args.command == "subscription":
         initialize(settings.database_path)
         with connect(settings.database_path) as connection:
+            if args.subscription_command == "apply":
+                from spend_app.plan_service import apply_mutation, PlanError
+                try:
+                    connection.execute("BEGIN IMMEDIATE")
+                    payload = apply_mutation(connection, json.loads(args.json), datetime.now(UTC).astimezone(ZoneInfo(settings.timezone)).date())
+                    connection.commit()
+                    print(json.dumps(payload))
+                    return 0
+                except (PlanError, ValueError, TypeError):
+                    connection.rollback()
+                    print(json.dumps({"error": "Invalid or stale plan change; use preview for historical correction"}))
+                    return 2
             if args.subscription_command == "add":
                 subscription_id = add_subscription(
                     connection,
@@ -386,7 +400,8 @@ def main() -> int:
                 )
                 print(json.dumps({"id": subscription_id, "status": "created"}))
                 return 0
-            rows = [dict(row) for row in connection.execute("SELECT * FROM subscriptions ORDER BY id")]
+            from spend_app.plan_service import effective_terms
+            rows = effective_terms(connection)
             print(json.dumps(rows, indent=2))
             return 0
     return 1

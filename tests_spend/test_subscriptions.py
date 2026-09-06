@@ -135,6 +135,7 @@ def test_recognized_legacy_zai_seed_is_migrated_and_materializes_quarterly(
             "'2026-08-01', NULL)"
         )
         legacy_id = int(cursor.lastrowid)
+        connection.execute("UPDATE app_meta SET value='8' WHERE key='schema_version'")
         connection.execute(
             "INSERT INTO subscription_daily_costs(subscription_id,tool_key,date,cost_usd,raw_id) "
             "VALUES(?,?,?,?,?)",

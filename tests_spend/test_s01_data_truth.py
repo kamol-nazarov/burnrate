@@ -292,7 +292,7 @@ def test_s01_05_price_arrival_promotes_on_v7_migrated_db(tmp_path: Path) -> None
         version = connection.execute(
             "SELECT value FROM app_meta WHERE key='schema_version'"
         ).fetchone()[0]
-    assert version == "9"
+    assert version == "10"
     persist_rows(
         database_path=database,
         pricing=PricingEngine.load(ROOT / "pricing"),

@@ -181,7 +181,16 @@ def seed_subscriptions(connection, *, today: str | None = None) -> int:
 
 def materialize_subscription_days(connection, *, start: date, end: date) -> int:
     written = 0
-    subscriptions = connection.execute("SELECT * FROM subscriptions").fetchall()
+    connection.execute(
+        "DELETE FROM subscription_daily_costs WHERE date>=? AND date<=? AND NOT EXISTS "
+        "(SELECT 1 FROM subscriptions s LEFT JOIN subscription_plans p ON p.id=s.plan_id WHERE s.id=subscription_daily_costs.subscription_id "
+        "AND s.start_date<=subscription_daily_costs.date AND "
+        "(s.end_date IS NULL OR s.end_date>=subscription_daily_costs.date) AND "
+        "(p.end_date IS NULL OR p.end_date>=subscription_daily_costs.date))",
+        (start.isoformat(), end.isoformat()),
+    )
+    from spend_app.plan_service import effective_terms
+    subscriptions = effective_terms(connection)
     day = start
     while day <= end:
         for subscription in subscriptions:
@@ -225,11 +234,9 @@ def add_subscription(
     start_date: str,
     end_date: str | None,
 ) -> int:
-    cursor = connection.execute(
-        "INSERT INTO subscriptions(tool_key,name,amount_usd,cadence,start_date,end_date) VALUES(?,?,?,?,?,?)",
-        (tool_key, name, amount_usd, _require_cadence(cadence), start_date, end_date),
-    )
-    return int(cursor.lastrowid)
+    from spend_app.plan_service import create_plan
+    return create_plan(connection, dict(tool_key=tool_key, name=name, amount_usd=amount_usd,
+                                      cadence=cadence, start_date=start_date, end_date=end_date))
 
 
 def update_subscription(connection, subscription_id: int, **fields) -> bool:

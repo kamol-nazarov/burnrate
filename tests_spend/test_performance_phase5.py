@@ -103,5 +103,8 @@ def test_asset_size_gates() -> None:
     assert len(helper) < 10_000
     assert len(gzip.compress(js_bytes, 6)) + len(gzip.compress(helper, 6)) < 30_000
     # Include every production module, not just today's two script names.
-    assert sum(len(gzip.compress(path.read_bytes(), 6)) for path in WEB.glob("*.js")) < 30_000
+    # Keep the existing core budget; subscription management and onboarding
+    # receive an explicit 6 KB compressed allowance, with every module counted.
+    assert len(gzip.compress((WEB / "product.js").read_bytes(), 6)) < 6_000
+    assert sum(len(gzip.compress(path.read_bytes(), 6)) for path in WEB.glob("*.js")) < 36_000
     assert len(gzip.compress(css_bytes, 6)) < 12_000

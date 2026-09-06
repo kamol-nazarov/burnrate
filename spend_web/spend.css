@@ -711,6 +711,19 @@ body.loading .chart-shell, body.loading .chart-axis{visibility:hidden}
 .data-unavailable > [inert]{visibility:hidden}
 .data-unavailable .page-heading > div:first-child{visibility:hidden}
 .range-status{padding:16px;border:1px solid var(--border);border-radius:8px}
+.product-actions{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}
+.product-actions button,dialog button,dialog input,dialog select{min-height:44px}
+dialog{background:var(--panel,#101419);color:var(--text,#e8edf3);border:1px solid var(--border);border-radius:12px;width:min(700px,calc(100% - 24px));max-height:85vh;padding:20px;overflow:auto}
+dialog::backdrop{background:#0009}
+dialog header{display:flex;justify-content:space-between;gap:12px}
+dialog form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+dialog label{display:flex;flex-direction:column;gap:6px}
+dialog input,dialog select{min-width:0;width:100%;background:#161c24;color:inherit;border:1px solid var(--border);padding:8px}
+dialog [hidden]{display:none!important}
+dialog pre,dialog #plan-confirm-label,dialog #save-plan{grid-column:1/-1;white-space:pre-wrap}
+dialog input[type=checkbox]{width:24px;min-height:24px}
+#plan-history section{padding:10px 0;border-bottom:1px solid var(--border)}
+@media(max-width:600px){dialog form{grid-template-columns:1fr}}
 body.loading .kpi-value span:not(.marker):not(.burnrate-skeleton),
 body.loading .big-number,
 body.loading .waste-headline strong{

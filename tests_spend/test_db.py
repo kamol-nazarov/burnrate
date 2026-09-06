@@ -78,7 +78,7 @@ def test_initialize_is_idempotent(tmp_path: Path) -> None:
             "SELECT value FROM app_meta WHERE key='schema_version'"
         ).fetchone()[0]
         count = connection.execute("SELECT COUNT(*) FROM usage_events").fetchone()[0]
-    assert version == "9"
+    assert version == "10"
     assert count == 1
 
 
@@ -241,7 +241,7 @@ def test_v7_database_migrates_with_is_exact_backfill_and_quarterly(tmp_path: Pat
         ).fetchone()[0]
     assert preserved == 31
     assert daily_rows == 1
-    assert version == "9"
+    assert version == "10"
     initialize(database)
     with connect(database) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
@@ -527,7 +527,7 @@ def test_v8_database_preserves_wal_quota_activity_and_seeds(tmp_path: Path) -> N
         ).fetchone()
         seed_count = connection.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[0]
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    assert version == "9"
+    assert version == "10"
     assert usage == 1
     assert quota == 26.0
     assert run_state == "live"
@@ -574,7 +574,7 @@ def test_backup_database_round_trips_schema_and_row(tmp_path: Path) -> None:
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         subscriptions = connection.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[0]
     assert dest.is_file()
-    assert version == "9"
+    assert version == "10"
     assert tuple(row) == (sample_event().raw_id, 1000, 1)
     assert {"usage_events", "subscriptions", "app_meta"}.issubset(tables)
     assert integrity == "ok"

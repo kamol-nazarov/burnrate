@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="/spend.css?v=42" />
     <script src="/request-state.js?v=1" defer></script>
     <script src="/spend.js?v=42" defer></script>
+    <script src="/product.js?v=1" defer></script>
   </head>
   <body class="loading">
     <a class="skip-link" href="#main">Skip to dashboard</a>
@@ -69,6 +70,9 @@
     </div>
 
     <main id="main">
+      <nav class="product-actions" aria-label="Dashboard settings">
+        <button id="manage-plans" type="button">Manage subscriptions</button>
+      </nav>
       <section id="overview-view">
         <h1 class="overview-h1" id="overview-heading">Spend overview</h1>
         <div class="split-row">
@@ -423,5 +427,28 @@
         <span class="mono" id="range-label">—</span>
       </footer>
     </main>
+    <dialog id="plan-manager" aria-labelledby="plan-manager-title">
+      <header><h2 id="plan-manager-title">Configured subscriptions</h2><button id="close-plans" type="button">Close</button></header>
+      <p>Calendar-based cost attribution, not verified payments. Ending a plan here does not cancel it with the provider.</p>
+      <p id="plan-timezone"></p>
+      <div id="plan-history"></div>
+      <button id="reload-plans" type="button">Reload history (keep input)</button>
+      <button id="new-plan" type="button">Add another plan</button>
+      <form id="plan-form">
+        <label>Action<select id="plan-action"><option value="add">Add a plan</option><option value="schedule">Schedule a new price</option><option value="end">Record last active date</option><option value="correct">Correct historical entry</option></select></label>
+        <label id="plan-choice-label">Plan<select id="plan-choice"></select></label>
+        <label id="term-choice-label">Historical term<select id="term-choice"></select></label>
+        <label id="plan-name-label">Name<input id="plan-name" maxlength="80" autocomplete="off"></label>
+        <label id="plan-tool-label">Tool / shared plan<select id="plan-tool"></select></label>
+        <label id="plan-amount-label">USD per billing period<input id="plan-amount" type="number" min="0" max="1000000" step="0.01"></label>
+        <label id="plan-cadence-label">Billing period<select id="plan-cadence"><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label>
+        <label id="plan-start-label">Effective start date<input id="plan-start" type="date"></label>
+        <label id="plan-end-label">Last active date (inclusive; blank means ongoing)<input id="plan-end" type="date"></label>
+        <pre id="plan-preview" hidden></pre>
+        <label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label>
+        <button id="save-plan" type="submit">Save plan</button>
+      </form>
+      <p id="plan-message" role="status" aria-live="polite"></p>
+    </dialog>
   </body>
 </html>
