@@ -204,11 +204,12 @@ def materialize_subscription_days(connection, *, start: date, end: date) -> int:
             ).fetchone() is not None
             connection.execute(
                 """
-                INSERT INTO subscription_daily_costs(subscription_id,tool_key,date,cost_usd,raw_id)
-                VALUES(?,?,?,?,?)
+                INSERT INTO subscription_daily_costs(subscription_id,tool_key,date,cost_usd,raw_id,cost_decimal)
+                VALUES(?,?,?,?,?,?)
                 ON CONFLICT(raw_id) DO UPDATE SET
                     tool_key=excluded.tool_key,
-                    cost_usd=excluded.cost_usd
+                    cost_usd=excluded.cost_usd,
+                    cost_decimal=excluded.cost_decimal
                 """,
                 (
                     subscription["id"],
@@ -216,6 +217,7 @@ def materialize_subscription_days(connection, *, start: date, end: date) -> int:
                     day.isoformat(),
                     float(daily_cost(subscription["amount_usd"], subscription["cadence"], day)),
                     raw_id,
+                    str(daily_cost(subscription["amount_usd"], subscription["cadence"], day)),
                 ),
             )
             if not existed:

@@ -713,6 +713,10 @@ body.loading .chart-shell, body.loading .chart-axis{visibility:hidden}
 .range-status{padding:16px;border:1px solid var(--border);border-radius:8px}
 .product-actions{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap}
 .product-actions button,dialog button,dialog input,dialog select{min-height:44px}
+#setup-guidance{padding:20px;margin-bottom:16px}
+#setup-guidance button{min-height:44px;margin:6px}
+#source-guidance{display:grid;gap:12px}
+#source-guidance .panel{padding:16px}
 dialog{background:var(--panel,#101419);color:var(--text,#e8edf3);border:1px solid var(--border);border-radius:12px;width:min(700px,calc(100% - 24px));max-height:85vh;padding:20px;overflow:auto}
 dialog::backdrop{background:#0009}
 dialog header{display:flex;justify-content:space-between;gap:12px}

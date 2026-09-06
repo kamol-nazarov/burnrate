@@ -104,6 +104,12 @@ jobs:
           }
           exit 0
 
+      - name: Lint new product modules and release helpers
+        run: |
+          python -m ruff check spend_app/plan_service.py spend_app/product_api.py spend_app/subscription_schema.py spend_app/diagnostics.py tests_spend/test_plan_management.py tests_spend/test_onboarding.py tests_spend/test_product_browser_plans.py tests_spend/test_product_browser_setup.py scripts/validate-browser.py scripts/smoke-install.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check spend_app/plan_service.py spend_app/product_api.py spend_app/subscription_schema.py spend_app/diagnostics.py tests_spend/test_plan_management.py tests_spend/test_onboarding.py tests_spend/test_product_browser_plans.py tests_spend/test_product_browser_setup.py scripts/validate-browser.py scripts/smoke-install.py
+
   pip-audit:
     name: pip-audit
     runs-on: windows-latest

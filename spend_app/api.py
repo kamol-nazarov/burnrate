@@ -92,6 +92,18 @@ def create_app(
     initialize(settings.database_path)
     pricing = PricingEngine.load(settings.pricing_path)
     scheduler = create_scheduler(settings, pricing) if enable_scheduler else None
+    from spend_app.diagnostics import detect_local_sources, source_reports
+    from spend_app.db import connect
+    presence = None
+
+    def source_guidance():
+        nonlocal presence
+        if presence is None:
+            # Metadata-only, known locations, once per runtime. Explicitly
+            # scheduler-disabled test/smoke apps never inspect personal stores.
+            presence = detect_local_sources(Path.home()) if enable_scheduler else {}
+        with connect(settings.database_path) as connection:
+            return source_reports(connection, current_now(), presence)
     resource_stack = ExitStack()
     web_root = Path(resource_stack.enter_context(as_file(files("spend_web"))))
 
@@ -206,11 +218,20 @@ def create_app(
 
     @app.get("/api/spend/health")
     def spend_health() -> dict:
-        return aggregate_health_cached(
+        payload = aggregate_health_cached(
             database_path=settings.database_path,
             timezone=settings.timezone,
             now=slot_now(),
         )
+        return {**payload, "sources": source_guidance()}
+
+    @app.get("/api/onboarding")
+    def onboarding():
+        with connect(settings.database_path) as connection:
+            history = connection.execute("SELECT EXISTS(SELECT 1 FROM usage_events) OR EXISTS(SELECT 1 FROM unpriced_usage_events)").fetchone()[0]
+        return {"timezone": settings.timezone, "timezoneSetting": "SPEND_TIMEZONE in your BURNRATE environment configuration",
+                "hasHistory": bool(history), "sources": source_guidance(),
+                "detail": "BURNRATE stores usage locally. Provider network integrations are optional and remain under your existing configuration."}
 
     @app.get("/api/spend/limits")
     def spend_limits() -> dict:

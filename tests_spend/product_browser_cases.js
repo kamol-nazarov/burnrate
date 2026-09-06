@@ -14,7 +14,9 @@
   await until(()=>el("plan-message").textContent.includes("History loaded"));
   const phase=localStorage.getItem("product-test-phase");
   if (!phase) {
-    set("plan-name","<img src=x> Example"); set("plan-amount","100");set("plan-start","2026-09-01");
+    set("plan-name","<img src=x> Example"); set("plan-amount","-1");set("plan-start","2026-09-01");
+    assert(!el("plan-amount").checkValidity(),"negative amount accepted by browser form");
+    set("plan-amount","100");
     submit(); submit();
     await until(()=>el("plan-message").textContent.includes("Your input is preserved"));
     assert(el("plan-name").value==="<img src=x> Example","failed write erased input");

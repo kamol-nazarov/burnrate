@@ -72,7 +72,17 @@
     <main id="main">
       <nav class="product-actions" aria-label="Dashboard settings">
         <button id="manage-plans" type="button">Manage subscriptions</button>
+        <button id="setup-help" type="button">Setup help</button>
       </nav>
+      <section id="setup-guidance" class="panel" aria-labelledby="setup-title" hidden>
+        <h2 id="setup-title">Start with local usage</h2>
+        <p>BURNRATE is local-first. Supported local usage can appear without credentials; network integrations and configured subscriptions are optional.</p>
+        <p id="setup-timezone"></p>
+        <p>Complete a supported turn, then check Diagnostics for the source's status and next action. Adding a configured plan is optional.</p>
+        <button id="setup-plans" type="button">Manage subscriptions</button>
+        <button id="setup-done" type="button">Done</button>
+        <button id="setup-dismiss" type="button">Remind me later</button>
+      </section>
       <section id="overview-view">
         <h1 class="overview-h1" id="overview-heading">Spend overview</h1>
         <div class="split-row">
@@ -400,6 +410,7 @@
           </div>
         </div>
         <div class="diagnostic-grid" id="diagnostic-grid"></div>
+        <div id="source-guidance" aria-label="Source status and next actions"></div>
         <article class="panel">
           <p class="eyebrow">Quotas</p>
           <h2>Quota pollers</h2>

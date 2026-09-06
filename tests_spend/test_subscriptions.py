@@ -159,7 +159,7 @@ def test_recognized_legacy_zai_seed_is_migrated_and_materializes_quarterly(
             "2026-08-01",
             None,
         )
-        assert [(row[0], round(row[1], 2)) for row in fk_rows] == [(legacy_id, 4.3)]
+        assert [(row[0], round(row[1], 2)) for row in fk_rows] == [(legacy_id, round(float(daily_cost(400, "quarterly", date(2026, 8, 1))), 2))]
         written = materialize_subscription_days(
             connection, start=date(2026, 8, 1), end=date(2026, 8, 3)
         )

@@ -2608,13 +2608,13 @@ def aggregate_health(
                 (source, since, source, since),
             ).fetchone()[0]
             status = latest["status"] if latest else "never"
-            error = latest["error"] if latest else None
-            last_success = (
-                latest["finished_at"]
-                if latest and latest["status"] in {"success", "partial"}
-                else None
-            )
-            if status == "skipped" and error and "not configured" in error:
+            from spend_app.diagnostics import safe_reason
+            error = safe_reason(latest["error"], source) if latest else None
+            last_success = connection.execute(
+                "SELECT MAX(finished_at) FROM ingest_runs WHERE source=? AND status IN ('success','partial')",
+                (source,),
+            ).fetchone()[0]
+            if status == "skipped" and latest and "not configured" in (latest["error"] or ""):
                 status = "unavailable"
                 error = "unavailable — credential missing"
             ingest.append(

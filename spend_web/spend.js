@@ -1701,6 +1701,7 @@ function renderDetailHover(data) {
 function renderDiagnostics() {
   const data = state.health;
   if (!data || state.view !== "diagnostics") return;
+  window.renderSourceGuidance?.(data);
   renderNavbar({...data, navigation: state.navigation, status: state.summary?.status, cadenceSeconds: state.summary?.cadenceSeconds, cadenceMinutes: state.summary?.cadenceMinutes, generatedAt: data.generatedAt, failingSource: state.summary?.failingSource});
   const grid = $("diagnostic-grid");
   const ingest = data.ingest || [];

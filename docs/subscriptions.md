@@ -38,3 +38,12 @@ and an allowlisted Host. Loopback hosts are allowed by default. If an existing
 installation is intentionally accessed through another hostname, configure
 `BURNRATE_ALLOWED_HOSTS` as a comma-separated list of those exact hostnames.
 This does not create a listener, enable a tunnel, or change provider routing.
+
+For an explicitly configured TLS-terminating loopback proxy, also set
+`BURNRATE_ALLOWED_ORIGINS` to the exact external origin (scheme and hostname,
+and port if non-default). Hosts must still appear in `BURNRATE_ALLOWED_HOSTS`.
+The application does not blindly trust forwarded headers.
+
+The daily materialized table is a reconciled cache. `cost_decimal` preserves the
+Decimal daily result; the legacy `cost_usd` REAL field remains for compatibility.
+Canonical historical calculations use the effective terms with Decimal.

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import os
+import tempfile
 
 import pytest
 
@@ -36,10 +38,24 @@ class FrozenDateTime(datetime):
 
 
 def pytest_configure(config) -> None:
+    # Module-level ASGI app imports must never initialize a user's default DB.
+    config._burnrate_test_data = tempfile.TemporaryDirectory(prefix="burnrate-tests-")
+    config._burnrate_previous_db = os.environ.get("SPEND_DATABASE_PATH")
+    os.environ["SPEND_DATABASE_PATH"] = str(Path(config._burnrate_test_data.name) / "default.db")
     config.addinivalue_line(
         "markers",
         "isolated_home: set HOME/USERPROFILE to a tmp_path (does not patch Path.home)",
     )
+
+
+def pytest_unconfigure(config) -> None:
+    if not hasattr(config, "_burnrate_test_data"):
+        return
+    if config._burnrate_previous_db is None:
+        os.environ.pop("SPEND_DATABASE_PATH", None)
+    else:
+        os.environ["SPEND_DATABASE_PATH"] = config._burnrate_previous_db
+    config._burnrate_test_data.cleanup()
 
 
 def pytest_ignore_collect(collection_path, config) -> bool | None:

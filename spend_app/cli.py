@@ -231,6 +231,15 @@ def _cmd_serve(host: str, port: int) -> int:
 
 
 def main() -> int:
+    from spend_app.plan_service import PlanError
+    try:
+        return _main()
+    except PlanError as exc:
+        print(json.dumps({"error": str(exc)}))
+        return 2
+
+
+def _main() -> int:
     parser = argparse.ArgumentParser(prog="burnrate")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)

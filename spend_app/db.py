@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -303,8 +303,8 @@ def backup_database(src: Path, dst: Path) -> Path:
     if not source_path.is_file():
         raise FileNotFoundError(source_path)
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(source_path, timeout=30) as source:
-        with sqlite3.connect(dest_path, timeout=30) as dest:
+    with closing(sqlite3.connect(source_path, timeout=30)) as source:
+        with closing(sqlite3.connect(dest_path, timeout=30)) as dest:
             source.backup(dest)
     return dest_path
 

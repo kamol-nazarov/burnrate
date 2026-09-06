@@ -1,6 +1,47 @@
 // Optional product dialogs own their requests independently of dashboard polling.
 (() => {
   const el = id => document.getElementById(id);
+  const setup = el("setup-guidance");
+  const preference = "burnrate:setup:v1";
+  let setupData = null;
+  const showSetup = () => { setup.hidden = false; el("setup-done").focus(); };
+  const closeSetup = status => {
+    try { localStorage.setItem(preference, status); } catch {}
+    setup.hidden = true; el("setup-help").focus();
+  };
+  el("setup-help").addEventListener("click", showSetup);
+  el("setup-dismiss").addEventListener("click", () => closeSetup("dismissed"));
+  el("setup-done").addEventListener("click", () => closeSetup("complete"));
+  el("setup-plans").addEventListener("click", () => el("manage-plans").click());
+  fetch("/api/onboarding", {cache:"no-store"}).then(r => {
+    if (!r.ok) throw new Error("Setup metadata unavailable");
+    return r.json();
+  }).then(data => {
+    setupData = data;
+    el("setup-timezone").textContent = "Timezone: " + data.timezone + ". Configure " + data.timezoneSetting + ".";
+    let saved;
+    try { saved = localStorage.getItem(preference); } catch {}
+    if (!data.hasHistory && !saved) setup.hidden = false;
+  }).catch(() => {
+    el("setup-timezone").textContent = "Setup metadata is unavailable. The dashboard remains usable; check Diagnostics or reload to retry.";
+  });
+  window.renderSourceGuidance = payload => {
+    const root = el("source-guidance");
+    reconcileChildren(root, payload.sources || setupData?.sources || [], source => source.source,
+      () => nodeFrom('<section class="panel"><h3></h3><p></p><p></p><p></p><p></p><p></p><p></p><a>Integration documentation</a></section>'),
+      (card, source) => {
+      setText(card.querySelector("h3"), source.source + " · " + source.state.replaceAll("_"," "));
+      const texts = [
+        "Latest attempt: " + (source.lastAttempt || "none") + " · Last success: " + (source.lastSuccess || "none"),
+        "Measurements: " + (source.measurements.join(", ") || "none observed") + (source.freshnessSeconds == null ? "" : " · Last success " + Math.round(source.freshnessSeconds) + "s ago"),
+        source.reason || "", source.nextAction,
+        source.pricingMissing.length ? "Dollar value unavailable for: " + source.pricingMissing.join(", ") : "",
+        source.experimental ? "Experimental integration; other sources continue independently." : ""
+      ];
+      card.querySelectorAll("p").forEach((p,index) => { setText(p,texts[index]); p.hidden=!texts[index]; });
+      card.querySelector("a").href = source.documentation;
+    });
+  };
   const dialog = el("plan-manager"), form = el("plan-form");
   let data = {plans:[]}, generation = 0, controller, pending = false, preview = null;
   let retryKey = "", requestId = "", opener, writeOwner = null;
