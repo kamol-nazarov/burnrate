@@ -544,10 +544,10 @@ def test_pricing_files_sync_into_effective_dated_table(tmp_path: Path) -> None:
         count = connection.execute("SELECT COUNT(*) FROM model_prices").fetchone()[0]
         rows = connection.execute("SELECT model_key, source_url FROM model_prices").fetchall()
     # openai 3 + daybreak 1 + auto-review 1 + anthropic 7 + xai 1 + cursor 4 + zai 2 + openrouter 1 + google 2 revisions
-    assert len(engine.prices) == 22
-    assert written == 22
-    assert count == 22
-    assert len({row[0] for row in rows}) == 20
+    assert len(engine.prices) == 23  # Includes GPT-6 Astra.
+    assert written == 23
+    assert count == 23
+    assert len({row[0] for row in rows}) == 21
     assert all(str(row[1]).startswith("https://") for row in rows)
 
 

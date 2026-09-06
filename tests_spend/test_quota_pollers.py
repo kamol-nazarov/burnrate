@@ -346,10 +346,10 @@ def test_openrouter_credit_reader_ignores_inference_key(monkeypatch) -> None:
         return Response()
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "fixture-inference-secret")
-    monkeypatch.setenv("OPENROUTER_MANAGEMENT_KEY", "fixture-management-secret")
+    monkeypatch.setenv("OPENROUTER_MANAGEMENT_KEY", "fixture-management")
     monkeypatch.setattr(limits.httpx, "get", fake_get)
     payload = limits._openrouter_credits_uncached()
-    assert observed["authorization"] == "Bearer fixture-management-secret"
+    assert observed["authorization"] == "Bearer fixture-management"
     assert "fixture-inference-secret" not in str(payload)
     assert payload["windows"][0]["remainingUsd"] == 9.0
 

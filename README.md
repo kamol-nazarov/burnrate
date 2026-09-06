@@ -13,7 +13,23 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.1.0-beta.1`.
+Version: `0.1.1-beta.1`.
+
+### What's fixed in this patch
+
+Time-range changes reject snapshots older than 15 seconds or with a mismatched
+range. Summaries render as soon as they arrive, independently of diagnostics;
+startup reuses its prefetched request, and automatic refreshes do not interrupt
+a pending summary. The chart waits for the selected range before displaying it.
+Historical event calculations are cached with bounded memory and invalidate
+when event fields or the pricing engine change.
+
+GPT-6 Astra has an effective-dated Standard API price card: $10/M input,
+$1/M cached input, $12.50/M cache writes, and $50/M output. Above 272K input
+tokens, input/cache rates double and output is multiplied by 1.5.
+Source: [OpenAI Astra pricing](https://developers.openai.com/api/docs/models/gpt-6-astra).
+These are API-equivalent values; processing-tier premiums or discounts are
+not inferred when the telemetry omits the tier.
 
 ## What the dashboard looks like
 

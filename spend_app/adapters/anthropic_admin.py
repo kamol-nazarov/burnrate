@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+from spend_app import __version__
 
 from spend_app.adapters.common import (
     CostRow,
@@ -170,7 +171,7 @@ def make_client(admin_key: str) -> httpx.Client:
         headers={
             "x-api-key": admin_key,
             "anthropic-version": "2023-06-01",
-            "User-Agent": "BURNRATE/0.1.0-beta.1",
+            "User-Agent": f"BURNRATE/{__version__}",
         },
         timeout=30,
         trust_env=False,

@@ -119,7 +119,7 @@ def test_head_prefetch_starts_data_requests_before_the_script() -> None:
     assert 'fetch(`/api/spend/summary?window=${encodeURIComponent(key)}&tool=all`, {cache: "no-store"})' in head
     assert 'fetch("/api/spend/health", {cache: "no-store"})' in head
     load = JS.split("async function loadSummary", 1)[1].split("\nasync function ", 1)[0]
-    assert "window.__prefetch.window === state.window && !state.summary" in load
+    assert "window.__prefetch.window === state.window ? window.__prefetch" in load
     assert "window.__prefetch = null;" in load
     assert "prefetch?.summary" in load and "prefetch?.health" in load
     assert "async function jsonFetch(url, prefetched)" in JS

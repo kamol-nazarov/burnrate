@@ -10,7 +10,7 @@ name: Release
         description: Version to prepare (does not publish a GitHub Release)
         required: true
         type: string
-        default: "0.1.0-beta.1"
+        default: "0.1.1-beta.1"
 
 permissions:
   contents: read

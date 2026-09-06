@@ -23,7 +23,7 @@ const PROBE = new URLSearchParams(location.search).get("probe") === "1";
 // repeat visit paints real numbers before the first fetch returns. Bump the
 // version whenever the payload contract changes; older keys are pruned on boot.
 const SNAPSHOT_PREFIX = "burnrate:snapshot:v1:";
-const SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const SNAPSHOT_MAX_AGE_MS = 15 * 1000;
 
 const params = new URLSearchParams(location.search);
 const initialWindow = String(params.get("window") || "1d").toLowerCase();
@@ -420,6 +420,7 @@ function setQuery() {
 }
 function setLoading(on) {
   document.body.classList.toggle("loading", on);
+  $("main").setAttribute("aria-busy", String(on));
 }
 function showError(error) {
   $("error-message").textContent = " " + (error?.message || String(error));
@@ -441,7 +442,8 @@ function readSnapshot(windowKey) {
     if (!raw) return null;
     const snapshot = JSON.parse(raw);
     const age = Date.now() - Date.parse(snapshot?.storedAt || "");
-    if (!snapshot?.summary || !Number.isFinite(age) || age > SNAPSHOT_MAX_AGE_MS) return null;
+    const endAge = Date.now() - Date.parse(snapshot?.summary?.window?.to || "");
+    if (snapshot?.summary?.window?.key !== windowKey || !Number.isFinite(age) || age < 0 || age > SNAPSHOT_MAX_AGE_MS || !Number.isFinite(endAge) || endAge < 0 || endAge > SNAPSHOT_MAX_AGE_MS) return null;
     return snapshot;
   } catch {
     return null;
@@ -814,7 +816,7 @@ function changeRange(key) {
   setQuery();
   renderRanges(true);
   if (state.view === "detail" && state.entity) loadEntity(state.entity.kind, state.entity.key, Boolean(state.entityData));
-  else loadSummary(Boolean(state.summary));
+  else loadSummary(false);
 }
 
 function shortLimitLabel(label, providerName) {
@@ -1734,7 +1736,10 @@ function renderDiagnostics() {
   if (PROBE) writeProbe("diagnostics");
 }
 
+let summaryPending = false;
 async function loadSummary(background = false) {
+  if (background && summaryPending) return;
+  summaryPending = true;
   const request = ++state.request;
   const painted = (!state.summary || state.summary.window?.key !== state.window) && paintSnapshot(state.window);
   const showLoading = !painted && (!background || !state.summary);
@@ -1742,23 +1747,24 @@ async function loadSummary(background = false) {
   if (!background) clearError();
   // The head script starts the first fetches before this file loads; use
   // them once for the matching window, then always fetch fresh.
-  const prefetch = window.__prefetch && window.__prefetch.window === state.window && !state.summary ? window.__prefetch : null;
+  const prefetch = window.__prefetch && window.__prefetch.window === state.window ? window.__prefetch : null;
   window.__prefetch = null;
   try {
-    const [data, health] = await Promise.all([
-      jsonFetch(`/api/spend/summary?window=${encodeURIComponent(state.window)}&tool=all`, prefetch?.summary),
-      jsonFetch("/api/spend/health", prefetch?.health).catch(() => state.health)
-    ]);
+    // Diagnostics must never delay the selected window's first paint.
+    jsonFetch("/api/spend/health", prefetch?.health).then(health => {
+      if (request === state.request) state.health = health;
+    }).catch(() => {});
+    const data = await jsonFetch(`/api/spend/summary?window=${encodeURIComponent(state.window)}&tool=all`, prefetch?.summary);
     if (request !== state.request) return;
     state.summary = data;
-    if (health) state.health = health;
     if (data.navigation) state.navigation = data.navigation;
     clearError();
     renderPreservingScroll(background || painted, renderOverview);
-    writeSnapshot(state.window, data, health);
+    writeSnapshot(state.window, data, state.health);
   } catch (error) {
     if (request === state.request) showError(error);
   } finally {
+    if (request === state.request) summaryPending = false;
     if (request === state.request && showLoading) setLoading(false);
   }
 }

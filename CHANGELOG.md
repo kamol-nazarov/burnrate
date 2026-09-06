@@ -9,6 +9,17 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.1.1-beta.1] - 2026-09-06
+
+### Fixed
+
+- Reject stale or mismatched time-range snapshots and show a loading chart until the selected range arrives.
+- Render summaries without waiting for diagnostics; reuse startup prefetch and prevent overlapping automatic summary refreshes.
+- Reuse historical event pricing with bounded caches that invalidate on event or pricing changes.
+- Add the official GPT-6 Astra Standard API rate card and display name, including the long-context threshold.
+
+This patch retains the public beta designation and does not change provider routing or database schema.
+
 ## [0.1.0-beta.1] - 2026-09-04
 
 Initial public beta of BURNRATE: a local-first Windows dashboard for AI

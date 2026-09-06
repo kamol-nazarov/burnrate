@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
+from functools import lru_cache
 from zoneinfo import ZoneInfo
 
 from spend_app.db import EXACT_USAGE_SOURCES, connect
@@ -314,6 +315,7 @@ SUMMARY_CAPACITY_PROVIDERS = (
 )
 UNAVAILABLE_QUOTA_REASON = "no persisted quota snapshot"
 MODEL_NAMES = {
+    "gpt-6-astra": "GPT-6 Astra",
     "supergrok:grok-4.6": "SuperGrok Grok 4.6",
     "cursor:grok-4.6": "Cursor Grok 4.6",
     "cursor:gemini-3.7-flash": "Cursor Gemini 3.7 Flash",
@@ -330,6 +332,7 @@ MODEL_REPORTING_ALIASES = {
     "cursor:gemini-3.8-flash-high": "cursor:gemini-3.8-flash",
 }
 COVERAGE_TARGETS = (
+    ("codex", "gpt-6-astra", "GPT-6 Astra"),
     ("claude-code", "claude-opus-5", "Claude Opus 5"),
     ("codex", "gpt-5.6-sol", "Codex Sol"),
     ("codex", "gpt-5.6-terra", "Codex Terra"),
@@ -983,7 +986,17 @@ def _try_price_event(pricing: PricingEngine, event: dict) -> tuple[Decimal | Non
         return None, None
 
 
-def _enrich(events: list[dict], pricing: PricingEngine, authority: dict[str, Decimal]) -> list[dict]:
+@lru_cache(maxsize=100000)
+def _enrich_one(items: tuple, pricing: PricingEngine) -> dict:
+    # Include every persisted field and the engine identity: edits and new
+    # pricing automatically invalidate this event without expiring history.
+    event = dict(items)
+    return _enrich([event], pricing, {}, _cache=False)[0]
+
+
+def _enrich(events: list[dict], pricing: PricingEngine, authority: dict[str, Decimal], *, _cache=True) -> list[dict]:
+    if not authority and _cache:
+        return [_enrich_one(tuple(event.items()), pricing) for event in events]
     source_computed: dict[str, Decimal] = defaultdict(Decimal)
     prepared: list[dict] = []
     for event in events:

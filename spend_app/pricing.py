@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from functools import lru_cache
 
 import yaml
 
@@ -239,6 +240,7 @@ class PricingEngine:
                 )
         return cls(prices)
 
+    @lru_cache(maxsize=65536)
     def resolve(self, model_key: str, occurred_at: datetime) -> Price:
         when = occurred_at.astimezone(UTC)
         candidates = [

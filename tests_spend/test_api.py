@@ -273,12 +273,12 @@ def test_api_title_is_burnrate(tmp_path: Path) -> None:
     initialize(database)
     app = create_app(make_settings(database), enable_scheduler=False)
     assert app.title == "BURNRATE"
-    assert app.version == "0.1.0-beta.1"
+    from spend_app import __version__
     assert app.version == __version__
     client = TestClient(app)
     payload = client.get("/api/spend").json()
     assert payload["service"] == "BURNRATE"
-    assert payload["version"] == "0.1.0-beta.1"
+    assert payload["version"] == __version__
 
 
 def test_api_security_headers_include_csp(tmp_path: Path) -> None:

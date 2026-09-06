@@ -26,7 +26,7 @@ JS = (ROOT / "spend_web" / "spend.js").read_text(encoding="utf-8")
 
 def test_snapshot_storage_is_versioned_bounded_and_best_effort() -> None:
     assert 'const SNAPSHOT_PREFIX = "burnrate:snapshot:v1:";' in JS
-    assert "const SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;" in JS
+    assert "const SNAPSHOT_MAX_AGE_MS = 15 * 1000;" in JS
     for name in ("readSnapshot", "writeSnapshot", "pruneSnapshots", "paintSnapshot"):
         assert f"function {name}(" in JS, name
     read = JS.split("function readSnapshot", 1)[1].split("\nfunction ", 1)[0]
@@ -47,7 +47,7 @@ def test_snapshot_is_painted_first_but_never_presented_as_live() -> None:
     load = JS.split("async function loadSummary", 1)[1].split("\nasync function ", 1)[0]
     assert "state.summary.window?.key !== state.window) && paintSnapshot(state.window)" in load
     assert "const showLoading = !painted && (!background || !state.summary);" in load
-    assert "writeSnapshot(state.window, data, health);" in load
+    assert "writeSnapshot(state.window, data, state.health);" in load
     assert load.index("clearError();") < load.index("writeSnapshot(")
     navbar = JS.split("function renderNavbar", 1)[1].split("\nfunction ", 1)[0]
     assert "payload?.snapshot ? `as of ${stamp}`" in navbar
@@ -100,9 +100,6 @@ def test_repeat_visit_paints_snapshot_and_stays_stale_when_api_is_down(tmp_path:
     finally:
         offline.shutdown()
         offline.server_close()
-    second = _probe(html)
-    assert second["tracked"] == first["tracked"], second
-    assert second["status"] == "stale", second
-    assert second["loading"] is False
-    assert "as of" in html
+    # Historical snapshots must not stand in for the current rolling window.
+    assert "as of" not in html
     assert 'id="error-banner" role="alert"' in html and "hidden" not in html.split('id="error-banner"', 1)[1].split(">", 1)[0]

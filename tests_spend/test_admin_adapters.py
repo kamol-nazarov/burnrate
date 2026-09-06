@@ -439,7 +439,8 @@ def test_admin_clients_disable_proxy_env_and_identify_as_burnrate() -> None:
     openai = make_openai_client("sk-test-openai-secret")
     cursor = make_cursor_client("cursor-secret-key")
     try:
-        assert anthropic.headers["user-agent"] == "BURNRATE/0.1.0-beta.1"
+        from spend_app import __version__
+        assert anthropic.headers["user-agent"] == f"BURNRATE/{__version__}"
         assert anthropic.trust_env is False
         assert openai.trust_env is False
         assert cursor.trust_env is False
