@@ -49,7 +49,7 @@ def asset_version(path: Path) -> str:
 
 def render_index(web_root: Path) -> str:
     html = (web_root / "index.html").read_text(encoding="utf-8")
-    for name, marker in (("spend.css", "42"), ("spend.js", "42"), ("favicon.svg", "1")):
+    for name, marker in (("spend.css", "42"), ("spend.js", "42"), ("request-state.js", "1"), ("favicon.svg", "1")):
         html = html.replace(f"/{name}?v={marker}", f"/{name}?v={asset_version(web_root / name)}")
     return html
 
@@ -251,6 +251,15 @@ def create_app(
     @app.get("/spend.js")
     def spend_js(request: Request):
         path = web_root / "spend.js"
+        return FileResponse(
+            path,
+            media_type="application/javascript",
+            headers={"Cache-Control": _asset_cache_header(request, path)},
+        )
+
+    @app.get("/request-state.js")
+    def request_state_js(request: Request):
+        path = web_root / "request-state.js"
         return FileResponse(
             path,
             media_type="application/javascript",

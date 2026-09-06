@@ -51,6 +51,9 @@ class FixtureHandler(BaseHTTPRequestHandler):
         if path == "/spend.js":
             self._send((WEB / "spend.js").read_bytes(), "application/javascript; charset=utf-8")
             return
+        if path == "/request-state.js":
+            self._send((WEB / "request-state.js").read_bytes(), "application/javascript; charset=utf-8")
+            return
         if path == "/favicon.svg":
             self._send((WEB / "favicon.svg").read_bytes(), "image/svg+xml")
             return
@@ -222,10 +225,11 @@ def test_state_dumps_loading_empty_stale_unpriced(tmp_path: Path) -> None:
         "error": "frontend_summary_error.json",
     }
     for name in cases:
+        window_key = json.loads(_json(cases[name]))["window"]["key"]
         server = _serve(name)
         try:
             html = _chrome_dump(
-                f"http://127.0.0.1:{server.server_port}/?probe=1&window=1d",
+                f"http://127.0.0.1:{server.server_port}/?probe=1&window={window_key}",
                 1440,
                 tmp_path / name,
             )

@@ -24,6 +24,7 @@
       })();
     </script>
     <link rel="stylesheet" href="/spend.css?v=42" />
+    <script src="/request-state.js?v=1" defer></script>
     <script src="/spend.js?v=42" defer></script>
   </head>
   <body class="loading">
@@ -119,6 +120,7 @@
           <div class="range-switch" id="range-switch" role="radiogroup" aria-label="Spend window"></div>
         </div>
 
+        <p class="range-status" id="overview-range-status" role="status" hidden></p>
         <section class="kpi-grid" id="kpi-grid" aria-label="Spend KPIs">
           <article class="kpi-card">
             <div><span>Tracked value</span><b id="tracked-chip">—</b></div>
@@ -314,6 +316,7 @@
           </div>
           <div class="range-switch detail-ranges" id="detail-ranges" role="radiogroup" aria-label="Detail window"></div>
         </div>
+        <p class="range-status" id="detail-range-status" role="status" hidden></p>
         <div class="share-strip">
           <span>Share of tracked value</span>
           <div class="share-bar"><i id="detail-share-bar"></i><b></b></div>

@@ -99,4 +99,7 @@ def test_asset_size_gates() -> None:
     assert len(js_bytes) < 100_000, len(js_bytes)
     assert len(css_bytes) < 45_000, len(css_bytes)
     assert len(gzip.compress(js_bytes, 6)) < 30_000
+    helper = (WEB / "request-state.js").read_bytes()
+    assert len(helper) < 10_000
+    assert len(gzip.compress(js_bytes, 6)) + len(gzip.compress(helper, 6)) < 30_000
     assert len(gzip.compress(css_bytes, 6)) < 12_000

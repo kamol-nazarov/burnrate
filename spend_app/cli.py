@@ -53,7 +53,7 @@ _RUNTIME_IMPORTS = (
     "tzdata",
     "starlette",
 )
-_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "favicon.svg")
+_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "favicon.svg")
 
 
 def _parse_utc(value: str | None, default: datetime) -> datetime:

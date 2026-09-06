@@ -708,6 +708,9 @@ footer{
   100%{box-shadow:0 0 0 0 rgba(99,198,137,0)}
 }
 body.loading .chart-shell, body.loading .chart-axis{visibility:hidden}
+.data-unavailable > [inert]{visibility:hidden}
+.data-unavailable .page-heading > div:first-child{visibility:hidden}
+.range-status{padding:16px;border:1px solid var(--border);border-radius:8px}
 body.loading .kpi-value span:not(.marker):not(.burnrate-skeleton),
 body.loading .big-number,
 body.loading .waste-headline strong{

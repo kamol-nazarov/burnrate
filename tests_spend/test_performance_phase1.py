@@ -39,7 +39,7 @@ def _client(tmp_path: Path) -> TestClient:
 
 def test_assets_and_json_are_gzip_compressed(tmp_path: Path) -> None:
     client = _client(tmp_path)
-    for path in ("/", "/spend.js", "/spend.css", "/api/spend/summary?window=1d&tool=all"):
+    for path in ("/", "/spend.js", "/request-state.js", "/spend.css", "/api/spend/summary?window=1d&tool=all"):
         response = client.get(path, headers={"Accept-Encoding": "gzip"})
         assert response.status_code == 200, path
         assert response.headers.get("content-encoding") == "gzip", path
@@ -57,7 +57,7 @@ def test_html_references_hash_versioned_assets_and_revalidates(tmp_path: Path) -
     assert page.status_code == 200
     assert page.headers["cache-control"] == ASSET_REVALIDATE_CACHE
     body = page.text
-    assert "?v=42" not in body
+    assert '?v=42"' not in body
     assert "/favicon.svg?v=1" not in body
     js_version = hashlib.sha256((WEB / "spend.js").read_bytes()).hexdigest()[:12]
     css_version = hashlib.sha256((WEB / "spend.css").read_bytes()).hexdigest()[:12]
@@ -66,6 +66,13 @@ def test_html_references_hash_versioned_assets_and_revalidates(tmp_path: Path) -
     assert f"/spend.css?v={css_version}" in body
     assert f"/favicon.svg?v={icon_version}" in body
     assert asset_version(WEB / "spend.js") == js_version
+    helper_version = asset_version(WEB / "request-state.js")
+    assert f"/request-state.js?v={helper_version}" in body
+    assert body.index('src="/request-state.js') < body.index('src="/spend.js')
+    helper = client.get(f"/request-state.js?v={helper_version}")
+    assert helper.status_code == 200
+    assert helper.content == (WEB / "request-state.js").read_bytes()
+    assert "immutable" in helper.headers["cache-control"]
 
 
 def test_matching_asset_version_is_immutable_and_stale_version_revalidates(tmp_path: Path) -> None:
@@ -119,8 +126,8 @@ def test_head_prefetch_starts_data_requests_before_the_script() -> None:
     assert 'fetch(`/api/spend/summary?window=${encodeURIComponent(key)}&tool=all`, {cache: "no-store"})' in head
     assert 'fetch("/api/spend/health", {cache: "no-store"})' in head
     load = JS.split("async function loadSummary", 1)[1].split("\nasync function ", 1)[0]
-    assert "window.__prefetch.window === state.window ? window.__prefetch" in load
+    assert "startup?.window === windowKey ? startup : null" in load
     assert "window.__prefetch = null;" in load
     assert "prefetch?.summary" in load and "prefetch?.health" in load
-    assert "async function jsonFetch(url, prefetched)" in JS
-    assert 'await (prefetched || fetch(url, {cache:"no-store"}))' in JS
+    assert "async function jsonFetch(url, prefetched, signal)" in JS
+    assert 'await (prefetched || fetch(url, {cache:"no-store", signal}))' in JS

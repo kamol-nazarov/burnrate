@@ -36,6 +36,7 @@ const state = {
   entity:null,
   summary:null,
   entityData:null,
+  entityDataIdentity:null,
   health:null,
   navigation:null,
   sortKey:"value",
@@ -339,7 +340,9 @@ function renderPreservingScroll(background, render) {
   }
   const left = window.scrollX;
   const top = window.scrollY;
+  const generation = state.request;
   const restore = () => {
+    if (generation !== state.request) return;
     if (Math.abs(window.scrollX - left) > 0.5 || Math.abs(window.scrollY - top) > 0.5) {
       window.scrollTo({left, top, behavior:"auto"});
     }
@@ -419,8 +422,11 @@ function setQuery() {
   history.replaceState(null, "", url);
 }
 function setLoading(on) {
-  document.body.classList.toggle("loading", on);
+  document.body.classList.toggle("loading", on && !activeDataMatches());
   $("main").setAttribute("aria-busy", String(on));
+  ["overview", "detail", "diagnostics"].forEach(view => {
+    $(view + "-view").setAttribute("aria-busy", String(on && state.view === view));
+  });
 }
 function showError(error) {
   $("error-message").textContent = " " + (error?.message || String(error));
@@ -430,11 +436,12 @@ function clearError() {
   $("error-banner").hidden = true;
 }
 function setView(view) {
+  const changed = state.view !== view;
   state.view = view;
   $("overview-view").hidden = view !== "overview";
   $("detail-view").hidden = view !== "detail";
   $("diagnostics-view").hidden = view !== "diagnostics";
-  if (view !== "overview") window.scrollTo({top:0, behavior:"instant" in window ? "instant" : "auto"});
+  if (changed && view !== "overview") window.scrollTo({top:0, behavior:"instant" in window ? "instant" : "auto"});
 }
 function readSnapshot(windowKey) {
   try {
@@ -476,8 +483,8 @@ function paintSnapshot(windowKey) {
   renderOverview();
   return true;
 }
-async function jsonFetch(url, prefetched) {
-  const response = await (prefetched || fetch(url, {cache:"no-store"}));
+async function jsonFetch(url, prefetched, signal) {
+  const response = await (prefetched || fetch(url, {cache:"no-store", signal}));
   if (!response.ok) {
     let detail = "";
     try {
@@ -815,7 +822,7 @@ function changeRange(key) {
   state.detailScales = Object.create(null);
   setQuery();
   renderRanges(true);
-  if (state.view === "detail" && state.entity) loadEntity(state.entity.kind, state.entity.key, Boolean(state.entityData));
+  if (state.view === "detail" && state.entity) loadEntity(state.entity.kind, state.entity.key);
   else loadSummary(false);
 }
 
@@ -1481,7 +1488,8 @@ function renderHeat(data) {
 
 function renderOverview() {
   const data = state.summary;
-  if (!data) return;
+  if (state.view !== "overview" || !summaryMatches()) return;
+  updateDataValidity();
   renderNavbar(data);
   renderCoverage(data);
   renderRanges(false);
@@ -1500,7 +1508,6 @@ function renderOverview() {
   $("range-label").textContent = `${windowLabel(data.window?.key || state.window)} window · ${tokens(totals.tokens)} tokens · ${number(totals.records)} records`;
   const empty = !(data.models || []).length && !(data.tools || []).length;
   $("empty-state").hidden = !empty;
-  setView("overview");
   invalidateEaseNodes();
   requestAnimationFrame(() => document.body.classList.add("settled"));
   if (PROBE) writeProbe("overview");
@@ -1508,8 +1515,9 @@ function renderOverview() {
 
 function renderDetail() {
   const data = state.entityData;
-  if (!data) return;
-  renderNavbar(state.summary || data);
+  if (state.view !== "detail" || !entityMatches()) return;
+  updateDataValidity();
+  renderNavbar(data);
   renderRanges(false);
   const exact = data.isExact !== false;
   setText($("detail-kind"), data.kind === "model" ? "Model detail" : "Tool detail");
@@ -1674,7 +1682,6 @@ function renderDetail() {
       }
     });
   }
-  setView("detail");
   invalidateEaseNodes();
   requestAnimationFrame(() => document.body.classList.add("settled"));
   if (PROBE) writeProbe("detail");
@@ -1693,7 +1700,7 @@ function renderDetailHover(data) {
 
 function renderDiagnostics() {
   const data = state.health;
-  if (!data) return;
+  if (!data || state.view !== "diagnostics") return;
   renderNavbar({...data, navigation: state.navigation, status: state.summary?.status, cadenceSeconds: state.summary?.cadenceSeconds, cadenceMinutes: state.summary?.cadenceMinutes, generatedAt: data.generatedAt, failingSource: state.summary?.failingSource});
   const grid = $("diagnostic-grid");
   const ingest = data.ingest || [];
@@ -1732,80 +1739,81 @@ function renderDiagnostics() {
   const variance = data.providerVsComputedVariancePct;
   setText($("variance-note"), variance == null ? "Variance unavailable." : `Provider-reported versus computed cost differs by ${pct(variance)}.`);
   invalidateEaseNodes();
-  setView("diagnostics");
   if (PROBE) writeProbe("diagnostics");
 }
 
-let summaryPending = false;
 async function loadSummary(background = false) {
-  if (background && summaryPending) return;
-  summaryPending = true;
-  const request = ++state.request;
-  const painted = (!state.summary || state.summary.window?.key !== state.window) && paintSnapshot(state.window);
-  const showLoading = !painted && (!background || !state.summary);
-  if (showLoading) setLoading(true);
-  if (!background) clearError();
-  // The head script starts the first fetches before this file loads; use
-  // them once for the matching window, then always fetch fresh.
-  const prefetch = window.__prefetch && window.__prefetch.window === state.window ? window.__prefetch : null;
+  if (!background) navigateView("overview");
+  if (state.view !== "overview" || pendingViews.overview) return;
+  const windowKey = state.window;
+  const painted = (!state.summary || state.summary.window?.key !== state.window) && paintSnapshot(windowKey);
+  const request = startViewRequest("overview");
+  if (!request) return;
+  // Consume startup prefetch once, even when a matching snapshot was painted.
+  const startup = window.__prefetch;
+  const prefetch = startup?.window === windowKey ? startup : null;
   window.__prefetch = null;
+  // A discarded startup request may still reject after navigation.
+  startup?.summary.catch(() => {});
+  startup?.health.catch(() => {});
+  refreshOverviewHealth(prefetch?.health);
   try {
-    // Diagnostics must never delay the selected window's first paint.
-    jsonFetch("/api/spend/health", prefetch?.health).then(health => {
-      if (request === state.request) state.health = health;
-    }).catch(() => {});
-    const data = await jsonFetch(`/api/spend/summary?window=${encodeURIComponent(state.window)}&tool=all`, prefetch?.summary);
-    if (request !== state.request) return;
+    const data = await jsonFetch('/api/spend/summary?window=' + encodeURIComponent(windowKey) + '&tool=all',
+      prefetch?.summary, request.controller.signal);
+    if (!ownsRender(request)) return;
+    if (data.window?.key !== windowKey) throw new Error("Response range did not match the selection");
     state.summary = data;
     if (data.navigation) state.navigation = data.navigation;
     clearError();
     renderPreservingScroll(background || painted, renderOverview);
-    writeSnapshot(state.window, data, state.health);
+    writeSnapshot(windowKey, data, state.health);
   } catch (error) {
-    if (request === state.request) showError(error);
+    failViewRequest(request, error);
   } finally {
-    if (request === state.request) summaryPending = false;
-    if (request === state.request && showLoading) setLoading(false);
+    finishViewRequest(request);
   }
 }
 async function loadEntity(kind, key, background = false) {
-  const request = ++state.request;
-  if (!background) {
-    setLoading(true);
-    document.body.classList.remove("settled");
-  }
+  if (!background) navigateView("detail", {kind, key});
+  if (state.view !== "detail" || state.entity?.kind !== kind || state.entity?.key !== key) return;
+  const request = startViewRequest("detail");
+  if (!request) return;
   try {
-    state.entity = {kind, key};
-    const data = await jsonFetch(`/api/spend/entity?kind=${encodeURIComponent(kind)}&key=${encodeURIComponent(key)}&window=${encodeURIComponent(state.window)}`);
-    if (request !== state.request) return;
+    const data = await jsonFetch('/api/spend/entity?kind=' + encodeURIComponent(request.kind)
+      + '&key=' + encodeURIComponent(request.key) + '&window=' + encodeURIComponent(request.window),
+      null, request.controller.signal);
+    if (!ownsRender(request)) return;
+    if (data.kind !== request.kind || data.window?.key !== request.window
+      || (data.key != null && data.key !== request.key)) throw new Error("Response identity did not match the selection");
     state.entityData = data;
+    state.entityDataIdentity = request.identity;
     if (data.navigation) state.navigation = data.navigation;
     clearError();
     renderPreservingScroll(background, renderDetail);
   } catch (error) {
-    showError(error);
+    failViewRequest(request, error);
   } finally {
-    if (request === state.request && !background) setLoading(false);
+    finishViewRequest(request);
   }
 }
 async function loadDiagnostics(background = false) {
-  const request = ++state.request;
-  if (!background) setLoading(true);
+  if (!background) navigateView("diagnostics");
+  const request = startViewRequest("diagnostics");
+  if (!request) return;
   try {
-    const data = await jsonFetch("/api/spend/health");
-    if (request !== state.request) return;
+    const data = await jsonFetch("/api/spend/health", null, request.controller.signal);
+    if (!ownsRender(request)) return;
     state.health = data;
     clearError();
     renderPreservingScroll(background, renderDiagnostics);
   } catch (error) {
-    showError(error);
+    failViewRequest(request, error);
   } finally {
-    if (request === state.request && !background) setLoading(false);
+    finishViewRequest(request);
   }
 }
-
 function refreshCurrent() {
-  if (document.hidden || document.body.classList.contains("loading")) return;
+  if (document.hidden || pendingViews[state.view]) return;
   if (state.view === "overview") loadSummary(true);
   else if (state.view === "detail" && state.entity) loadEntity(state.entity.kind, state.entity.key, true);
   else if (state.view === "diagnostics") loadDiagnostics(true);
@@ -1873,9 +1881,9 @@ document.querySelectorAll("[data-mode]").forEach(button => button.addEventListen
   });
   if (state.summary) renderChart(state.summary);
 }));
-$("detail-back").addEventListener("click", () => { state.entity = null; state.entityData = null; setView("overview"); if (state.summary) renderOverview(); else loadSummary(); });
-$("diagnostics-back").addEventListener("click", () => { setView("overview"); if (state.summary) renderOverview(); else loadSummary(); });
-$("home-button").addEventListener("click", () => { state.entity = null; setView("overview"); window.scrollTo({top:0}); if (state.summary) renderOverview(); });
+$("detail-back").addEventListener("click", () => returnOverview());
+$("diagnostics-back").addEventListener("click", () => returnOverview());
+$("home-button").addEventListener("click", () => returnOverview(true));
 $("diagnostics-button").addEventListener("click", () => loadDiagnostics());
 $("retry-button").addEventListener("click", () => {
   if (state.view === "diagnostics") loadDiagnostics();

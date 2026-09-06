@@ -13,7 +13,11 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.1.1-beta.1`.
+Version: `0.1.2-beta.1`.
+
+Latest: [frontend reliability hotfix notes](HOTFIX-0.1.2.md). Fixes request
+ownership, polling recovery, wrong-range displays after failures, and Back/Home
+navigation races. Reload an existing tab after deploying the updated assets.
 
 ### What's fixed in this patch
 

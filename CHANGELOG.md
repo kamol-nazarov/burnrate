@@ -9,6 +9,17 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.1.2-beta.1] - 2026-09-06
+
+- Fix stuck refresh state and overlapping detail/diagnostics polling.
+- Guard request success, failure, cancellation, cleanup, and delayed scroll restoration.
+- Keep selected-range validity independent of loading; recover through Retry.
+- Preserve current navigation and range on Back/Home, with matching-cache reuse.
+- Keep health requests independent of summary rendering and retain startup prefetch.
+- Add deterministic browser regressions and helper-asset integrity checks.
+
+See [hotfix patch notes](HOTFIX-0.1.2.md).
+
 ## [0.1.1-beta.1] - 2026-09-06
 
 ### Fixed
