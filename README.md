@@ -13,7 +13,11 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.1.2-beta.1`.
+Version: `0.2.0-beta.1`.
+
+New: [0.2 release notes](RELEASE-0.2.0.md), [subscription management](docs/subscriptions.md),
+optional Setup help, and actionable Diagnostics. Configured plans can now be
+managed in the browser while preserving effective-dated history.
 
 Latest: [frontend reliability hotfix notes](HOTFIX-0.1.2.md). Fixes request
 ownership, polling recovery, wrong-range displays after failures, and Back/Home

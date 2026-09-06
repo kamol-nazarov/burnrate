@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "burnrate"
-version = "0.1.2b1"
+version = "0.2.0b1"
 description = "Private, local-first dashboard for AI coding-agent token usage, cache efficiency, subscription capacity, and API-equivalent cost."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

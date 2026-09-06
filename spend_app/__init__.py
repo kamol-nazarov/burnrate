@@ -1,3 +1,3 @@
 """BURNRATE local-first AI usage and cost dashboard."""
 
-__version__ = "0.1.2-beta.1"
+__version__ = "0.2.0-beta.1"

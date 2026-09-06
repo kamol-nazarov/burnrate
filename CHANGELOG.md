@@ -9,6 +9,16 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] - 2026-09-06
+
+- Added effective-dated browser subscription management, historical correction previews,
+  edit conflicts, idempotent retries and backup-gated schema 10 migration.
+- Added optional onboarding and persisted actionable source diagnostics.
+- Required browser/race execution, isolated wheel smoke and deterministic LF assets.
+- Preserved request ownership, provider isolation and read-only doctor.
+
+See [complete release notes](RELEASE-0.2.0.md).
+
 ## [0.1.2-beta.1] - 2026-09-06
 
 - Fix stuck refresh state and overlapping detail/diagnostics polling.
