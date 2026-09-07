@@ -331,6 +331,9 @@ def test_claude_oauth_omits_windows_without_utilization(tmp_path: Path, monkeypa
         json.dumps({"claudeAiOauth": {"accessToken": "fixture-token", "subscriptionType": "max"}}),
         encoding="utf-8",
     )
+    # Release A A01: the OAuth lane is consent-gated; the fixture opts in to
+    # keep exercising the window parsing invariants.
+    monkeypatch.setenv("BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE", "1")
     monkeypatch.setattr("spend_app.limits.Path.home", lambda: tmp_path)
 
     def fake_get(*_args, **_kwargs):
@@ -354,6 +357,7 @@ def test_claude_oauth_omits_windows_without_utilization(tmp_path: Path, monkeypa
 def test_claude_oauth_refreshes_expired_access_token_and_preserves_metadata(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE", "1")
     monkeypatch.setenv("BURNRATE_CLAUDE_OAUTH_REFRESH", "1")
     credentials = tmp_path / ".claude" / ".credentials.json"
     credentials.parent.mkdir(parents=True)
@@ -420,6 +424,7 @@ def test_claude_oauth_refreshes_expired_access_token_and_preserves_metadata(
 def test_cursor_limits_keep_included_window_out_of_required_keys(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CURSOR_USAGE_SERVICE", "1")
     database = (
         tmp_path
         / "AppData"
@@ -478,6 +483,7 @@ def test_cursor_limits_keep_included_window_out_of_required_keys(
 def test_cursor_included_window_stays_null_when_total_spend_is_omitted(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CURSOR_USAGE_SERVICE", "1")
     database = (
         tmp_path
         / "AppData"
@@ -526,6 +532,7 @@ def test_cursor_included_window_stays_null_when_total_spend_is_omitted(
 
 
 def test_zai_limits_do_not_invent_zero_percent(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_ZAI_QUOTA", "1")
     auth = tmp_path / ".local" / "share" / "opencode" / "auth.json"
     auth.parent.mkdir(parents=True)
     auth.write_text(json.dumps({"zai-coding-plan": {"key": "fixture-token"}}), encoding="utf-8")
@@ -582,6 +589,7 @@ def test_zai_omitted_current_value_is_unavailable_not_zero(tmp_path: Path, monke
 
 
 def test_zai_quota_falls_back_to_zcode_coding_plan_key(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_ZAI_QUOTA", "1")
     config = tmp_path / ".zcode" / "v2" / "config.json"
     config.parent.mkdir(parents=True)
     config.write_text(

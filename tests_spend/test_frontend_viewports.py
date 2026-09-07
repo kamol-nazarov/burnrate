@@ -175,6 +175,9 @@ def test_viewports_have_no_horizontal_page_scroll(tmp_path: Path) -> None:
             assert report["loading"] is False
             assert "$0.00" not in report["tracked"]
             assert report["minTarget"] >= 44, report
+            # Heat cells use the spacing exception with an equivalent control:
+            # honest nonoverlapping targets, verified separately.
+            assert report.get("minHeatCell", 0) >= 17, report
             assert all(label != "0.0%" for label in report.get("paygPct") or []), report
             assert report["meterHeight"] >= 32, report
             assert report["barStable"] is True, report
@@ -258,6 +261,9 @@ def test_state_dumps_loading_empty_stale_unpriced(tmp_path: Path) -> None:
                 assert not re.search(r"(?<!\d)0\.0%", html)
             assert report["overflow"] is False
             assert report["minTarget"] >= 44, report
+            # Heat cells use the spacing exception with an equivalent control:
+            # honest nonoverlapping targets, verified separately.
+            assert report.get("minHeatCell", 0) >= 17, report
         finally:
             server.shutdown()
             server.server_close()

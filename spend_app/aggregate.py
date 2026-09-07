@@ -11,6 +11,8 @@ from functools import lru_cache
 from zoneinfo import ZoneInfo
 
 from spend_app.db import EXACT_USAGE_SOURCES, connect
+from spend_app.source_reconcile import reconcile_events
+from spend_app.timeutil import epoch_micros, from_epoch_micros, next_month_start as _next_month_start_utc, parse_utc, previous_calendar_period
 from spend_app.pricing import PricingEngine, UnpricedModelError
 from spend_app.quotas import REQUIRED_LIMITS, split_quota_label
 from spend_app.subscriptions import daily_cost
@@ -443,6 +445,14 @@ class TokenMix:
 
 @dataclass
 class TrackedParts:
+    """Three separate economic quantities over one window/scope (contract 4.1).
+
+    ``priced`` + ``published`` form the API-equivalent reference usage value.
+    ``subscriptions`` is configured calendar accrual and is NEVER part of the
+    usage value; ``reported_charges`` are provider-reported amounts treated as
+    authoritative at their reported scope, kept separate from both.
+    """
+
     priced: Decimal = Decimal(0)
     published: Decimal = Decimal(0)
     subscriptions: Decimal = Decimal(0)
@@ -454,10 +464,21 @@ class TrackedParts:
     # complete is False; surfaced so the UI can name what is missing instead
     # of hiding the known total.
     unpriced_models: dict[str, int] = field(default_factory=dict)
+    unpriced_tokens: int = 0
+    reported_charges: Decimal = Decimal(0)
 
     @property
     def known(self) -> Decimal:
-        return self.priced + self.published + self.subscriptions
+        return self.usage_value
+
+    @property
+    def usage_value(self) -> Decimal:
+        return self.priced + self.published
+
+    def note_unpriced(self, tokens: int, model: str | None) -> None:
+        self.unpriced_tokens += max(0, int(tokens))
+        if model:
+            self.unpriced_models[model] = self.unpriced_models.get(model, 0) + 1
 
     @property
     def sessions(self) -> int:
@@ -472,6 +493,8 @@ def resolve_window(key: str, *, now: datetime, timezone: str) -> ResolvedWindow:
     zone = ZoneInfo(timezone)
     local_now = now.astimezone(zone)
     if duration is not None:
+        # Fixed-duration controls are elapsed UTC durations: 1d is exactly 24
+        # hours, even across a DST transition.
         start_local = local_now - duration
         previous_label = f"vs prior {label}"
     elif canonical == "mtd":
@@ -483,9 +506,17 @@ def resolve_window(key: str, *, now: datetime, timezone: str) -> ResolvedWindow:
     else:
         start_local = datetime(1970, 1, 1, tzinfo=zone)
         previous_label = "all recorded time"
-    span = local_now - start_local
-    previous_end = start_local
-    previous_start = previous_end - span
+    if canonical in {"mtd", "ytd"}:
+        # The previous period is the immediately preceding comparable
+        # calendar span (the whole prior month / prior calendar year), not an
+        # equal count of wall days.
+        prior = previous_calendar_period(canonical, now, zone)
+        previous_start, previous_end = prior.start, prior.end
+        previous_label = f"{previous_label} (prior full period)"
+    else:
+        span = local_now - start_local
+        previous_end = start_local.astimezone(UTC)
+        previous_start = (start_local - span).astimezone(UTC)
     return ResolvedWindow(
         key=canonical,
         label=label,
@@ -504,7 +535,10 @@ def _iso(value: datetime) -> str:
 
 
 def _parse(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    parsed = parse_utc(value)
+    if parsed is None:
+        raise ValueError(f"unparseable timestamp: {value!r}")
+    return parsed
 
 
 def _round_cents(value: Decimal) -> Decimal:
@@ -675,30 +709,52 @@ def _cost_buckets(connection, start: datetime, end: datetime) -> dict[str, Decim
 
 
 def _load_events(connection, start: datetime, end: datetime, tool: str) -> list[dict]:
-    sql = "SELECT * FROM usage_events WHERE occurred_at >= ? AND occurred_at < ?"
-    params: list[object] = [_iso(start), _iso(end)]
-    if tool != "all":
-        sql += " AND tool_key = ?"
-        params.append(tool)
-    sql += " ORDER BY occurred_at"
-    return [dict(row) for row in connection.execute(sql, params)]
+    """Canonical usage events for the half-open window, in event order.
+
+    Filtering and ordering use the canonical integer epoch column so mixed
+    source precision never drops a within-second event, and cross-source
+    duplicates of one verified provider event collapse into one measured
+    event (account-scoped; suppressed copies reported, never summed).
+    """
+    rows = [
+        dict(row)
+        for row in connection.execute(
+            "SELECT * FROM usage_events "
+            "WHERE occurred_epoch_us IS NOT NULL AND occurred_epoch_us >= ? AND occurred_epoch_us < ?"
+            + (" AND tool_key = ?" if tool != "all" else "")
+            + " ORDER BY occurred_epoch_us",
+            _epoch_params(start, end, tool),
+        )
+    ]
+    reconciled, _report = reconcile_events(rows)
+    return [event.row for event in reconciled]
 
 
 def _load_unpriced_events(connection, start: datetime, end: datetime, tool: str) -> list[dict]:
-    sql = "SELECT * FROM unpriced_usage_events WHERE occurred_at >= ? AND occurred_at < ?"
-    params: list[object] = [_iso(start), _iso(end)]
-    if tool != "all":
-        sql += " AND tool_key = ?"
-        params.append(tool)
-    sql += " ORDER BY occurred_at"
+    rows = [
+        dict(row)
+        for row in connection.execute(
+            "SELECT * FROM unpriced_usage_events "
+            "WHERE occurred_epoch_us IS NOT NULL AND occurred_epoch_us >= ? AND occurred_epoch_us < ?"
+            + (" AND tool_key = ?" if tool != "all" else "")
+            + " ORDER BY occurred_epoch_us",
+            _epoch_params(start, end, tool),
+        )
+    ]
     output = []
-    for row in connection.execute(sql, params):
-        event = dict(row)
-        event["when"] = _parse(event["occurred_at"])
-        event["cost_usd"] = Decimal(str(event["cost_usd"])) if event["cost_usd"] is not None else None
-        event["telemetry_complete"] = bool(event.get("telemetry_complete", 1))
-        output.append(event)
+    for row in rows:
+        row["when"] = from_epoch_micros(row["occurred_epoch_us"])
+        row["cost_usd"] = Decimal(str(row["cost_usd"])) if row["cost_usd"] is not None else None
+        row["telemetry_complete"] = bool(row.get("telemetry_complete", 1))
+        output.append(row)
     return output
+
+
+def _epoch_params(start: datetime, end: datetime, tool: str) -> list[object]:
+    params: list[object] = [epoch_micros(start), epoch_micros(end)]
+    if tool != "all":
+        params.append(tool)
+    return params
 
 
 def _coverage_inventory(connection) -> list[dict]:
@@ -993,58 +1049,57 @@ def _enrich_one(items: tuple, pricing: PricingEngine) -> dict:
     # Include every persisted field and the engine identity: edits and new
     # pricing automatically invalidate this event without expiring history.
     event = dict(items)
-    return _enrich([event], pricing, {}, _cache=False)[0]
+    return _enrich([event], pricing, _cache=False)[0]
 
 
-def _enrich(events: list[dict], pricing: PricingEngine, authority: dict[str, Decimal], *, _cache=True) -> list[dict]:
-    if not authority and _cache:
+def _enrich(events: list[dict], pricing: PricingEngine, _authority=None, *, _cache=True) -> list[dict]:
+    """Reference-value enrichment with graceful unpriced handling.
+
+    Every event's ``spend`` is its own authoritative amount: a provider-
+    reported charge when the source carried one, otherwise the computed
+    reference value at the documented rate. Provider bucket totals are a
+    separate reported-charge metric and never rescale individual events —
+    a daily bucket is authoritative at daily scope, not for each minute.
+    A stored event whose model no longer resolves is priced as unknown
+    (partial coverage) instead of failing the whole summary.
+    """
+    del _authority  # retained in the signature for caller compatibility
+    if _cache:
         return [_enrich_one(tuple(event.items()), pricing) for event in events]
-    source_computed: dict[str, Decimal] = defaultdict(Decimal)
-    prepared: list[dict] = []
+    output = []
     for event in events:
-        when = _parse(event["occurred_at"])
-        components = pricing.components(
-            model_key=event["model_key"],
-            occurred_at=when,
-            input_tokens=event["input_tokens"],
-            cached_input_tokens=event["cached_input_tokens"],
-            cache_write_tokens=event["cache_write_tokens"],
-            cache_write_1h_tokens=event.get("cache_write_1h_tokens", 0),
-            output_tokens=event["output_tokens"],
-        )
-        computed_total = sum(components.values(), Decimal(0))
-        event_authority = (
-            Decimal(str(event["cost_usd"])) if event["cost_usd"] is not None else computed_total
-        )
-        source_computed[event["source"]] += computed_total
-        prepared.append(
+        when = event.get("when") if isinstance(event.get("when"), datetime) else _parse(event["occurred_at"])
+        computed_total: Decimal | None
+        components: dict[str, Decimal] | None
+        try:
+            components = pricing.components(
+                model_key=event["model_key"],
+                occurred_at=when,
+                input_tokens=event["input_tokens"],
+                cached_input_tokens=event["cached_input_tokens"],
+                cache_write_tokens=event["cache_write_tokens"],
+                cache_write_1h_tokens=event.get("cache_write_1h_tokens", 0),
+                output_tokens=event["output_tokens"],
+            )
+            computed_total = sum(components.values(), Decimal(0))
+        except (UnpricedModelError, ValueError):
+            components, computed_total = None, None
+        reported = Decimal(str(event["cost_usd"])) if event["cost_usd"] is not None else None
+        price = None
+        if components is not None:
+            try:
+                price = pricing.resolve(event["model_key"], when)
+            except UnpricedModelError:
+                price = None
+        output.append(
             {
                 **event,
                 "when": when,
                 "computed_total": computed_total,
-                "event_authority": event_authority,
-                "raw_components": components,
-                "price": pricing.resolve(event["model_key"], when),
+                "spend": reported if reported is not None else computed_total,
+                "components": components or {},
+                "price": price,
                 "telemetry_complete": True,
-            }
-        )
-    source_scale = {
-        source: authority[source] / total
-        for source, total in source_computed.items()
-        if source in authority and total > 0
-    }
-    output = []
-    for event in prepared:
-        computed_total = event["computed_total"]
-        event_scale = event["event_authority"] / computed_total if computed_total else Decimal(1)
-        source_factor = source_scale.get(event["source"], Decimal(1))
-        scale = event_scale * source_factor
-        output.append(
-            {
-                **event,
-                "spend": event["event_authority"] * source_factor,
-                "session_spend": Decimal(str(event["computed_cost_usd"])),
-                "components": {key: value * scale for key, value in event["raw_components"].items()},
             }
         )
     return output
@@ -1064,10 +1119,15 @@ def _tracked_from_loaded(
     enriched: list[dict],
     subscriptions: Decimal,
     pricing: PricingEngine,
+    reported_charges: Decimal = Decimal(0),
 ) -> TrackedParts:
-    parts = TrackedParts(subscriptions=subscriptions)
+    parts = TrackedParts(subscriptions=subscriptions, reported_charges=reported_charges)
     for event in enriched:
-        _add_value(parts, event, event["spend"])
+        if event["spend"] is None:
+            parts.complete = False
+            parts.note_unpriced(_measured(event), event["model_key"])
+        else:
+            _add_value(parts, event, event["spend"])
         parts.tokens += _measured(event)
         parts.records += 1
         if event.get("session_id"):
@@ -1092,8 +1152,7 @@ def _tracked_from_loaded(
         priced, _components = _try_price_event(pricing, event)
         if priced is None:
             parts.complete = False
-            model_key = str(event.get("model_key") or "unknown")
-            parts.unpriced_models[model_key] = parts.unpriced_models.get(model_key, 0) + 1
+            parts.note_unpriced(_measured(event), str(event.get("model_key") or "unknown"))
         else:
             _add_value(parts, event, priced)
         if not event.get("telemetry_complete", True):
@@ -1511,7 +1570,7 @@ def _seven_day_burn_uncached(
         )
         if parts.records == 0:
             continue
-        days.append(parts.known)
+        days.append(parts.usage_value)
     if not days:
         return None
     return sum(days, Decimal(0)) / Decimal(len(days))
@@ -1605,22 +1664,9 @@ def _session_subset(session_rows: list[dict], entity_value: Decimal | None, runs
             )
         return {"shownShare": None, "shownTotal": None, "rows": rows}
     raw_total = sum(priced, Decimal(0))
-    # Named remainder: the 1-cent money quantum already used by waste headlines.
-    # When the shown real sessions cover the whole entity KPI, scale every priced
-    # row so footer $X of $Y is distinct. Never drop a real id.
-    if entity_value is not None and entity_value > 0 and raw_total >= entity_value:
-        target = _round_cents(entity_value) - CENTS
-        if target <= 0:
-            target = _round_cents(entity_value * Decimal(len(priced)) / Decimal(len(priced) + 1))
-        if target <= 0 or target >= entity_value:
-            target = entity_value * Decimal(len(priced)) / Decimal(len(priced) + 1)
-        scale = target / raw_total
-        display = [None if value is None else value * scale for value in display]
-        cents = [None if value is None else _round_cents(value) for value in display]
-        priced_idx = [index for index, value in enumerate(cents) if value is not None]
-        drift = target - sum((cents[index] for index in priced_idx), Decimal(0))
-        cents[priced_idx[-1]] = (cents[priced_idx[-1]] or Decimal(0)) + drift
-        display = cents
+    # Real session values only: presentation never rescales money (contract
+    # 4.1/N02). When the shown sessions cover the whole entity KPI the footer
+    # legitimately reads $X of $X — 100% coverage is a valid state.
     money = [None if value is None else float(value) for value in display]
     shown_money = sum((Decimal(str(value)) for value in money if value is not None), Decimal(0))
     shown_float = float(shown_money)
@@ -1717,7 +1763,9 @@ def aggregate_nav(
         day_coverage = _day_coverage(connection, timezone, now)
     return {
         "burnRatePerDay": float(burn) if burn is not None else None,
-        "todayUsd": float(today.known) if today.records else None,
+        "todayUsd": float(today.usage_value) if today.records and today.usage_value is not None else None,
+        "todayKnown": bool(today.records) and today.usage_value is not None,
+        "todayComplete": today.complete if today.records else False,
         "lastRefreshAt": last_refresh,
         "cadenceSeconds": cadence_seconds,
         "cadenceMinutes": cadence_seconds / 60,
@@ -1731,19 +1779,21 @@ def aggregate_nav(
 
 def _month_usage(
     connection, pricing: PricingEngine, start: datetime, end: datetime, tool: str
-) -> tuple[TrackedParts, dict[str, Decimal]]:
+) -> tuple[TrackedParts, dict[str, Decimal], dict[str, bool]]:
     """Month-to-date usage value per tool plus completeness, loaded once.
 
     The same rows previously went through ``_enrich`` twice per request (once
     for the tracked parts, once for the per-tool usage map). Subscription
     proration is excluded on purpose: callers only read priced, published and
-    completeness from the parts.
+    completeness from the parts. The per-tool completeness map records
+    whether that tool's month-to-date reference value is fully priced, which
+    gates any plan-underuse commentary.
     """
 
-    def compute() -> tuple[TrackedParts, dict[str, Decimal]]:
+    def compute() -> tuple[TrackedParts, dict[str, Decimal], dict[str, bool]]:
         events = _load_events(connection, start, end, tool)
         unpriced = _load_unpriced_events(connection, start, end, tool)
-        enriched = _enrich(events, pricing, _cost_buckets(connection, start, end))
+        enriched = _enrich(events, pricing)
         parts = _tracked_from_loaded(
             events=events,
             unpriced=unpriced,
@@ -1752,8 +1802,12 @@ def _month_usage(
             pricing=pricing,
         )
         usage: dict[str, Decimal] = defaultdict(Decimal)
+        complete: dict[str, bool] = defaultdict(lambda: True)
         for event in enriched:
-            usage[event["tool_key"]] += event["spend"]
+            if event["spend"] is not None:
+                usage[event["tool_key"]] += event["spend"]
+            else:
+                complete[event["tool_key"]] = False
         for event in unpriced:
             if event["cost_usd"] is not None:
                 usage[event["tool_key"]] += event["cost_usd"]
@@ -1761,7 +1815,11 @@ def _month_usage(
                 priced, _components = _try_price_event(pricing, event)
                 if priced is not None:
                     usage[event["tool_key"]] += priced
-        return parts, dict(usage)
+                else:
+                    complete[event["tool_key"]] = False
+            if not event.get("telemetry_complete", True):
+                complete[event["tool_key"]] = False
+        return parts, dict(usage), dict(complete)
 
     key = (
         _connection_identity(connection),
@@ -1770,8 +1828,8 @@ def _month_usage(
         _iso(start),
         _range_fingerprint(connection, start, end, tool),
     )
-    parts, usage = _memo("month_usage", key, compute)
-    return parts, dict(usage)
+    parts, usage, complete = _memo("month_usage", key, compute)
+    return parts, dict(usage), dict(complete)
 
 
 def _heatmap_cells(
@@ -1821,7 +1879,17 @@ def _waste_bundle(
     monthly_plans: dict[str, tuple[str, Decimal]],
     capacity: list[dict],
     window_days: Decimal,
+    month_accrual: dict[str, Decimal] | None = None,
+    month_usage_complete: dict[str, bool] | None = None,
 ) -> dict:
+    """Descriptive improvement items, never fabricated cash claims.
+
+    The cache item is a hypothetical reference-value counterfactual against
+    the configured target, not recoverable money. The plan item compares
+    month-to-date reference usage with configured accrual over the SAME
+    interval and is withheld when coverage does not support a verdict; it
+    never advises downgrades or manufacturing usage.
+    """
     items: list[dict] = []
     gap = Decimal(0)
     titles = []
@@ -1848,7 +1916,7 @@ def _waste_bundle(
                     if titles
                     else f"Cache reuse below the {cache_threshold * 100:.0f}% target"
                 ),
-                "fix": "Enable persistent context reuse on the lagging tool",
+                "fix": "Hypothetical reference-value difference if the target were met; enable context reuse where practical. Not recoverable money.",
                 "perDay": float(_round_cents(daily_gap)),
             }
         )
@@ -1867,7 +1935,6 @@ def _waste_bundle(
     for tool_key, (name, monthly) in monthly_plans.items():
         if monthly <= 0:
             continue
-        usage = month_usage.get(tool_key, Decimal(0))
         daily = monthly / Decimal(30)
         if tool_key in idle_keys:
             if idle_candidate is None or monthly > idle_candidate[1]:
@@ -1875,21 +1942,31 @@ def _waste_bundle(
             continue
         if tool_key in unread_keys:
             continue
-        if usage < monthly:
-            ratio = usage / monthly if monthly else Decimal(0)
-            if underuse_candidate is None or ratio < underuse_candidate[0]:
-                underuse_candidate = (ratio, tool_key, monthly, daily, name, usage)
+        # Same-period comparison: MTD reference usage against MTD configured
+        # accrual, not against the full month (C02). A verdict needs complete
+        # priced coverage of the elapsed period.
+        usage = month_usage.get(tool_key, Decimal(0))
+        accrued = (month_accrual or {}).get(tool_key)
+        # Absent from the completeness map means complete: only explicitly
+        # unpriced tools are marked False.
+        complete = (month_usage_complete or {}).get(tool_key, True)
+        if accrued is None or accrued <= 0 or not complete:
+            continue
+        ratio = usage / accrued
+        if ratio < 1 and (underuse_candidate is None or ratio < underuse_candidate[0]):
+            underuse_candidate = (ratio, tool_key, monthly, daily, name, usage, accrued)
     if underuse_candidate:
-        _ratio, tool_key, monthly, daily, name, usage = underuse_candidate
+        _ratio, tool_key, monthly, daily, name, usage, accrued = underuse_candidate
         items.append(
             {
                 "key": "plan_underuse",
-                "title": f"{name} returns less than its cost",
+                "title": f"{name} usage is below its accrual pace",
                 "detail": (
-                    f"A ${float(monthly):.2f}/month plan produced "
-                    f"${float(usage):.2f} of published-rate usage this month."
+                    f"${float(usage):.2f} of reference usage this month versus "
+                    f"${float(accrued):.2f} configured accrual over the same days. "
+                    "A comparison, not a cash saving."
                 ),
-                "fix": f"Downgrade or route more work to {name}",
+                "fix": f"Review whether {name} still fits how you work",
                 "perDay": float(_round_cents(daily)),
             }
         )
@@ -1900,7 +1977,7 @@ def _waste_bundle(
                 "key": "idle_plan",
                 "title": f"{name} sits idle",
                 "detail": f"Quota consumption is ~0 while the plan still bills ${float(monthly):.2f}/month.",
-                "fix": f"Route traffic to {name} or cancel the plan",
+                "fix": f"Review whether {name} is still needed",
                 "perDay": float(_round_cents(daily)),
             }
         )
@@ -2096,7 +2173,7 @@ def aggregate_summary(
 
         local_now = now.astimezone(zone)
         month_start = datetime(local_now.year, local_now.month, 1, tzinfo=zone).astimezone(UTC)
-        month_parts, month_usage = _month_usage(connection, pricing, month_start, now, tool)
+        month_parts, month_usage, month_usage_complete = _month_usage(connection, pricing, month_start, now, tool)
         # OpenCode and ZCode use different plan keys but the provider returns
         # identical quota counters: they consume one shared Z.AI subscription.
         # Attribute both harnesses' published-rate value to that single plan.
@@ -2160,7 +2237,7 @@ def aggregate_summary(
         heat_start, heat_end, heat_fallback = _heatmap_window(window, now, timezone)
         heat = _heatmap_cells(connection, pricing, heat_start, heat_end, tool, zone)
         heatmap = [
-            {"weekday": weekday, "hour": hour, "value": float(value)}
+            {"weekday": weekday, "hour": hour, "value": float(value), "unit": "reference_usd"}
             for (weekday, hour), value in sorted(heat.items())
         ]
 
@@ -2240,6 +2317,11 @@ def aggregate_summary(
             )
         tools.sort(key=lambda row: (row["value"] is None, -(row["value"] or 0), -row["tokens"]))
         window_days = Decimal(str(max((window.end - window.start).total_seconds() / 86400, 1 / 24)))
+        # Configured accrual month-to-date per tool over the SAME interval as
+        # month_usage — the plan-underuse comparison never mixes periods.
+        month_accrual_total, month_accrual = _subscription_cost(
+            connection, month_start, now, timezone, cap_date=local_now.date()
+        )
         waste = _waste_bundle(
             models=waste_models,
             cache_threshold=cache_threshold,
@@ -2249,19 +2331,39 @@ def aggregate_summary(
             monthly_plans=monthly_plans,
             capacity=capacity,
             window_days=window_days,
+            month_accrual=month_accrual,
+            month_usage_complete=month_usage_complete,
         )
-        next_month = (local_now.replace(day=28) + timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = _next_month_start_utc(now, zone)
         all_plan_cost, plan_costs = _subscription_cost(connection, month_start, next_month.astimezone(UTC), timezone)
         plan_cost = all_plan_cost if tool == "all" else plan_costs.get("opencode" if tool == "zcode" else tool, Decimal(0))
+        # Same-period comparison (C02): month-to-date reference usage versus
+        # configured accrual for the identical elapsed interval. The full
+        # month's configured cost travels separately as context, never as the
+        # denominator of an MTD ratio.
+        accrual_to_date = (
+            month_accrual_total
+            if tool == "all"
+            else month_accrual.get("opencode" if tool == "zcode" else tool, Decimal(0))
+        )
         usage_month = month_parts.priced + month_parts.published
         projected_value = usage_month if month_parts.complete else None
+        if accrual_to_date > 0 and projected_value is not None:
+            multiple_basis = "ratio"
+        elif accrual_to_date > 0 and usage_month > 0:
+            multiple_basis = "lower_bound"
+        else:
+            multiple_basis = "unavailable"
         projected = {
             "value": _money(projected_value),
-            "planCost": float(plan_cost),
-            "multiple": float(projected_value / plan_cost) if projected_value is not None and plan_cost else None,
+            "valueBasis": "reference usage, month to date",
+            "planCost": float(accrual_to_date),
+            "fullMonthPlanCost": float(plan_cost),
+            "multiple": float(projected_value / accrual_to_date) if projected_value is not None and accrual_to_date > 0 else None,
+            "multipleBasis": multiple_basis,
             "method": (
-                "Month-to-date published-rate equivalent of usage versus configured "
-                "monthly plan cost. Not a bill."
+                "Month-to-date reference usage versus configured accrual over the same elapsed days. "
+                "A comparison at published rates, not a bill."
             ),
         }
         mean_session = (
@@ -2272,13 +2374,17 @@ def aggregate_summary(
         return {
             "window": _window_payload(window, len(buckets)),
             "generatedAt": _iso(now),
+            "displayTimezone": timezone,
             "cadenceSeconds": cadence_seconds,
             "cadenceMinutes": cadence_seconds / 60,
             "status": status,
             "failingSource": failing_source,
             "navigation": {
                 "burnRatePerDay": float(burn) if burn is not None else None,
-                "todayUsd": float(today.known) if today.records else None,
+                "todayUsd": float(today.usage_value) if today.records else None,
+                "todayKnown": bool(today.records) and today.usage_value is not None,
+                "todayComplete": today.complete if today.records else False,
+                "todayBasis": "reference usage value (configured cost reported separately)",
                 "dayCoverage": day_coverage,
             },
             "coverage": {
@@ -2301,6 +2407,8 @@ def aggregate_summary(
                 # proration is subscriptionUsd, never this field.
                 "publishedRate": float(parts.published),
                 "subscriptionUsd": float(parts.subscriptions),
+                "reportedChargesUsd": float(sum(authority.values(), Decimal(0))) if authority and tool == "all" else (float(authority[tool]) if tool in authority else None),
+                "unpricedTokens": parts.unpriced_tokens,
                 "effectiveCostPerMillionTokens": (
                     _money(effective_cost_per_million)
                     if api_equivalent_complete
@@ -2338,6 +2446,7 @@ def aggregate_summary(
             "models": models,
             "subscriptions": subscription_rows,
             "heatmap": heatmap,
+            "heatmapUnit": "reference usage (USD at documented rates)",
             "heatmapFallback": heat_fallback,
         }
 
@@ -2429,8 +2538,8 @@ def aggregate_entity(
                         for comp_key, amount in components.items():
                             component_totals[comp_key] += amount
                     _accumulate_session(session_store, event, value=priced, complete=True)
-        entity_value = parts.known if parts.complete else None
-        global_value = global_parts.known if global_parts.complete else None
+        entity_value = parts.usage_value if parts.complete else None
+        global_value = global_parts.usage_value if global_parts.complete else None
         input_share = _input_share(component_totals)
         ratio = (ratio_acc / ratio_weight) if ratio_weight > 0 else None
         already_saved = _cache_savings(

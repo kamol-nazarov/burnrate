@@ -430,13 +430,14 @@ def test_s03_03_tools_subscriptions_and_tracked_value(tmp_path: Path) -> None:
         if row["monthlyEquivalent"] is not None
     )
     assert abs(summary["totals"]["subscriptionUsd"] - monthly_sum) > 1e-6 or monthly_sum == 0
+    # Release A (N01): tracked value is reference usage only; configured
+    # subscription cost is reported separately, never folded in.
     assert abs(
         summary["totals"]["priced"]
         + summary["totals"]["publishedRate"]
-        + summary["totals"]["subscriptionUsd"]
         - summary["totals"]["trackedValue"]
     ) < 1e-6
-    assert abs(usage + summary["totals"]["subscriptionUsd"] - summary["totals"]["trackedValue"]) < 1e-6
+    assert abs(usage - summary["totals"]["trackedValue"]) < 1e-6
 
     mixed = mixed_database(tmp_path)
     mixed_summary = client_for(mixed).get("/api/spend/summary", params={"window": "1d"}).json()
@@ -444,7 +445,7 @@ def test_s03_03_tools_subscriptions_and_tracked_value(tmp_path: Path) -> None:
     cursor = client_for(mixed).get("/api/spend/summary", params={"window": "1d", "tool": "cursor"}).json()
     if cursor["totals"]["trackedValue"] is not None:
         tool_value = cursor["tools"][0]["value"] or 0
-        assert abs(cursor["totals"]["trackedValue"] - (tool_value + cursor["totals"]["subscriptionUsd"])) < 1e-6
+        assert abs(cursor["totals"]["trackedValue"] - tool_value) < 1e-6
 
 
 def test_s03_03_cross_source_tokens_sum(tmp_path: Path) -> None:
@@ -538,7 +539,8 @@ def test_s03_06_sessions_equality_and_no_pad(tmp_path: Path) -> None:
     assert len(entity["sessions"]["rows"]) == 2
     shown = sum(row["value"] for row in entity["sessions"]["rows"] if row["value"] is not None)
     assert abs(shown - entity["sessions"]["shownTotal"]) < 1e-6
-    assert entity["sessions"]["shownTotal"] < entity["value"]
+    # Release A (N02): real session values; 100% coverage is valid.
+    assert entity["sessions"]["shownTotal"] <= entity["value"] + 1e-6
     assert {row["id"] for row in entity["sessions"]["rows"]} == {"session-a", "session-b"}
 
     mixed = mixed_database(tmp_path)
@@ -559,7 +561,7 @@ def test_s03_06_sessions_equality_and_no_pad(tmp_path: Path) -> None:
     ).json()
     assert unattr_entity["runs"] == 1
     assert len(unattr_entity["sessions"]["rows"]) == 1
-    assert unattr_entity["sessions"]["shownTotal"] < unattr_entity["value"]
+    assert unattr_entity["sessions"]["shownTotal"] <= unattr_entity["value"] + 1e-6
 
     many = tmp_path / "many.db"
     rows = [
@@ -1053,4 +1055,4 @@ def test_zcode_entity_includes_shared_opencode_plan(tmp_path: Path) -> None:
     assert summary["totals"]["subscriptionUsd"]
     assert entity["value"] is not None
     assert abs(entity["value"] - summary["totals"]["trackedValue"]) < 1e-6
-    assert entity["value"] > summary["totals"]["publishedRate"]
+    assert entity["value"] == summary["totals"]["publishedRate"]

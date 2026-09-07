@@ -129,7 +129,7 @@ def test_summary_does_not_call_collect_limits(tmp_path: Path, monkeypatch) -> No
     def boom():
         raise AssertionError("collect_limits must not run for summary")
 
-    monkeypatch.setattr(api_module, "collect_limits", boom)
+    monkeypatch.setattr(api_module, "snapshot_limits", boom)
     client = TestClient(create_app(make_settings(database), enable_scheduler=False))
     response = client.get("/api/spend/summary")
     assert response.status_code == 200
@@ -249,8 +249,8 @@ def test_limits_endpoint_contract(tmp_path: Path, monkeypatch) -> None:
     initialize(database)
     monkeypatch.setattr(
         api_module,
-        "collect_limits",
-        lambda: {
+        "snapshot_limits",
+        lambda _database_path=None: {
             "generatedAt": "2026-08-31T12:00:00Z",
             "providers": [
                 {
@@ -273,7 +273,6 @@ def test_api_title_is_burnrate(tmp_path: Path) -> None:
     initialize(database)
     app = create_app(make_settings(database), enable_scheduler=False)
     assert app.title == "BURNRATE"
-    from spend_app import __version__
     assert app.version == __version__
     client = TestClient(app)
     payload = client.get("/api/spend").json()

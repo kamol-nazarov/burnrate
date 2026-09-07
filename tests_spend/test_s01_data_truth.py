@@ -8,7 +8,7 @@ from spend_app.adapters.codex_local import ingest as ingest_codex
 from spend_app.adapters.codex_local import reset_file_cache as reset_codex_cache
 from spend_app.adapters.common import CostRow, UsageRow, persist_rows
 from spend_app.aggregate import aggregate_entity, aggregate_health, aggregate_nav, aggregate_summary
-from spend_app.db import connect, initialize
+from spend_app.db import SCHEMA_VERSION, connect, initialize
 from spend_app.pricing import PricingEngine
 from spend_app.subscriptions import add_subscription, materialize_subscription_days
 from tests_spend.test_claude_local import write_fixture as write_claude_fixture
@@ -292,7 +292,7 @@ def test_s01_05_price_arrival_promotes_on_v7_migrated_db(tmp_path: Path) -> None
         version = connection.execute(
             "SELECT value FROM app_meta WHERE key='schema_version'"
         ).fetchone()[0]
-    assert version == "10"
+    assert version == str(SCHEMA_VERSION)
     persist_rows(
         database_path=database,
         pricing=PricingEngine.load(ROOT / "pricing"),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import time
 from contextlib import ExitStack, asynccontextmanager
 from datetime import UTC, datetime
@@ -63,7 +64,6 @@ def _asset_cache_header(request: Request, path: Path) -> str:
 from spend_app.aggregate import (
     WINDOW_SPECS,
     aggregate_entity,
-    aggregate_health,
     aggregate_health_cached,
     aggregate_nav,
     aggregate_summary,
@@ -75,7 +75,7 @@ from spend_app.aggregate import (
 from spend_app.config import Settings, load_settings
 from spend_app.db import initialize
 from spend_app.pricing import PricingEngine
-from spend_app.limits import collect_limits
+from spend_app.limits import snapshot_limits
 from spend_app.scheduler import create_scheduler
 
 
@@ -161,6 +161,20 @@ def create_app(
             response.headers["Cache-Control"] = "no-store"
         return response
 
+    # Explicit application boundary (Release A A13): when BURNRATE_ACCESS_TOKEN
+    # is configured, every /api read and write requires it as a bearer token.
+    # The default remains loopback-only with no token; a request claiming a
+    # trusted Host is never authentication by itself.
+    _access_token = os.getenv("BURNRATE_ACCESS_TOKEN", "").strip()
+
+    @app.middleware("http")
+    async def access_boundary(request, call_next):
+        if _access_token and request.url.path.startswith("/api/"):
+            header = request.headers.get("authorization", "")
+            if header != f"Bearer {_access_token}":
+                return JSONResponse({"error": "Authentication required for the API"}, status_code=401)
+        return await call_next(request)
+
     @app.exception_handler(ValueError)
     async def value_error_handler(_request, exc: ValueError):
         return JSONResponse(status_code=400, content={"error": str(exc)})
@@ -235,7 +249,9 @@ def create_app(
 
     @app.get("/api/spend/limits")
     def spend_limits() -> dict:
-        return collect_limits()
+        # Persisted-snapshot read only (Release A A01): a GET never launches
+        # credential-bearing probes; the scheduled poller stores snapshots.
+        return snapshot_limits(settings.database_path)
 
     @app.get("/api/spend")
     def spend_root() -> dict:

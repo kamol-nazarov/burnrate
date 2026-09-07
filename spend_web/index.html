@@ -50,10 +50,13 @@
             <span class="burnrate-stat__label">Today</span>
             <span class="burnrate-stat__value burnrate-stat__value--today burnrate-skeleton" id="nav-today" aria-label="Today's spend loading"></span>
           </div>
-          <button class="burnrate-stat burnrate-stat--status" id="diagnostics-button" type="button" aria-live="polite" data-state="loading" aria-label="Metering status loading">
+          <button class="burnrate-stat burnrate-stat--status" id="diagnostics-button" type="button" data-state="loading" aria-label="Metering status loading">
             <span class="burnrate-status-row"><i class="burnrate-status-dot"></i><span id="nav-status-label">Metering</span></span>
             <span class="burnrate-status-detail" id="nav-status-detail">Waiting for telemetry</span>
           </button>
+          <!-- Announces state transitions (live/stale/error and the failing
+               source), never each poll's timestamp. -->
+          <span class="sr-only" aria-live="polite" id="status-live"></span>
         </div>
       </div>
     </header>
@@ -301,6 +304,7 @@
               <strong class="mono" id="heat-value">—</strong>
             </div>
           </header>
+          <p class="sr-only" id="heat-unit">reference usage (USD at documented rates)</p>
           <div class="heat-warning" id="heat-warning" hidden>
             <i></i>
             <strong>Window too short for a weekly pattern</strong>
@@ -313,7 +317,7 @@
           </div>
           <div class="sr-only">
             <table>
-              <caption>Spend by weekday and hour</caption>
+              <caption>Reference usage by weekday and hour, in US dollars at documented rates</caption>
               <tbody id="heat-table-body"></tbody>
             </table>
           </div>

@@ -15,7 +15,7 @@ from spend_app.subscriptions import (
 )
 
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 EXACT_USAGE_SOURCES = ("codex_local", "openai_admin", "claude_local", "anthropic_admin")
 
@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS usage_events (
     cost_usd REAL,
     computed_cost_usd REAL NOT NULL CHECK (computed_cost_usd >= 0),
     is_exact INTEGER NOT NULL DEFAULT 0 CHECK (is_exact IN (0, 1)),
+    occurred_epoch_us INTEGER,
     raw_id TEXT NOT NULL UNIQUE,
     ingested_at TEXT NOT NULL
 );
@@ -162,6 +163,7 @@ CREATE TABLE IF NOT EXISTS unpriced_usage_events (
     unclassified_tokens INTEGER NOT NULL DEFAULT 0,
     telemetry_complete INTEGER NOT NULL DEFAULT 1,
     cost_usd REAL,
+    occurred_epoch_us INTEGER,
     raw_id TEXT NOT NULL UNIQUE,
     ingested_at TEXT NOT NULL
 );
@@ -180,6 +182,20 @@ CREATE TABLE IF NOT EXISTS coverage_gap_events (
 
 CREATE INDEX IF NOT EXISTS idx_coverage_gap_time
 ON coverage_gap_events(occurred_at, tool_key, model_key);
+
+CREATE TABLE IF NOT EXISTS opencode_session_progress (
+    session_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    reasoning_tokens INTEGER,
+    cost_usd REAL,
+    model_id TEXT,
+    observed_at TEXT NOT NULL,
+    PRIMARY KEY (session_id, provider_id)
+);
 """
 
 ACTIVITY_SCHEMA_SQL = """
@@ -429,11 +445,14 @@ REQUIRED_SCHEMA_OBJECTS = frozenset(
         "pricing_gap_events",
         "provider_cost_buckets",
         "coverage_gap_events",
+        "opencode_session_progress",
         "quotas",
         "agent_runs",
         "idx_ingest_runs_source_id",
         "idx_ingest_runs_status_finished",
         "idx_ingest_runs_started_at",
+        "idx_usage_events_epoch",
+        "idx_unpriced_usage_epoch",
     }
 )
 
@@ -573,6 +592,8 @@ def _initialize_base(path: Path) -> None:
         if previous_version < 5:
             connection.execute("DELETE FROM pricing_gaps")
             connection.execute("DELETE FROM pricing_gap_events")
+        migrate_release_a(connection)
+        backfill_event_epochs(connection)
         migrate_legacy_zai_seed(connection)
         migrate_legacy_subscription_identities(connection)
         seed_subscriptions(connection)
@@ -605,8 +626,87 @@ def _same_content(existing: sqlite3.Row | None, values: dict) -> bool:
     return True
 
 
+def _event_epoch(value: str | None) -> int | None:
+    """Canonical integer epoch microseconds for an event timestamp, or None.
+
+    Query ordering and window filtering use this fixed-width column: ISO TEXT
+    ordering silently drops a within-second event when source precision is
+    mixed. Rows whose timestamp cannot be parsed stay queryable by text but
+    fall outside epoch windows (they were unplaceable anyway).
+    """
+    if value is None:
+        return None
+    from spend_app.timeutil import epoch_micros, parse_utc
+
+    parsed = parse_utc(value)
+    return None if parsed is None else epoch_micros(parsed)
+
+
+def migrate_release_a(connection: sqlite3.Connection) -> None:
+    """Schema 11: canonical event epoch column (backfilled) and progress state.
+
+    Additive only: existing ids, ISO timestamps and Decimal-backed costs are
+    untouched, the backfill is derivable (idempotent), and a failure rolls
+    back with the caller's transaction so the verified old database remains.
+    """
+    for table in ("usage_events", "unpriced_usage_events"):
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info('{table}')")}
+        if not columns:
+            continue
+        if "occurred_epoch_us" not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN occurred_epoch_us INTEGER")
+    connection.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_usage_events_epoch ON usage_events(occurred_epoch_us);
+        CREATE INDEX IF NOT EXISTS idx_unpriced_usage_epoch ON unpriced_usage_events(occurred_epoch_us);
+        CREATE TABLE IF NOT EXISTS opencode_session_progress (
+            session_id TEXT NOT NULL,
+            provider_id TEXT NOT NULL,
+            input_tokens INTEGER NOT NULL DEFAULT 0,
+            cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+            cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            reasoning_tokens INTEGER,
+            cost_usd REAL,
+            model_id TEXT,
+            observed_at TEXT NOT NULL,
+            PRIMARY KEY (session_id, provider_id)
+        );
+        """
+    )
+
+
+def backfill_event_epochs(connection: sqlite3.Connection, *, batch_size: int = 5000) -> int:
+    """Populate occurred_epoch_us from the ISO timestamps; idempotent.
+
+    Returns the number of rows updated. Safe to run repeatedly: only rows
+    with a NULL epoch are visited, and repeated runs after an interrupted
+    upgrade finish the remaining rows.
+    """
+    updated = 0
+    for table in ("usage_events", "unpriced_usage_events"):
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info('{table}')")}
+        if "occurred_epoch_us" not in columns:
+            continue
+        while True:
+            rows = connection.execute(
+                f"SELECT id, occurred_at FROM {table} WHERE occurred_epoch_us IS NULL LIMIT ?",
+                (batch_size,),
+            ).fetchall()
+            if not rows:
+                break
+            for row in rows:
+                connection.execute(
+                    f"UPDATE {table} SET occurred_epoch_us=? WHERE id=?",
+                    (_event_epoch(row["occurred_at"]), row["id"]),
+                )
+            updated += len(rows)
+    return updated
+
+
 def upsert_usage_event(connection: sqlite3.Connection, event: UsageEvent) -> bool:
     values = asdict(event)
+    values["occurred_epoch_us"] = _event_epoch(event.occurred_at)
     columns = tuple(values)
     existing = connection.execute(
         f"SELECT {','.join(columns)} FROM usage_events WHERE raw_id = ?", (event.raw_id,)
@@ -647,6 +747,7 @@ def upsert_cost_bucket(connection: sqlite3.Connection, bucket: ProviderCostBucke
 
 def upsert_unpriced_event(connection: sqlite3.Connection, event: UnpricedUsageEvent) -> bool:
     values = asdict(event)
+    values["occurred_epoch_us"] = _event_epoch(event.occurred_at)
     columns = tuple(values)
     existing = connection.execute(
         f"SELECT {','.join(columns)} FROM unpriced_usage_events WHERE raw_id=?", (event.raw_id,)
@@ -821,6 +922,74 @@ def record_pricing_gap(
             sample_raw_id=excluded.sample_raw_id
         """,
         (model_key, source, occurred_at, occurred_at, raw_id),
+    )
+
+
+def read_opencode_progress(
+    connection: sqlite3.Connection, *, session_id: str, provider_id: str
+) -> dict | None:
+    row = connection.execute(
+        "SELECT input_tokens, cached_input_tokens, cache_write_tokens, output_tokens, "
+        "reasoning_tokens, cost_usd, model_id, observed_at "
+        "FROM opencode_session_progress WHERE session_id=? AND provider_id=?",
+        (session_id, provider_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "input_tokens": row[0],
+        "cached_input_tokens": row[1],
+        "cache_write_tokens": row[2],
+        "output_tokens": row[3],
+        "reasoning_tokens": row[4],
+        "cost_usd": row[5],
+        "model_id": row[6],
+        "observed_at": row[7],
+    }
+
+
+def write_opencode_progress(
+    connection: sqlite3.Connection,
+    *,
+    session_id: str,
+    provider_id: str,
+    input_tokens: int,
+    cached_input_tokens: int,
+    cache_write_tokens: int,
+    output_tokens: int,
+    reasoning_tokens: int | None,
+    cost_usd: float | None,
+    model_id: str | None,
+    observed_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO opencode_session_progress(
+            session_id, provider_id, input_tokens, cached_input_tokens, cache_write_tokens,
+            output_tokens, reasoning_tokens, cost_usd, model_id, observed_at
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(session_id, provider_id) DO UPDATE SET
+            input_tokens=excluded.input_tokens,
+            cached_input_tokens=excluded.cached_input_tokens,
+            cache_write_tokens=excluded.cache_write_tokens,
+            output_tokens=excluded.output_tokens,
+            reasoning_tokens=excluded.reasoning_tokens,
+            cost_usd=excluded.cost_usd,
+            model_id=excluded.model_id,
+            observed_at=excluded.observed_at
+        """,
+        (
+            session_id,
+            provider_id,
+            input_tokens,
+            cached_input_tokens,
+            cache_write_tokens,
+            output_tokens,
+            reasoning_tokens,
+            cost_usd,
+            model_id,
+            observed_at,
+        ),
     )
 
 

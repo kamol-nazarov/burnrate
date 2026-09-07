@@ -44,6 +44,8 @@ const state = {
   mixOpen:true,
   subsOpen:false,
   heatCell:null,
+  heatFocus:0,
+  displayTz:null,
   dHover:null,
   dPinned:null,
   request:0,
@@ -138,7 +140,8 @@ function formatReset(iso) {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+  // Labels render in the payload's configured zone, not the browser's (C13).
+  return date.toLocaleString([], {timeZone: state.displayTz || undefined, month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
 }
 function etaFromReset(iso) {
   if (!iso) return {value:unknown, label:"to reset"};
@@ -280,7 +283,7 @@ function paintComposite() {
   if ($("forecast-delta") && projected != null && planCost) $("forecast-delta").textContent = `${(projected / planCost).toFixed(2)}× plan cost`;
   if ($("forecast-note") && planCost != null) {
     const method = state.summary?.projected?.method;
-    $("forecast-note").textContent = `Published-rate equivalent of this month's usage, against ${usd(planCost)} of plan cost.` + (method ? " " + method : " Not a bill.");
+    $("forecast-note").textContent = method || "Month-to-date reference usage versus configured accrual over the same elapsed days. A comparison at published rates, not a bill.";
   }
   if ($("range-label") && state.summary && tokenTotal != null) {
     $("range-label").textContent = `${windowLabel(state.summary.window?.key || state.window)} window · ${tokens(tokenTotal)} tokens · ${number(records)} records`;
@@ -749,24 +752,35 @@ function renderNavbar(payload) {
     : cadenceMinutes == null ? unknown : `${cadenceMinutes}m cadence`;
   const visualState = mode === "success" ? "live" : mode;
   status.dataset.state = visualState;
+  let announce = null;
   if (mode === "error") {
     const failed = (state.health?.ingest || []).find(item => item.status === "failed" || item.status === "error");
     const source = payload?.failingSource || state.summary?.failingSource || failed?.source || "ingest";
     label.textContent = "Ingest failed";
     detail.textContent = source;
     status.setAttribute("aria-label", `Ingest failed: ${source}. Open diagnostics.`);
+    announce = `Ingest failed: ${source}`;
   } else if (mode === "stale") {
     label.textContent = "Stale";
     detail.textContent = payload?.snapshot ? `as of ${stamp}` : stamp === unknown ? "no successful ingest" : `last success ${stamp}`;
     status.setAttribute("aria-label", `Stale metering. ${detail.textContent}`);
+    announce = "Metering is stale";
   } else if (mode === "loading") {
     label.textContent = "Metering";
     detail.textContent = "Waiting for telemetry";
     status.setAttribute("aria-label", "Metering status loading");
+    announce = "Metering status loading";
   } else {
     label.textContent = "Metering";
     detail.textContent = [stamp, cadenceText].filter(part => part && part !== unknown).join(" · ") || unknown;
     status.setAttribute("aria-label", `Metering live. Last refresh ${stamp}. ${cadenceText === unknown ? "Cadence unknown" : cadenceText}.`);
+    announce = "Metering is live";
+  }
+  // Announce only transitions, never per-poll timestamps (C14).
+  const signature = `${announce}`;
+  if ($("status-live") && state.lastStatusAnnounce !== signature) {
+    state.lastStatusAnnounce = signature;
+    $("status-live").textContent = announce;
   }
 }
 
@@ -1264,11 +1278,15 @@ function renderForecast(data) {
   $("forecast-value").dataset.fmt = "usd";
   $("forecast-value").textContent = usd(value);
   $("projected-marker").textContent = value == null ? "" : "≈";
-  const multiple = finite(projected.multiple) ?? ((finite(plan) || 0) > 0 && value != null ? value / plan : null);
-  $("forecast-delta").textContent = multiple == null ? "" : `${multiple.toFixed(2)}× plan cost`;
+  const multiple = finite(projected.multiple);
+  const multipleBasis = projected.multipleBasis || (multiple == null ? "unavailable" : "ratio");
+  $("forecast-delta").textContent = multiple == null ? "" : `${multiple.toFixed(2)}× accrued (same period)`;
+  if (multiple != null && multipleBasis === "lower_bound") {
+    $("forecast-delta").textContent += " · lower bound";
+  }
   $("forecast-note").textContent = projected.method
-    ? `Published-rate equivalent of this month's usage, against ${usd(plan)} of plan cost. ${projected.method}`
-    : `Published-rate equivalent of this month's usage, against ${usd(plan)} of plan cost. Not a bill.`;
+    ? projected.method
+    : "Month-to-date reference usage versus configured accrual over the same elapsed days. A comparison at published rates, not a bill.";
   const denom = (finite(value) || 0) + (finite(plan) || 0);
   $("pace-bar").style.width = denom ? `${((finite(value) || 0) / denom) * 100}%` : "0%";
   $("pace-label").textContent = `usage ${usd(value)}`;
@@ -1419,12 +1437,38 @@ function renderSubs(data) {
     setStyle(swatch, "background", colorFor(row.toolKey));
     setTextAfter(swatch, row.name || "");
     setText(node.querySelector("small"), row.note || row.cadence || "");
+    // Cadence-honest labels (C12): an annual plan states its annual amount;
+    // the monthly equivalent stays in the note.
+    const cadence = String(row.cadence || "");
+    const suffix = cadence === "quarterly" ? "/3mo" : cadence === "annual" ? "/yr" : "/mo";
     setText(node.querySelector("b"), row.cadence && row.amountUsd != null
-      ? (row.cadence.includes("3") || String(row.cadence).includes("quarter") ? usd(row.amountUsd) + "/3mo" : usd(row.amountUsd) + "/mo")
+      ? usd(row.amountUsd) + suffix
       : (row.amountUsd == null ? "Free" : usd(row.amountUsd)));
   });
 }
 
+function heatValueLabel(value) {
+  // N03: cells carry reference usage USD, formatted as money, not tokens.
+  const n = finite(value);
+  if (n == null) return unknown;
+  return usd(n) + " reference usage";
+}
+function moveHeatFocus(cells, currentIndex, delta) {
+  const dayStep = 24;
+  let day = Math.floor(currentIndex / dayStep);
+  let hour = currentIndex % dayStep;
+  hour = Math.min(23, Math.max(0, hour + (delta === -1 || delta === 1 ? delta : 0)));
+  if (delta === -dayStep || delta === dayStep) day = Math.min(6, Math.max(0, day + delta / dayStep));
+  const next = Math.min(cells.length - 1, Math.max(0, day * dayStep + hour));
+  const target = cells[next];
+  if (target) {
+    state.heatFocus = next;
+    cells.forEach(cell => cell.tabIndex = -1);
+    target.tabIndex = 0;
+    target.focus();
+    applyHeat(target);
+  }
+}
 function renderHeat(data) {
   const cells = data.heatmap || [];
   const short = heatmapIsFallback(data);
@@ -1443,13 +1487,14 @@ function renderHeat(data) {
   const applyHeat = button => {
     state.heatCell = button;
     setText($("heat-label"), button.dataset.label);
-    setText($("heat-value"), button.dataset.value === "" ? unknown : tokens(button.dataset.value));
+    // Heat cells are reference usage USD (N03) with the unit spoken and shown.
+    setText($("heat-value"), button.dataset.value === "" ? unknown : usd(button.dataset.value));
     $("heat-value").style.color = short ? "#858c98" : "#eef1f5";
   };
   const hours = Array.from({length:24}, (_, hour) => hour);
   reconcileChildren($("heatmap"), DAYS, (label, day) => day, label => nodeFrom(`<div class="heat-row"><span>${esc(label)}</span><div class="heat-cells"></div></div>`), (rowNode, label, day) => {
     reconcileChildren(rowNode.querySelector(".heat-cells"), hours, hour => hour, hour => {
-      const button = nodeFrom(`<button type="button" class="heat-cell"></button>`);
+      const button = nodeFrom(`<button type="button" class="heat-cell" tabindex="-1"></button>`);
       button.dataset.label = `${label} ${String(hour).padStart(2, "0")}:00`;
       button.addEventListener("pointerenter", () => applyHeat(button));
       button.addEventListener("click", () => applyHeat(button));
@@ -1458,10 +1503,11 @@ function renderHeat(data) {
       const cell = map.get(`${day}:${hour}`);
       const value = cell ? finite(cell.value) : null;
       const alpha = value == null ? "0.05" : (0.05 + (value / max) * 0.85).toFixed(3);
-      const shown = value == null ? unknown : tokens(value);
+      const shown = value == null ? unknown : heatValueLabel(value);
       const stored = value == null ? "" : String(value);
       if (button.dataset.value !== stored) button.dataset.value = stored;
       setAttr(button, "aria-label", `${button.dataset.label} ${shown}`);
+      setAttr(button, "title", `${button.dataset.label} · ${shown}`);
       const heatBg = `rgba(120,168,248,${alpha})`;
       if (button.style.getPropertyValue("--heat-bg") !== heatBg) button.style.setProperty("--heat-bg", heatBg);
     });
@@ -1471,25 +1517,44 @@ function renderHeat(data) {
     setText(node.children[1], String(cell.hour));
     setText(node.children[2], cell.value == null ? unknown : String(cell.value));
   });
-  if (state.heatCell && !state.heatCell.isConnected) state.heatCell = null;
-  if (state.heatCell) {
+  // Roving tabindex (C14): the grid is one tab stop; arrows move within it.
+  const gridCells = [...$("heatmap").querySelectorAll("button.heat-cell")];
+  gridCells.forEach((cell, index) => {
+    cell.tabIndex = index === state.heatFocus ? 0 : -1;
+    cell.addEventListener("keydown", event => {
+      const step = {ArrowLeft:-1, ArrowRight:1, ArrowUp:-24, ArrowDown:24}[event.key];
+      if (!step) return;
+      event.preventDefault();
+      moveHeatFocus(gridCells, state.heatFocus, step);
+    });
+  });
+  const focused = gridCells[state.heatFocus];
+  if (focused && state.heatCell && document.activeElement === state.heatCell) {
+    applyHeat(state.heatCell);
+  } else if (state.heatCell && state.heatCell.isConnected) {
     applyHeat(state.heatCell);
   } else {
     let peak = null;
-    $("heatmap").querySelectorAll("button").forEach(button => {
+    gridCells.forEach((button, index) => {
       if (button.dataset.value === "") return;
-      if (!peak || Number(button.dataset.value) > Number(peak.dataset.value)) peak = button;
+      if (!peak || Number(button.dataset.value) > Number(peak.dataset.value)) {
+        peak = button;
+        state.heatFocus = index;
+      }
     });
+    if (peak) gridCells[state.heatFocus].tabIndex = 0;
     setText($("heat-label"), peak?.dataset.label || "Peak window");
-    setText($("heat-value"), peak ? tokens(peak.dataset.value) : unknown);
+    setText($("heat-value"), peak ? usd(peak.dataset.value) : unknown);
     $("heat-value").style.color = short ? "#858c98" : "#eef1f5";
   }
+  setText($("heat-unit"), data.heatmapUnit || "reference usage (USD at documented rates)");
 }
 
 function renderOverview() {
   const data = state.summary;
   if (state.view !== "overview" || !summaryMatches()) return;
   updateDataValidity();
+  if (data.displayTz) state.displayTz = data.displayTz;
   renderNavbar(data);
   renderCoverage(data);
   renderRanges(false);
@@ -1821,16 +1886,23 @@ function refreshCurrent() {
 }
 
 function minTargetSize() {
+  // A12: heat cells are separate from the 44px check (spacing exception).
   let min = Infinity;
+  let heatMin = Infinity;
   document.querySelectorAll("button, [role='button'], .legend-card, .model-row, .live-pill").forEach(el => {
     if (!el.getClientRects().length) return;
     if (el.classList.contains("hit-target")) return;
     if (el.closest(".burnrate-nav, .model-table-head, .value-gutter, .chart-axis")) return;
     const box = el.getBoundingClientRect();
     if (box.width < 1 || box.height < 1) return;
-    const size = el.classList.contains("heat-cell") ? box.height : Math.min(box.width, box.height);
+    if (el.classList.contains("heat-cell")) {
+      heatMin = Math.min(heatMin, box.width, box.height);
+      return;
+    }
+    const size = Math.min(box.width, box.height);
     min = Math.min(min, size);
   });
+  state.heatMinTarget = heatMin === Infinity ? 0 : heatMin;
   return min === Infinity ? 0 : min;
 }
 function writeProbe(view) {
@@ -1852,6 +1924,7 @@ function writeProbe(view) {
     unpriced: [...document.querySelectorAll(".model-row .numeric")].some(el => el.textContent.trim() === unknown),
     paygPct: [...document.querySelectorAll(".capacity-row .track.payg")].map(track => track.previousElementSibling?.querySelector("b")?.textContent?.trim() || ""),
     minTarget: minTargetSize(),
+    minHeatCell: state.heatMinTarget ?? 0,
     mq1199: window.matchMedia("(max-width:1199px)").matches,
     mq1023: window.matchMedia("(max-width:1023px)").matches,
     mq767: window.matchMedia("(max-width:767px)").matches,
@@ -1904,6 +1977,13 @@ function bindRangeKeys(root) {
     event.preventDefault();
     const next = event.key === "ArrowLeft" ? Math.max(0, index - 1) : Math.min(keys.length - 1, index + 1);
     changeRange(keys[next]);
+    // Roving focus (C14): arrows move real focus to the active radio.
+    const active = root.querySelector(`[data-window="${state.window}"]`);
+    if (active) {
+      root.querySelectorAll("[data-window]").forEach(button => button.tabIndex = -1);
+      active.tabIndex = 0;
+      active.focus();
+    }
   });
 }
 function bindChartHits() {

@@ -119,9 +119,13 @@ def test_c5_drilldown_share_numerator_is_the_entity_kpi(tmp_path: Path, monkeypa
     assert "of tracked value" in js
 
 
-def test_c6_session_rows_sum_below_entity_total_and_count_is_min_of_six_and_runs(
+def test_c6_session_rows_show_real_values_and_count_is_min_of_six_and_runs(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """Release A (N02): sessions display real monetary values. A shown subset
+    may legitimately cover 100% of the entity value; money is never rescaled
+    to manufacture a remainder."""
+
     database, _pricing = complete_world(tmp_path)
     client = client_for(database, monkeypatch)
     entity = client.get(
@@ -134,7 +138,9 @@ def test_c6_session_rows_sum_below_entity_total_and_count_is_min_of_six_and_runs
     assert len(rows) != 6 or entity["runs"] >= 6
     shown = sum(Decimal(str(row["value"])) for row in rows if row["value"] is not None)
     assert abs(float(shown) - entity["sessions"]["shownTotal"]) < 1e-6
-    assert entity["sessions"]["shownTotal"] < entity["value"]
+    # Real values: the subset is at most the entity value, and equality is a
+    # valid full-coverage state — never forced below it.
+    assert entity["sessions"]["shownTotal"] <= entity["value"] + 1e-6
     _html, _css, js = sources()
     assert "shownTotal" in js
     assert "min(6" in js or "Top " in js

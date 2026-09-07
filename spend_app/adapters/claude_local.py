@@ -26,12 +26,13 @@ Live-session rule:
 from __future__ import annotations
 
 import glob
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from spend_app.adapters.common import UsageRow, persist_rows
+from spend_app.adapters.common import UsageRow, persist_rows, failed_result, public_error
+from spend_app.source_health import SourceHealth, parse_jsonl_record
+from spend_app.timeutil import parse_utc
 from spend_app.adapters.local_common import open_text_read_only
 from spend_app.db import connect, initialize, upsert_session
 from spend_app.pricing import PricingEngine
@@ -43,10 +44,6 @@ _FILE_SIGNATURES: dict[str, tuple[int, int]] = {}
 
 def reset_file_cache() -> None:
     _FILE_SIGNATURES.clear()
-
-
-def _parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
 
 def _iso(value: datetime) -> str:
@@ -88,14 +85,20 @@ class ParsedEvent:
 
 
 def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
+    session, events, _health = parse_file_with_health(path)
+    return session, events
+
+
+def parse_file_with_health(path: Path) -> tuple[dict, list[ParsedEvent], SourceHealth]:
+    health = SourceHealth()
+    location = path.name
     seen_messages: set[str] = set()
     session: dict = {}
     events: list[ParsedEvent] = []
     with open_text_read_only(path) as handle:
-        for line in handle:
-            try:
-                outer = json.loads(line)
-            except json.JSONDecodeError:
+        for line_number, line in enumerate(handle, start=1):
+            outer, outcome = parse_jsonl_record(line, line_number=line_number, location=location, health=health)
+            if outer is None:
                 continue
             message = outer.get("message")
             if not isinstance(message, dict) or not isinstance(message.get("usage"), dict):
@@ -104,10 +107,20 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
             if not model or model == "<synthetic>":
                 continue
             message_id = str(message.get("id") or outer.get("uuid") or "")
-            if not message_id or message_id in seen_messages:
+            if not message_id:
+                from spend_app.source_health import quarantine as _q
+
+                health.note(_q("usage record without a message id", f"{location}:{line_number}"))
+                continue
+            if message_id in seen_messages:
                 continue
             seen_messages.add(message_id)
-            timestamp = _parse_time(str(outer["timestamp"]))
+            timestamp = parse_utc(str(outer.get("timestamp") or ""))
+            if timestamp is None:
+                from spend_app.source_health import quarantine as _q
+
+                health.note(_q("usage record without a valid timestamp", f"{location}:{line_number}"))
+                continue
             session_id = str(outer.get("sessionId") or path.stem)
             cwd = outer.get("cwd")
             project = Path(cwd).name if isinstance(cwd, str) and cwd else path.parent.name
@@ -142,6 +155,7 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
                 raw_id=f"claude-local:{session_id}:{message_id}",
             )
             events.append(event)
+            health.note_ok()
             if not session:
                 session = {
                     "id": session_id,
@@ -149,15 +163,25 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
                     "started_at": timestamp,
                     "model_key": model,
                 }
-    return session, events
+    return session, events, health
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -> dict:
+    try:
+        return _ingest(database_path=database_path, pricing=pricing, session_glob=session_glob)
+    except Exception as exc:
+        return failed_result(
+            database_path=database_path, source=SOURCE, reason=public_error(exc)
+        )
+
+
+def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -> dict:
     initialize(database_path)
     parsed_files = 0
     parsed_events = 0
     duplicates_removed = 0
     skipped_files = 0
+    quarantined = 0
     usage_rows: list[UsageRow] = []
     session_rows: list[dict] = []
     pending_signatures: list[tuple[str, tuple[int, int]]] = []
@@ -177,7 +201,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) ->
             for line in handle:
                 if '"usage"' in line and '"message"' in line:
                     raw_usage_lines += 1
-        session, events = parse_file(path)
+        session, events, health = parse_file_with_health(path)
+        quarantined += health.quarantined + health.skipped
         if not session:
             _FILE_SIGNATURES[cache_key] = signature
             continue
@@ -241,4 +266,5 @@ def ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) ->
     result["filesSkippedUnchanged"] = skipped_files
     result["eventsSeen"] = parsed_events
     result["duplicatesRemoved"] = duplicates_removed
+    result["quarantined"] = result.get("quarantined", 0) + quarantined
     return result

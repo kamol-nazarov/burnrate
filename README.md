@@ -13,7 +13,10 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.2.0-beta.1`.
+Version: `0.2.0-beta.2`.
+
+See [the latest release notes](RELEASE-0.2.0-beta.2.md) for accounting,
+schema migration, source resilience, and credential consent changes.
 
 New: [0.2 release notes](RELEASE-0.2.0.md), [subscription management](docs/subscriptions.md),
 optional Setup help, and actionable Diagnostics. Configured plans can now be
@@ -126,7 +129,7 @@ Official vs experimental is about the *interface BURNRATE uses*, not about wheth
 | Traycer CLI quota / activity | `traycer.exe` | **experimental** | `chat.db` + CLI | none (local process) | quota exact if the CLI returns `available` |
 | OpenAI admin usage/cost | official Usage + Costs APIs | opt-in official | none | `api.openai.com` if `OPENAI_ADMIN_KEY` is set | exact |
 | Anthropic admin usage/cost | official org usage/cost | opt-in official | none | `api.anthropic.com` if `ANTHROPIC_ADMIN_KEY` is set | exact |
-| Claude OAuth usage | undocumented `/api/oauth/usage` | **experimental, opt-in** | `~/.claude/.credentials.json` | Anthropic + Claude platform | quota only; off unless `BURNRATE_CLAUDE_OAUTH_REFRESH=1` |
+| Claude OAuth usage | undocumented `/api/oauth/usage` | **experimental, opt-in** | `~/.claude/.credentials.json` | Anthropic + Claude platform | quota only; requires `BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE=1` |
 | Requesty | — | **not connected** | none | none | not a rate authority |
 
 Full file patterns, hosts, credentials, mutation risk, and double-count rules: [docs/providers.md](docs/providers.md).
@@ -171,7 +174,10 @@ Optional keys in `.env` (all empty by default):
 | `ANTHROPIC_ADMIN_KEY` | Anthropic organization usage + cost |
 | `CURSOR_API_KEY` | Cursor Admin API |
 | `OPENROUTER_MANAGEMENT_KEY` | OpenRouter credits (dedicated; not the inference key) |
-| `BURNRATE_CLAUDE_OAUTH_REFRESH` | Set to `1` to allow Claude OAuth token refresh |
+| `BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE` | Set to `1` to consent to native Claude OAuth usage reads |
+| `BURNRATE_CLAUDE_OAUTH_REFRESH` | With usage consent enabled, set to `1` to additionally allow token refresh |
+| `BURNRATE_ENABLE_CURSOR_USAGE_SERVICE` | Set to `1` to consent to native Cursor session-token usage |
+| `BURNRATE_ENABLE_ZAI_QUOTA` | Set to `1` to consent to quota reads using a stored Z.AI key |
 | `SPEND_DATABASE_PATH` | SQLite path (default `%LOCALAPPDATA%\BURNRATE`) |
 | `SPEND_PRICING_PATH` | YAML cards (packaged default) |
 | `CURSOR_IMPORT_PATH` | Cursor CSV drop folder |

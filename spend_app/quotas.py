@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from spend_app.db import connect, initialize, upsert_agent_run, upsert_quota, utc_now
+from spend_app.integration_policy import PolicyDenied
 from spend_app.limits import (
     _antigravity_limits_uncached,
     _antigravity_active_sessions,
@@ -616,10 +617,13 @@ def poll_quotas(
             polled.append(provider_key)
             try:
                 samples = list(resolved[provider_key]())
-            except Exception as exc:
+            except PolicyDenied as exc:
+                # Actionable, secret-free denial copy — never a class name.
+                samples = unavailable_samples(provider_key, str(exc))
+            except Exception:
                 samples = unavailable_samples(
                     provider_key,
-                    f"Quota collection failed ({type(exc).__name__}).",
+                    "Quota collection failed for this lane; it will retry on the next tick.",
                 )
             if scheduler is not None:
                 scheduler.record(provider_key, samples, active=is_active(provider_key))

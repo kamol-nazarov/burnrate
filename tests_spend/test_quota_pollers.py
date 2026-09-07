@@ -550,7 +550,7 @@ def test_failing_collector_persists_unavailable_rows(tmp_path: Path) -> None:
     assert row["unit"] == "unavailable"
     assert row["pct"] is None
     _, reason = split_quota_label(row["label"])
-    assert reason == "Quota collection failed (RuntimeError)."
+    assert reason == "Quota collection failed for this lane; it will retry on the next tick."
 
 
 def test_one_collector_failure_does_not_stop_other_lanes(tmp_path: Path) -> None:

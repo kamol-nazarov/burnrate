@@ -9,6 +9,14 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.2.0-beta.2] - 2026-09-07
+
+- Separate usage value, configured plan accrual, and provider-reported charges.
+- Preserve UTC ordering through schema 11 and improve malformed-record isolation.
+- Require explicit consent for native credential usage and serve persisted limits on GET.
+- Correct heatmap units, partial-value labels, and keyboard interactions.
+- See [release notes and upgrade guidance](RELEASE-0.2.0-beta.2.md).
+
 ## [0.2.0-beta.1] - 2026-09-06
 
 - Added effective-dated browser subscription management, historical correction previews,

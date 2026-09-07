@@ -19,10 +19,11 @@ from zoneinfo import ZoneInfo
 
 from spend_app import aggregate, limits
 from spend_app.adapters import claude_local, codex_local, cursor_local, opencode_local, traycer_local
-from spend_app.adapters.common import UsageRow, persist_rows, promote_priced_unpriced_events
+from spend_app.adapters.common import UsageRow, persist_rows
 from spend_app.aggregate import _bucket_plan, aggregate_entity, aggregate_health, resolve_window
 from spend_app.db import (
     INGEST_RUN_KEEP_PER_SOURCE,
+    SCHEMA_VERSION,
     UsageEvent,
     connect,
     initialize,
@@ -298,7 +299,7 @@ def test_initialize_on_a_current_database_writes_nothing(tmp_path: Path) -> None
         observer.close()
     assert before == after
     with connect(database) as connection:
-        assert connection.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone()[0] == "10"
+        assert connection.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone()[0] == str(SCHEMA_VERSION)
 
 
 def test_identical_reingest_does_not_rewrite_the_row(tmp_path: Path) -> None:
@@ -637,8 +638,8 @@ def test_memoised_month_and_burn_values_refresh_when_rows_change(tmp_path: Path)
     zone = ZoneInfo(TZ)
     month_start = datetime(NOW.astimezone(zone).year, NOW.astimezone(zone).month, 1, tzinfo=zone).astimezone(UTC)
     with connect(database) as connection:
-        _parts, usage = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
-        _parts, again_usage = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
+        _parts, usage, _complete = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
+        _parts, again_usage, _complete2 = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
         assert usage == again_usage
         add_event(
             database,
@@ -654,6 +655,6 @@ def test_memoised_month_and_burn_values_refresh_when_rows_change(tmp_path: Path)
             output=4_000,
         )
     with connect(database) as connection:
-        _parts, grown = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
+        _parts, grown, _complete3 = aggregate._month_usage(connection, pricing, month_start, NOW, "all")
     assert grown["codex"] > usage["codex"]
     aggregate.reset_memo()

@@ -1,4 +1,6 @@
-"""Schema 10: stable plans with inclusive, nonoverlapping effective terms."""
+"""Plan-terms and release migrations: stable plans with inclusive,
+nonoverlapping effective terms (schema 10) plus the additive Release A
+epoch/progress objects (schema 11)."""
 
 import sqlite3
 import uuid
@@ -8,7 +10,13 @@ from pathlib import Path
 
 
 def upgrade_database(path: Path, initialize_base):
-    from spend_app.db import backup_database, connect
+    from spend_app.db import (
+        SCHEMA_VERSION,
+        backfill_event_epochs,
+        backup_database,
+        connect,
+        migrate_release_a,
+    )
 
     path = Path(path)
     version = 0
@@ -24,7 +32,7 @@ def upgrade_database(path: Path, initialize_base):
                         "SELECT value FROM app_meta WHERE key='schema_version'"
                     ).fetchone()[0]
                 )
-                if version > 10:
+                if version > SCHEMA_VERSION:
                     raise RuntimeError(
                         "Database uses a newer schema; upgrade this application before opening it"
                     )
@@ -38,7 +46,7 @@ def upgrade_database(path: Path, initialize_base):
                     )
                 }
                 if (
-                    version == 10
+                    version == SCHEMA_VERSION
                     and "plan_id" in columns
                     and "cost_decimal" in daily_columns
                 ):
@@ -133,4 +141,14 @@ def upgrade_database(path: Path, initialize_base):
                 start=date.fromisoformat(bounds[0]),
                 end=date.fromisoformat(bounds[1]),
             )
-        connection.execute("UPDATE app_meta SET value='10' WHERE key='schema_version'")
+        # Release A additive objects (event epoch column + indexes, progress
+        # state): idempotent, applied to every database below the current
+        # version, with the transaction rolling back on failure so the
+        # verified old database survives.
+        migrate_release_a(connection)
+        backfill_event_epochs(connection)
+        connection.execute(
+            "INSERT INTO app_meta(key, value) VALUES('schema_version', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(SCHEMA_VERSION),),
+        )

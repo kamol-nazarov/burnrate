@@ -93,7 +93,7 @@ def test_onboarding_health_reads_do_not_probe_or_mutate(tmp_path, monkeypatch):
     def forbidden(*a, **k):
         raise AssertionError("Provider probe or credential mutation on read")
 
-    monkeypatch.setattr("spend_app.api.collect_limits", forbidden)
+    monkeypatch.setattr("spend_app.api.snapshot_limits", forbidden)
     monkeypatch.setattr("spend_app.diagnostics.detect_local_sources", forbidden)
     client = TestClient(app)
     with connect(db) as c:

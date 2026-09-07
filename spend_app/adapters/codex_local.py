@@ -25,12 +25,14 @@ Live-session rule:
 from __future__ import annotations
 
 import glob
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from spend_app.adapters.common import UsageRow, persist_rows
+from spend_app.adapters.common import UsageRow, persist_rows, failed_result, public_error
+from spend_app.source_health import SourceHealth, parse_jsonl_record
+from spend_app.timeutil import parse_utc
+from spend_app.adapters.local_common import number
 from spend_app.adapters.local_common import open_text_read_only
 from spend_app.db import connect, initialize, upsert_session
 from spend_app.pricing import PricingEngine
@@ -38,6 +40,7 @@ from spend_app.pricing import PricingEngine
 
 SOURCE = "codex_local"
 DESKTOP_ORIGINATOR = "Codex Desktop"
+SUPPORTED_ORIGINATORS = {DESKTOP_ORIGINATOR}
 _FILE_SIGNATURES: dict[str, tuple[int, int]] = {}
 
 
@@ -45,9 +48,9 @@ def reset_file_cache() -> None:
     _FILE_SIGNATURES.clear()
 
 
-def _parse_time(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed.astimezone(UTC)
+def _parse_time(value: str) -> datetime | None:
+
+    return parse_utc(value)
 
 
 def _iso(value: datetime) -> str:
@@ -69,15 +72,21 @@ class ParsedEvent:
 
 
 def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
+    session, events, _health = parse_file_with_health(path)
+    return session, events
+
+
+def parse_file_with_health(path: Path) -> tuple[dict, list[ParsedEvent], SourceHealth]:
+    health = SourceHealth()
+    location = path.name
     session: dict = {}
     current_model: str | None = None
     events: list[ParsedEvent] = []
     token_index = 0
     with open_text_read_only(path) as handle:
-        for line in handle:
-            try:
-                outer = json.loads(line)
-            except json.JSONDecodeError:
+        for line_number, line in enumerate(handle, start=1):
+            outer, outcome = parse_jsonl_record(line, line_number=line_number, location=location, health=health)
+            if outer is None:
                 continue
             payload = outer.get("payload")
             if not isinstance(payload, dict):
@@ -85,9 +94,15 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
             if outer.get("type") == "session_meta":
                 session_id = str(payload.get("id") or payload.get("session_id") or path.stem)
                 cwd = payload.get("cwd")
+                started = _parse_time(str(payload.get("timestamp") or outer.get("timestamp") or ""))
+                if started is None:
+                    from spend_app.source_health import quarantine as _q
+
+                    health.note(_q("session_meta without a valid timestamp", f"{location}:{line_number}"))
+                    continue
                 session = {
                     "id": session_id,
-                    "started_at": _parse_time(str(payload.get("timestamp") or outer.get("timestamp"))),
+                    "started_at": started,
                     "project": Path(cwd).name if isinstance(cwd, str) and cwd else None,
                     "originator": payload.get("originator"),
                 }
@@ -102,8 +117,32 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
                 continue
             if not session or current_model is None:
                 continue
+            occurred_at = _parse_time(str(outer.get("timestamp") or ""))
+            if occurred_at is None:
+                from spend_app.source_health import quarantine as _q
+
+                health.note(_q("token_count without a valid timestamp", f"{location}:{line_number}"))
+                continue
             usage = info["last_token_usage"]
-            occurred_at = _parse_time(str(outer["timestamp"]))
+            input_tokens = number(usage.get("input_tokens"))
+            cached_input = number(usage.get("cached_input_tokens"))
+            cache_write = number(usage.get("cache_write_input_tokens"))
+            output_tokens = number(usage.get("output_tokens"))
+            if cached_input > input_tokens:
+                from spend_app.source_health import quarantine as _q
+
+                health.note(
+                    _q("cached_input_tokens exceed input_tokens", f"{location}:{line_number}")
+                )
+                continue
+            reasoning_raw = usage.get("reasoning_output_tokens")
+            reasoning: int | None
+            if reasoning_raw is None:
+                reasoning = None
+            else:
+                reasoning = number(reasoning_raw)
+            # Stable identity format is frozen: changing it would re-mint
+            # identities for already-persisted rows and inflate totals.
             raw_id = f"codex-local:{session['id']}:{outer['timestamp']}:{token_index}"
             token_index += 1
             events.append(
@@ -112,19 +151,16 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
                     project=session["project"],
                     model_key=current_model,
                     occurred_at=occurred_at,
-                    input_tokens=max(0, int(usage.get("input_tokens") or 0)),
-                    cached_input_tokens=max(0, int(usage.get("cached_input_tokens") or 0)),
-                    cache_write_tokens=max(0, int(usage.get("cache_write_input_tokens") or 0)),
-                    output_tokens=max(0, int(usage.get("output_tokens") or 0)),
-                    reasoning_tokens=(
-                        None
-                        if usage.get("reasoning_output_tokens") is None
-                        else max(0, int(usage.get("reasoning_output_tokens") or 0))
-                    ),
+                    input_tokens=input_tokens,
+                    cached_input_tokens=cached_input,
+                    cache_write_tokens=cache_write,
+                    output_tokens=output_tokens,
+                    reasoning_tokens=reasoning,
                     raw_id=raw_id,
                 )
             )
-    return session, events
+            health.note_ok()
+    return session, events, health
 
 
 def ingest(
@@ -133,11 +169,24 @@ def ingest(
     pricing: PricingEngine,
     session_glob: str,
 ) -> dict:
+    try:
+        return _ingest(database_path=database_path, pricing=pricing, session_glob=session_glob)
+    except Exception as exc:
+        # A crash must be visible per source (A03): record a failed run
+        # instead of letting the exception escape without a health record.
+        return failed_result(
+            database_path=database_path, source=SOURCE, reason=public_error(exc)
+        )
+
+
+def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -> dict:
     initialize(database_path)
     parsed_files = 0
     parsed_events = 0
     skipped_files = 0
     skipped_originator = 0
+    quarantined = 0
+    originator_files: dict[str, int] = {}
     usage_rows: list[UsageRow] = []
     session_rows: list[dict] = []
     pending_signatures: list[tuple[str, tuple[int, int]]] = []
@@ -152,12 +201,18 @@ def ingest(
         if _FILE_SIGNATURES.get(cache_key) == signature:
             skipped_files += 1
             continue
-        session, events = parse_file(path)
+        try:
+            session, events, health = parse_file_with_health(path)
+        except OSError:
+            continue
+        quarantined += health.quarantined + health.skipped
         if not session:
             _FILE_SIGNATURES[cache_key] = signature
             continue
-        if session.get("originator") != DESKTOP_ORIGINATOR:
+        if session.get("originator") not in SUPPORTED_ORIGINATORS:
             skipped_originator += 1
+            key = str(session.get("originator") or "unknown")
+            originator_files[key] = originator_files.get(key, 0) + 1
             _FILE_SIGNATURES[cache_key] = signature
             continue
         parsed_files += 1
@@ -218,5 +273,10 @@ def ingest(
     result["files"] = parsed_files
     result["filesSkippedUnchanged"] = skipped_files
     result["filesSkippedOriginator"] = skipped_originator
+    result["filesByOriginator"] = originator_files
+    result["unsupportedOriginators"] = sorted(
+        key for key in originator_files if key not in SUPPORTED_ORIGINATORS
+    )
+    result["quarantined"] = result.get("quarantined", 0) + quarantined
     result["eventsSeen"] = parsed_events
     return result

@@ -56,6 +56,17 @@ _RUNTIME_IMPORTS = (
 _WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "favicon.svg")
 
 
+def _decimal_or_none(value: object):
+    from decimal import Decimal, InvalidOperation
+
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def _parse_utc(value: str | None, default: datetime) -> datetime:
     if not value:
         return default
@@ -283,12 +294,82 @@ def _main() -> int:
     subscription_commands.add_parser("list")
     apply = subscription_commands.add_parser("apply", help="Apply a validated effective-dated change; historical corrections require preview and confirmation")
     apply.add_argument("--json", required=True)
+    pricing_refresh = subparsers.add_parser(
+        "pricing-refresh",
+        help="Draft a review diff of captured official provider metadata against the approved rate cards",
+    )
+    pricing_refresh.add_argument(
+        "--snapshot",
+        required=True,
+        help="Path to a captured metadata snapshot (JSON) from an authorized official source",
+    )
+    pricing_refresh.add_argument(
+        "--provider",
+        required=True,
+        help="Provider key of the snapshot (e.g. openrouter)",
+    )
+    pricing_audit = subparsers.add_parser(
+        "pricing-audit",
+        help="List rate cards approaching expiry; successors are only ever evidenced, never invented",
+    )
     args = parser.parse_args()
 
     if args.command == "serve":
         return _cmd_serve(args.host, args.port)
 
     settings = load_settings()
+    if args.command == "pricing-refresh":
+        from spend_app.pricing_refresh import draft_refresh, load_card_expiries
+
+        snapshot_path = Path(args.snapshot)
+        if not snapshot_path.is_file():
+            print(json.dumps({"error": f"Snapshot file not found: {snapshot_path}"}))
+            return 2
+        try:
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        except ValueError:
+            print(json.dumps({"error": "Snapshot is not valid JSON"}))
+            return 2
+        approved_cards: dict[str, dict] = {}
+        # Approved per-field rates come from the card rows; the engine's
+        # resolve index covers aliases, so read cards directly instead.
+        import yaml
+
+        for path in sorted(Path(settings.pricing_path).glob("*.yaml")):
+            document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            if str(document.get("provider") or "") != args.provider:
+                continue
+            for row in document.get("prices") or []:
+                key = str(row.get("model_key"))
+                fields = approved_cards.setdefault(key, {})
+                fields["input"] = _decimal_or_none(row.get("input_per_mtok"))
+                fields["cached_input"] = _decimal_or_none(row.get("cached_input_per_mtok"))
+                fields["cache_write"] = _decimal_or_none(row.get("cache_write_per_mtok"))
+                fields["cache_write_1h"] = _decimal_or_none(row.get("cache_write_1h_per_mtok"))
+                fields["output"] = _decimal_or_none(row.get("output_per_mtok"))
+        draft = draft_refresh(
+            snapshot=snapshot,
+            provider=args.provider,
+            approved_cards=approved_cards,
+            observed_at=datetime.now(UTC),
+        )
+        expiring = load_card_expiries(settings.pricing_path)
+        from spend_app.pricing_refresh import expiring_cards
+
+        payload = json.loads(draft.to_json())
+        payload["expiring"] = expiring_cards(expiring, now=datetime.now(UTC))
+        payload["note"] = (
+            "Draft for review only: nothing is applied automatically. Effective times require "
+            "provider documentation; model-created times are provenance, never price starts."
+        )
+        print(json.dumps(payload, indent=2))
+        return 0
+    if args.command == "pricing-audit":
+        from spend_app.pricing_refresh import expiring_cards, load_card_expiries
+
+        expiring = expiring_cards(load_card_expiries(settings.pricing_path), now=datetime.now(UTC))
+        print(json.dumps({"expiring": expiring, "generatedAt": datetime.now(UTC).isoformat()}, indent=2))
+        return 0
     if args.command in {"init", "init-db"}:
         return _cmd_init(settings)
     if args.command == "doctor":

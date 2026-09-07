@@ -11,8 +11,8 @@
   --panel-edge:#2c333d;
   --text:#eef1f5;
   --secondary:#b1b7c1;
-  --muted:#858c98;
-  --dim:#5d646f;
+  --muted:#98a0ac;
+  --dim:#7b8290;
   --accent:#78a8f8;
   --green:#63c689;
   --amber:#d9a441;
@@ -565,15 +565,18 @@ main{width:min(1620px,calc(100% - 48px));margin:0 auto}
 .heat-row{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:10px}
 .heat-row > span{color:var(--dim);font:10px var(--font-mono)}
 .heat-cells{display:grid;grid-template-columns:repeat(24,1fr);gap:4px}
+/* Release A (A12/C11/C14): one genuine nonoverlapping target per cell.
+   The old 44px hit areas with negative margins overlapped neighboring cells
+   so pointer/hover z-order could select the wrong one. Cells are now their
+   own real hit area (visual == target); grid gaps provide separation, arrow
+   keys give full keyboard access, and the value table below is an equivalent
+   control carrying the exact numbers. */
 .heat-cell{
-  position:relative;height:44px;min-height:44px;margin:-13px 0 -14px;padding:0;border:0;
-  border-radius:0;background:transparent;cursor:pointer;
+  height:20px;min-height:20px;min-width:17px;margin:0;padding:0;border:0;
+  border-radius:3px;background:var(--heat-bg,rgba(120,168,248,.05));cursor:pointer;
 }
-.heat-cell:after{
-  content:"";position:absolute;inset:13px 0 14px;border-radius:3px;
-  background:var(--heat-bg,rgba(120,168,248,.05));pointer-events:none;
-}
-.heat-cell:hover,.heat-cell:focus-visible{z-index:2}
+.heat-cell:hover,.heat-cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media(min-width:1024px){.heat-cell{height:24px;min-height:24px}}
 .heat-legend{
   display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-left:44px;
 }

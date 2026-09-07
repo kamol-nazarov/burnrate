@@ -180,6 +180,7 @@ def _write_expired_claude_credentials(tmp_path: Path) -> Path:
 def test_claude_oauth_refresh_is_off_by_default_and_does_not_write_credentials(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE", "1")
     monkeypatch.delenv("BURNRATE_CLAUDE_OAUTH_REFRESH", raising=False)
     credentials = _write_expired_claude_credentials(tmp_path)
     original = credentials.read_text(encoding="utf-8")
@@ -216,6 +217,7 @@ def test_claude_oauth_refresh_is_off_by_default_and_does_not_write_credentials(
 def test_claude_oauth_refresh_writes_credentials_only_when_opted_in(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE", "1")
     monkeypatch.setenv("BURNRATE_CLAUDE_OAUTH_REFRESH", "1")
     credentials = _write_expired_claude_credentials(tmp_path)
     monkeypatch.setattr("spend_app.limits.Path.home", lambda: tmp_path)
@@ -274,6 +276,7 @@ def test_undocumented_interfaces_are_labeled_experimental() -> None:
 
 
 def test_cursor_quota_client_disables_proxy_env(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CURSOR_USAGE_SERVICE", "1")
     database = (
         tmp_path
         / "AppData"
@@ -322,6 +325,7 @@ def test_cursor_quota_client_disables_proxy_env(tmp_path: Path, monkeypatch) -> 
 def test_claude_oauth_401_does_not_refresh_when_opt_in_is_unset(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE", "1")
     monkeypatch.setenv("BURNRATE_CLAUDE_OAUTH_REFRESH", "0")
     credentials = _write_expired_claude_credentials(tmp_path)
     original = credentials.read_text(encoding="utf-8")

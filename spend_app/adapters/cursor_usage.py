@@ -117,6 +117,10 @@ def parse_events(events: list[dict]) -> list[UsageRow]:
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
+    from spend_app.integration_policy import authorize, identity_headers
+    allowed, reason = authorize("cursor_usage_service")
+    if not allowed:
+        return skipped_result(database_path=database_path, source=SOURCE, reason=reason)
     global _NEXT_POLL_AT
     current_tick = time.monotonic()
     if current_tick < _NEXT_POLL_AT:
@@ -133,6 +137,7 @@ def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "Connect-Protocol-Version": "1",
+        **identity_headers(),
     }
     events: list[dict] = []
     try:

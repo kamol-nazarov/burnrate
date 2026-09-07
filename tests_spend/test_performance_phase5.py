@@ -7,8 +7,7 @@ the bench script and its baseline exist and agree, and asset sizes are gated.
 from __future__ import annotations
 
 import gzip
-import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from spend_app import aggregate
@@ -96,7 +95,11 @@ def test_bench_script_and_baseline_agree_and_stay_read_only() -> None:
 def test_asset_size_gates() -> None:
     js_bytes = (WEB / "spend.js").read_bytes()
     css_bytes = (WEB / "spend.css").read_bytes()
-    assert len(js_bytes) < 100_000, len(js_bytes)
+    # Release A raised the core budget 100_000 -> 104_000 bytes explicitly:
+    # heatmap roving-tabindex keyboard grid (A12), reference-usage unit
+    # labels (N03), transition-only status announcements (C14), cadence-honest
+    # subscription labels (C12) and the probe's split target reporting.
+    assert len(js_bytes) < 104_000, len(js_bytes)
     assert len(css_bytes) < 45_000, len(css_bytes)
     assert len(gzip.compress(js_bytes, 6)) < 30_000
     helper = (WEB / "request-state.js").read_bytes()

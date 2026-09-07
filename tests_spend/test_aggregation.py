@@ -463,12 +463,15 @@ def test_internal_consistency_invariants(tmp_path: Path) -> None:
     from spend_app.aggregate import _subscription_cost
     with connect(database) as connection:
         subs, _by_tool = _subscription_cost(connection, window.start, window.end, TZ)
+    # Release A (N01): the tracked headline is reference usage value only;
+    # configured subscription cost is a separate metric, never folded in.
     if result["totals"]["trackedValue"] is not None:
-        assert abs(float(usage_values + subs) - result["totals"]["trackedValue"]) < 1e-6
+        assert abs(float(usage_values) - result["totals"]["trackedValue"]) < 1e-6
         assert abs(
-            result["totals"]["priced"] + result["totals"]["publishedRate"] + float(subs)
+            result["totals"]["priced"] + result["totals"]["publishedRate"]
             - result["totals"]["trackedValue"]
         ) < 1e-6
+        assert result["totals"]["subscriptionUsd"] >= float(subs) - 1e-6
 
     assert abs(sum(item["share"] for item in result["mix"]) - 100) <= 0.1
     measured = sum(item["tokens"] for item in result["mix"])
@@ -515,7 +518,8 @@ def test_tool_filter_reconciles_subscription_only_window(tmp_path: Path) -> None
     from spend_app.aggregate import _subscription_cost
     with connect(database) as connection:
         _total, by_tool = _subscription_cost(connection, window.start, window.end, TZ)
-    expected = usage + float(by_tool.get("cursor", 0))
+    # Tracked value excludes configured subscription cost (Release A N01).
+    expected = usage
     if result["totals"]["trackedValue"] is not None:
         assert abs(result["totals"]["trackedValue"] - expected) < 1e-6
 
@@ -723,9 +727,8 @@ def test_api_equivalent_fields_exclude_subscription_proration(tmp_path: Path) ->
     assert abs(with_plan["totals"]["trackedValue"] - (
         with_plan["totals"]["priced"]
         + with_plan["totals"]["publishedRate"]
-        + with_plan["totals"]["subscriptionUsd"]
     )) < 1e-12  # JSON floats may differ by one ULP from exact Decimal summation.
-    assert with_plan["totals"]["trackedValue"] != (
+    assert with_plan["totals"]["trackedValue"] == (
         with_plan["totals"]["priced"] + with_plan["totals"]["publishedRate"]
     )
 

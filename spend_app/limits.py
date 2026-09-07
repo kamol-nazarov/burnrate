@@ -33,6 +33,8 @@ import httpx
 
 from spend_app.adapters.local_common import sqlite_read_only
 from spend_app.adapters.traycer_local import projection_index, settings_candidates
+from spend_app.db import connect
+from spend_app.integration_policy import authorize, identity_headers, require as require_lane
 
 
 _CACHE: dict[str, tuple[float, dict]] = {}
@@ -419,6 +421,13 @@ def _codex_limits() -> dict:
 
 
 def _cursor_access_token() -> str | None:
+    """Cursor's own session token, read ONLY through the opt-in-native lane.
+
+    The token belongs to the Cursor application. Reading it is denied by
+    default (user consent with BURNRATE is not provider permission); the
+    policy check happens BEFORE the credential store is touched.
+    """
+    require_lane("cursor_usage_service")
     database = Path.home() / "AppData" / "Roaming" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
     if not database.is_file():
         return None
@@ -431,6 +440,9 @@ def _cursor_access_token() -> str | None:
 
 
 def _cursor_limits_uncached() -> dict:
+    allowed, reason = authorize("cursor_usage_service")
+    if not allowed:
+        return {"key": "cursor", "name": "Cursor", "status": "unavailable", "windows": [], "detail": reason}
     token = _cursor_access_token()
     if not token:
         return {"key": "cursor", "name": "Cursor", "status": "unavailable", "windows": [], "detail": "Experimental Cursor DashboardService: Cursor is not signed in locally or its account database is unavailable."}
@@ -438,6 +450,7 @@ def _cursor_limits_uncached() -> dict:
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "Connect-Protocol-Version": "1",
+        **identity_headers(),
     }
     base = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
     try:
@@ -639,7 +652,7 @@ def _refresh_claude_access_token(credentials_path: Path, *, force: bool = False)
                 "refresh_token": refresh_token,
                 "client_id": CLAUDE_OAUTH_CLIENT_ID,
             },
-            headers={"Content-Type": "application/json", "User-Agent": "claude-code/2.1.255"},
+            headers={"Content-Type": "application/json", **identity_headers()},
             timeout=15,
             trust_env=False,
             follow_redirects=False,
@@ -707,6 +720,9 @@ def _refresh_claude_access_token(credentials_path: Path, *, force: bool = False)
 
 
 def _claude_limits_uncached() -> dict:
+    allowed, reason = authorize("claude_oauth_usage")
+    if not allowed:
+        return {"key": "claude-code", "name": "Claude Code", "status": "unavailable", "windows": [], "detail": reason}
     credentials_path = Path.home() / ".claude" / ".credentials.json"
     try:
         token, subscription = _refresh_claude_access_token(credentials_path)
@@ -727,7 +743,7 @@ def _claude_limits_uncached() -> dict:
         usage_headers = {
             "Authorization": f"Bearer {token}",
             "anthropic-beta": "oauth-2025-04-20",
-            "User-Agent": "claude-code/2.1.255",
+            **identity_headers(),
             "Accept": "application/json",
         }
         response = httpx.get(
@@ -808,6 +824,9 @@ def _claude_limits_uncached() -> dict:
 
 
 def _zai_limits_uncached() -> dict:
+    allowed, reason = authorize("zai_quota_endpoint")
+    if not allowed:
+        return {"key": "opencode", "name": "Z.AI Coding Plan", "status": "unavailable", "windows": [], "detail": reason}
     token = None
     auth_path = Path.home() / ".local" / "share" / "opencode" / "auth.json"
     try:
@@ -830,7 +849,7 @@ def _zai_limits_uncached() -> dict:
         _assert_allowed_https_host(ZAI_QUOTA_URL, ZAI_QUOTA_ALLOWED_HOSTS)
         response = httpx.get(
             ZAI_QUOTA_URL,
-            headers={"Authorization": token, "Accept-Language": "en-US,en", "Content-Type": "application/json"},
+            headers={"Authorization": token, "Accept-Language": "en-US,en", "Content-Type": "application/json", **identity_headers()},
             timeout=15,
             trust_env=False,
             follow_redirects=False,
@@ -1964,7 +1983,28 @@ def _traycer_activity() -> dict:
     }
 
 
-def collect_limits() -> dict:
+def collect_limits(database_path: Path | None = None) -> dict:
+    return snapshot_limits(database_path)
+
+
+def snapshot_limits(database_path: Path | None = None) -> dict:
+    providers = {}
+    if database_path is None:
+        return {"providers": [], "snapshot": True, "activeAgents": [], "unmeteredTurns": []}
+    with connect(database_path) as connection:
+        rows = connection.execute("SELECT * FROM quotas ORDER BY polled_at, id").fetchall()
+    latest = {}
+    for row in rows:
+        latest[(row["provider_key"], row["limit_key"])] = row
+    for (key, limit), row in latest.items():
+        item = providers.setdefault(key, {"key": key, "name": key, "status": "unavailable", "windows": [], "detail": row["label"]})
+        if row["pct"] is not None or row["used"] is not None:
+            item["status"] = "exact"
+            item["windows"].append({"key": limit, "label": row["label"], "usedPct": row["pct"], "used": row["used"], "limit": row["allowance"], "resetAt": row["resets_at"]})
+    return {"providers": list(providers.values()), "snapshot": True, "activeAgents": [], "unmeteredTurns": []}
+
+
+def _collect_live_limits() -> dict:
     loaders = [
         _codex_limits,
         lambda: _cached("claude", 90, _claude_limits_via_traycer),

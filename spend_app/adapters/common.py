@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from spend_app.db import (
     EXACT_USAGE_SOURCES,
@@ -263,7 +264,14 @@ def persist_rows(
     source: str,
     usage_rows: Iterable[UsageRow],
     cost_rows: Iterable[CostRow] = (),
+    finalize: "Callable[[sqlite3.Connection], None] | None" = None,
 ) -> dict:
+    """Persist one ingest cycle atomically, including the run health record.
+
+    ``finalize`` (used by cumulative-session adapters) runs inside the same
+    transaction after the rows are written, so derived state — such as a
+    delta baseline — can never commit without its rows or vice versa.
+    """
     initialize(database_path)
     usage_rows = tuple(usage_rows)
     cost_rows = tuple(cost_rows)
@@ -392,6 +400,8 @@ def persist_rows(
             promoted = promote_priced_unpriced_events(connection, pricing)
             run.events_written += promoted
             resolve_pricing_gaps(connection, pricing)
+            if finalize is not None:
+                finalize(connection)
             error = f"Unpriced models: {', '.join(sorted(unpriced))}" if unpriced else None
             if quarantined and error is None:
                 error = f"Quarantined malformed rows: {quarantined}"

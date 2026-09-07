@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -66,6 +66,8 @@ def _run_ingest_specs(jobs: list[tuple[ProviderSpec, dict]]) -> None:
         try:
             ingest(**kwargs)
         except Exception as exc:
+            from spend_app.adapters.common import failed_result, public_error
+            failed_result(database_path=kwargs["database_path"], source=spec.key, reason=public_error(exc))
             if spec.stability == "experimental":
                 continue
             errors.append(exc)
@@ -144,11 +146,19 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
 
     def subscription_job() -> None:
         initialize(settings.database_path)
-        today = date.today()
+        # Calendar decisions use the CONFIGURED timezone, never the system
+        # date (Release A C15/A02).
+        from zoneinfo import ZoneInfo
+
+        from spend_app.timeutil import month_start as _month_start
+
+        now_utc = datetime.now(UTC)
+        today = now_utc.astimezone(ZoneInfo(settings.timezone)).date()
+        month_begin = _month_start(now_utc, ZoneInfo(settings.timezone)).astimezone(ZoneInfo(settings.timezone)).date()
         with connect(settings.database_path) as connection:
             materialize_subscription_days(
                 connection,
-                start=today.replace(day=1),
+                start=month_begin,
                 end=today + timedelta(days=40),
             )
 
