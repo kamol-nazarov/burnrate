@@ -9,6 +9,8 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.2] - 2026-09-08
+
 - Treat absent automatic harness defaults as not detected, while missing
   configured locations and real access/schema errors remain visible failures.
 - Preserve OpenCode child-result counters, unpriced models and partial status
