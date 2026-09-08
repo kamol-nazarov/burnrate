@@ -54,6 +54,9 @@ include = [
   "pricing/**",
   "tests_spend/**",
   "README.md",
+  "NOTICE",
+  "LICENSE",
+  "docs/**",
   "pyproject.toml",
 ]
 exclude = [
@@ -72,3 +75,4 @@ packages = ["spend_app", "spend_web"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "pricing" = "pricing"
+"NOTICE" = "burnrate-notices/NOTICE"

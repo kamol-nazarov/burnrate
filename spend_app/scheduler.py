@@ -136,8 +136,8 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
     )
 
     def admin_jobs() -> None:
-        end = datetime.now(UTC)
-        start = end - timedelta(hours=2)
+        from spend_app.adapters.report_pages import reporting_window
+        start, end = reporting_window(datetime.now(UTC))
         _run_ingest_specs([(spec, {}) for spec in REGISTRY.admin_ingest()], settings, pricing, {"start": start, "end": end})
 
     scheduler.add_job(

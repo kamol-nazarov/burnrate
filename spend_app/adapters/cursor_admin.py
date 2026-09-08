@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -32,7 +33,11 @@ def _occurred_at(value: object) -> datetime | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return _millis_time(value)
+        from spend_app.adapters.local_common import parse_millis
+        return parse_millis(value)
+    if isinstance(value, str) and value.isdigit() and len(value) in {10, 13}:
+        from spend_app.adapters.local_common import parse_millis
+        return parse_millis(int(value) * (1000 if len(value) == 10 else 1))
     return parse_iso_time(value)
 
 
@@ -45,11 +50,11 @@ def _count(value: object) -> int:
     if isinstance(value, bool):
         return 0
     if isinstance(value, (int, float)):
-        return max(0, int(value))
+        return max(0, int(value)) if math.isfinite(value) else 0
     if isinstance(value, str):
         try:
             return max(0, int(float(value)))
-        except ValueError:
+        except (ValueError, OverflowError):
             return 0
     return 0
 
@@ -69,6 +74,8 @@ def _has_next_page(payload: dict, page: int) -> bool:
     pagination = pagination if isinstance(pagination, dict) else {}
     num_pages = _positive_int(pagination.get("numPages"))
     has_next = pagination.get("hasNextPage")
+    if isinstance(has_next, bool) and num_pages is not None and has_next != (page < num_pages):
+        raise ValueError("Cursor pagination fields disagree; report coverage is incomplete.")
     if isinstance(has_next, bool):
         if not has_next:
             return False
@@ -87,14 +94,20 @@ def _charged_cost(event: dict) -> float | None:
     # `chargedCents` is the documented billing authority for the event; the
     # token-level breakdown (e.g. legacy `totalCents`) is not billed cost.
     cents = event.get("chargedCents")
+    if isinstance(cents, str):
+        try:
+            cents = float(cents)
+        except ValueError:
+            return None
     if isinstance(cents, bool) or not isinstance(cents, (int, float)):
         return None
-    return max(0.0, float(cents)) / 100
+    return max(0.0, float(cents)) / 100 if math.isfinite(cents) else None
 
 
-def parse_events(payload: dict) -> list[UsageRow]:
+def parse_events(payload: dict, *, observations=False, revision=None) -> list[UsageRow]:
     rows: list[UsageRow] = []
     events = payload.get("usageEvents") or payload.get("events") or []
+    positions = {}
     for event in events:
         if not isinstance(event, dict):
             continue
@@ -115,14 +128,13 @@ def parse_events(payload: dict) -> list[UsageRow]:
             event.get("model"),
             usage,
         )
-        rows.append(
-            UsageRow(
+        row = UsageRow(
                 source=SOURCE,
                 tool_key="cursor",
                 model_key=f"cursor:{event.get('model') or 'unknown'}",
                 occurred_at=occurred_at,
                 session_id=(
-                    event.get("cloudAgentId") or event.get("agent") or event.get("automationId")
+                    event.get("cloudAgentId") or event.get("agent") or event.get("automationId") or event.get("conversationId")
                 ),
                 project=None,
                 input_tokens=fresh + cached,
@@ -133,23 +145,51 @@ def parse_events(payload: dict) -> list[UsageRow]:
                 reasoning_tokens=None,
                 cost_usd=_charged_cost(event),
                 raw_id=f"cursor-admin:{event_id}",
+                telemetry_complete=all(usage.get(key) is not None for key in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens")),
             )
-        )
+        from dataclasses import replace
+        from spend_app.adapters.event_identity import Observation, cursor_identity
+        logical = (event.get("teamId") or payload.get("teamId"), event.get("userId") or event.get("userEmail") or event.get("serviceAccountId"),
+                   row.session_id, occurred_at.isoformat())
+        ordinal = positions.get(logical, 0)
+        positions[logical] = ordinal + 1
+        canonical = row.raw_id if event.get("id") else stable_id("cursor-admin-observation", *logical, ordinal)
+        shared = cursor_identity(event.get("id"), event.get("userEmail") or event.get("userId") or event.get("serviceAccountId"), event.get("teamId") or payload.get("teamId"))
+        aliases = (f"cursor-admin:{event_id}", f"cursor-csv:{event_id}") if shared else (row.raw_id,)
+        observation = Observation(replace(row, raw_id=shared or canonical), aliases, revision or occurred_at.timestamp(), "cursor-admin", components=(("cursor_shared", True),) if shared else ())
+        rows.append(observation if observations else observation.row)
     return rows
 
 
 def fetch_event_pages(client: httpx.Client, body: dict) -> list[dict]:
     pages: list[dict] = []
+    import time
+    from spend_app.adapters.report_pages import IncompleteReport
     page = 1
-    while True:
+    deadline = time.monotonic() + 20
+    seen = set()
+    while page <= 100:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise IncompleteReport("Cursor reporting deadline reached; coverage is incomplete.")
         request_body = {**body, "page": page, "pageSize": body.get("pageSize", 1000)}
-        response = client.post(f"{BASE_URL}/teams/filtered-usage-events", json=request_body)
+        response = client.post(f"{BASE_URL}/teams/filtered-usage-events", json=request_body, timeout=min(10, remaining))
         response.raise_for_status()
         payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("usageEvents", payload.get("events")), list):
+            raise IncompleteReport("Invalid Cursor reporting page.")
+        pagination = payload.get("pagination") or {}
+        if pagination.get("currentPage", page) != page:
+            raise IncompleteReport("Cursor returned a repeated or mismatched page.")
+        fingerprint = stable_id("cursor-report-page", payload)
+        if fingerprint in seen:
+            raise IncompleteReport("Cursor repeated a reporting page; coverage is incomplete.")
+        seen.add(fingerprint)
         pages.append(payload)
         if not _has_next_page(payload, page):
             return pages
         page += 1
+    raise IncompleteReport("Cursor reporting page limit reached; coverage is incomplete.")
 
 
 def make_client(api_key: str) -> httpx.Client:
@@ -180,6 +220,7 @@ def ingest(
             reason="CURSOR_API_KEY is not configured; use the CSV drop folder instead",
         )
     rows: list[UsageRow] = []
+    observations = []
     body = {
         "startDate": int(start.timestamp() * 1000),
         "endDate": int(end.timestamp() * 1000),
@@ -187,8 +228,12 @@ def ingest(
     }
 
     def collect(http_client: httpx.Client) -> None:
+        events = []
         for payload in fetch_event_pages(http_client, body):
-            rows.extend(parse_events(payload))
+            events.extend(payload.get("usageEvents") or payload.get("events") or [])
+        parsed = parse_events({"usageEvents": events}, observations=True, revision=datetime.now(UTC).timestamp())
+        observations.extend(parsed)
+        rows.extend(item.row for item in parsed)
 
     try:
         if client is not None:
@@ -202,9 +247,11 @@ def ingest(
             source=SOURCE,
             reason=public_error(exc),
         )
+    from spend_app.adapters.event_identity import reconcile
     return persist_rows(
         database_path=database_path,
         pricing=pricing,
         source=SOURCE,
         usage_rows=rows,
+        prepare=lambda connection, _: reconcile(connection, observations),
     )

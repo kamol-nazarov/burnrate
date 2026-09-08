@@ -1,24 +1,9 @@
-"""Grok Build (xAI ``grok`` CLI) local usage adapter.
+"""Observed Grok unified logs plus explicitly selected native usage metadata.
 
-**Experimental:** the unified JSONL schema is observed, not an official
-documented export. Turns with no ``model changed`` line are skipped.
-
-Per-turn token usage is read from ``~/.grok/logs/unified.jsonl``: every
-``shell.turn.inference_done`` line carries ``prompt_tokens``,
-``cached_prompt_tokens``, ``completion_tokens`` and ``reasoning_tokens`` for
-one model call, keyed by the session id (``sid``). The model comes from the
-most recent ``model changed`` line for that session (subagents inherit the
-last model seen) and the project from ``session created``. Session update
-files under ``~/.grok/sessions`` carry only goal totals, so the log is the
-only per-call source on disk.
-
-The log is append-only but the CLI truncates it (the current file starts on
-the day of the last rotation), so the reader keeps a byte offset and rereads
-from the start whenever the file shrinks. Row ids are stable, so a reread
-never double counts.
-
-SuperGrok subscription usage has no metered price; rows carry no
-``cost_usd`` and are valued at xAI's published API rates (derived).
+Historical models are session/process-generation scoped. Changed logs replay
+with stable 0.3.0 IDs; only committed reads are cached. Native update/signals
+reconciliation and coarse remainders live in grok_native. No token estimates,
+current-model guesses, credentials or inference are used.
 """
 
 from __future__ import annotations
@@ -56,96 +41,33 @@ def canonical_model(model: str | None) -> str:
 
 
 def _fresh_state() -> dict:
-    return {"offset": 0, "models": {}, "cwds": {}, "last_model": None}
+    return {"offset": 0, "models": {}, "cwds": {}, "generations": {}}
 
 
 def parse_log(path: Path, state: dict | None = None) -> tuple[list[UsageRow], dict]:
-    """Return usage rows appended since ``state['offset']`` and the new state.
+    """Replay changed files; only committed complete-line observations are cached.
 
-    The returned state is only valid once the rows have been persisted;
-    callers keep the old state when persistence fails so the lines are read
-    again next cycle.
+    Full replay avoids carrying a process model across same-size rotation or
+    truncate/regrow. Event IDs retain the 0.3.0 contract.
     """
-    state = dict(state or _fresh_state())
-    state["models"] = dict(state.get("models") or {})
-    state["cwds"] = dict(state.get("cwds") or {})
-    rows: list[UsageRow] = []
-    try:
-        size = path.stat().st_size
-    except OSError:
-        return rows, state
-    if size < int(state.get("offset") or 0):
-        # Truncated or rotated: start over; stable ids make the reread safe.
-        state = _fresh_state()
-    from spend_app.connection_paths import confined
-    fd = os.open(confined(path), os.O_RDONLY)
-    with os.fdopen(fd, "rb") as handle:
-        handle.seek(int(state["offset"]))
-        chunk = handle.read()
-    # Only consume whole lines; a partially written last line waits.
-    cut = chunk.rfind(b"\n")
-    if cut < 0:
-        return rows, state
-    consumed = chunk[: cut + 1]
-    state["offset"] = int(state["offset"]) + len(consumed)
-    for raw in consumed.split(b"\n"):
-        if not raw.strip():
-            continue
-        try:
-            record = json.loads(raw.decode("utf-8", errors="replace"))
-        except (ValueError, TypeError):
-            continue
-        if not isinstance(record, dict):
-            continue
-        message = record.get("msg")
-        sid = record.get("sid")
-        ctx = record.get("ctx") if isinstance(record.get("ctx"), dict) else {}
-        if message == MODEL_MESSAGE:
-            model = ctx.get("model")
-            if isinstance(model, str) and model.strip():
-                state["last_model"] = model.strip()
-                if sid:
-                    state["models"][str(sid)] = model.strip()
-            continue
-        if message == SESSION_MESSAGE:
-            cwd = ctx.get("cwd")
-            if sid and isinstance(cwd, str) and cwd.strip():
-                state["cwds"][str(sid)] = cwd
-            continue
-        if message != TURN_MESSAGE or not sid:
-            continue
-        occurred_at = parse_iso_time(record.get("ts"))
-        if occurred_at is None:
-            continue
-        prompt = number(ctx.get("prompt_tokens"))
-        cached = min(number(ctx.get("cached_prompt_tokens")), prompt)
-        completion = number(ctx.get("completion_tokens"))
-        if prompt + completion <= 0:
-            continue
-        session_id = str(sid)
-        model = state["models"].get(session_id) or state.get("last_model")
-        if not model:
-            continue
-        cwd = state["cwds"].get(session_id)
-        rows.append(
-            UsageRow(
-                source=SOURCE,
-                tool_key=TOOL_KEY,
-                model_key=canonical_model(model),
-                occurred_at=occurred_at,
-                session_id=session_id,
-                project=Path(cwd).name if cwd else None,
-                input_tokens=prompt,
-                cached_input_tokens=cached,
-                cache_write_tokens=0,
-                cache_write_1h_tokens=0,
-                output_tokens=completion,
-                reasoning_tokens=optional_number(ctx.get("reasoning_tokens")),
-                cost_usd=None,
-                raw_id=stable_id("grok-local", session_id, record.get("ts"), ctx.get("loop_index")),
-            )
-        )
-    return rows, state
+    from spend_app.connection_paths import confined, file_signature
+    from spend_app.adapters.grok_records import reduce_records
+    signature = file_signature(path)
+    if state and tuple(state.get("signature", ())) == signature:
+        return [], dict(state, confirmed=state.get("accepted", 0))
+    records, issues = [], []
+    with confined(path).open("rb") as handle:
+        for line in handle:
+            if not line.endswith(b"\n"):
+                break
+            try:
+                records.append(json.loads(line))
+            except (ValueError, UnicodeError):
+                issues.append("malformed_grok_metadata")
+    rows, next_state, parsed_issues = reduce_records(records)
+    next_state.update(signature=signature, accepted=len(rows), confirmed=0,
+                      issues=issues + parsed_issues)
+    return rows, next_state
 
 
 def coverage_start(path: Path, database_path: Path | None = None) -> datetime | None:
@@ -174,8 +96,8 @@ def coverage_start(path: Path, database_path: Path | None = None) -> datetime | 
             connection = sqlite_read_only(db_file)
             try:
                 row = connection.execute(
-                    "SELECT MIN(occurred_at) FROM usage_events WHERE source=?",
-                    (SOURCE,),
+                    "SELECT MIN(occurred_at) FROM (SELECT occurred_at FROM usage_events WHERE source=? UNION ALL SELECT occurred_at FROM unpriced_usage_events WHERE source=?)",
+                    (SOURCE, SOURCE),
                 ).fetchone()
             finally:
                 connection.close()
@@ -189,16 +111,24 @@ def coverage_start(path: Path, database_path: Path | None = None) -> datetime | 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, log_path: Path) -> dict:
     from spend_app.connection_paths import cache_identity
-    key = cache_identity(database_path, log_path)
-    files = int(log_path.is_file())
-    previous = _STATE.get(key)
-    usage_rows, next_state = parse_log(log_path, previous) if files else ([], previous or _fresh_state())
+    from spend_app.adapters.grok_native import read_source, reconcile
+    if log_path.is_dir() or log_path.name in {"updates.jsonl", "signals.json"}:
+        rows, issues, files = read_source(log_path)
+        result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE, usage_rows=rows,
+                              prepare=lambda connection, _: reconcile(connection, rows, issues), issues=issues)
+        return {**result, "files": files, "issues": sorted(set(issues))}
+    key = cache_identity(database_path, log_path, "grok-generation-v1")
+    if not log_path.is_file():
+        raise FileNotFoundError("Grok usage log is missing or moved.")
+    usage_rows, next_state = parse_log(log_path, _STATE.get(key))
+    issues = next_state.get("issues", [])
     result = persist_rows(
-        database_path=database_path,
-        pricing=pricing,
-        source=SOURCE,
-        usage_rows=usage_rows,
+        database_path=database_path, pricing=pricing, source=SOURCE,
+        usage_rows=usage_rows, issues=issues,
+        prepare=lambda connection, rows: reconcile(connection, rows, issues),
     )
-    _STATE[key] = next_state
-    return {**result, "files": files, "rows": len(usage_rows)}
-
+    if not issues:
+        _STATE[key] = next_state
+    result["eventsAccepted"] = result.get("eventsAccepted", 0) + next_state.get("confirmed", 0)
+    result["issues"] = sorted(set(issues))
+    return {**result, "files": 1, "rows": len(usage_rows)}

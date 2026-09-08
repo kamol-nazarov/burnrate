@@ -40,11 +40,14 @@ from spend_app.pricing import PricingEngine
 
 
 SOURCE = "claude_local"
+from spend_app.adapters.claude_records import PARSER_VERSION
+_FILE_COUNTS = {}
 _FILE_SIGNATURES: dict[str, tuple[int, int]] = {}
 
 
 def reset_file_cache() -> None:
     _FILE_SIGNATURES.clear()
+    _FILE_COUNTS.clear()
 
 
 def _iso(value: datetime) -> str:
@@ -83,6 +86,7 @@ class ParsedEvent:
     output_tokens: int
     reasoning_tokens: int | None
     raw_id: str
+    observation: object = None
 
 
 def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
@@ -91,79 +95,20 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
 
 
 def parse_file_with_health(path: Path) -> tuple[dict, list[ParsedEvent], SourceHealth]:
+    from spend_app.adapters.claude_records import reduce_records
     health = SourceHealth()
-    location = path.name
-    seen_messages: set[str] = set()
-    session: dict = {}
-    events: list[ParsedEvent] = []
+    records = []
     with open_text_read_only(path) as handle:
-        for line_number, line in enumerate(handle, start=1):
-            outer, outcome = parse_jsonl_record(line, line_number=line_number, location=location, health=health)
-            if outer is None:
-                continue
-            message = outer.get("message")
-            if not isinstance(message, dict) or not isinstance(message.get("usage"), dict):
-                continue
-            model = str(message.get("model") or "")
-            if not model or model == "<synthetic>":
-                continue
-            message_id = str(message.get("id") or outer.get("uuid") or "")
-            if not message_id:
-                from spend_app.source_health import quarantine as _q
-
-                health.note(_q("usage record without a message id", f"{location}:{line_number}"))
-                continue
-            if message_id in seen_messages:
-                continue
-            seen_messages.add(message_id)
-            timestamp = parse_utc(str(outer.get("timestamp") or ""))
-            if timestamp is None:
-                from spend_app.source_health import quarantine as _q
-
-                health.note(_q("usage record without a valid timestamp", f"{location}:{line_number}"))
-                continue
-            session_id = str(outer.get("sessionId") or path.stem)
-            cwd = outer.get("cwd")
-            project = Path(cwd).name if isinstance(cwd, str) and cwd else path.parent.name
-            usage = message["usage"]
-            cache_creation = usage.get("cache_creation")
-            cache_creation = cache_creation if isinstance(cache_creation, dict) else {}
-            write_5m = _nonneg_int(cache_creation.get("ephemeral_5m_input_tokens"))
-            write_1h = _nonneg_int(cache_creation.get("ephemeral_1h_input_tokens"))
-            cache_write_total = _nonneg_int(usage.get("cache_creation_input_tokens"))
-            if write_5m or write_1h:
-                cache_write_tokens = write_5m + write_1h
-                cache_write_1h_tokens = write_1h
-            else:
-                cache_write_tokens = cache_write_total
-                cache_write_1h_tokens = min(cache_write_total, write_1h)
-            uncached_input = _nonneg_int(usage.get("input_tokens"))
-            cached_input = _nonneg_int(usage.get("cache_read_input_tokens"))
-            details = usage.get("output_tokens_details")
-            details = details if isinstance(details, dict) else {}
-            event = ParsedEvent(
-                session_id=session_id,
-                project=project,
-                model_key=model,
-                occurred_at=timestamp,
-                # Normalized schema: input includes fresh + cache reads; writes remain separate.
-                input_tokens=uncached_input + cached_input,
-                cached_input_tokens=cached_input,
-                cache_write_tokens=cache_write_tokens,
-                cache_write_1h_tokens=cache_write_1h_tokens,
-                output_tokens=_nonneg_int(usage.get("output_tokens")),
-                reasoning_tokens=_optional_nonneg_int(details.get("thinking_tokens")),
-                raw_id=f"claude-local:{session_id}:{message_id}",
-            )
-            events.append(event)
-            health.note_ok()
-            if not session:
-                session = {
-                    "id": session_id,
-                    "project": project,
-                    "started_at": timestamp,
-                    "model_key": model,
-                }
+        for index, line in enumerate(handle, 1):
+            record, _ = parse_jsonl_record(line, line_number=index, location="claude", health=health)
+            if record is not None:
+                records.append(record)
+    session, observations = reduce_records(records, health, path.stem)
+    events = [ParsedEvent(session_id=o.row.session_id, project=o.row.project, model_key=o.row.model_key,
+                          occurred_at=o.row.occurred_at, input_tokens=o.row.input_tokens, cached_input_tokens=o.row.cached_input_tokens,
+                          cache_write_tokens=o.row.cache_write_tokens, cache_write_1h_tokens=o.row.cache_write_1h_tokens,
+                          output_tokens=o.row.output_tokens, reasoning_tokens=o.row.reasoning_tokens,
+                          raw_id=o.row.raw_id, observation=o) for o in observations]
     return session, events, health
 
 
@@ -180,6 +125,9 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
     initialize(database_path)
     parsed_files = 0
     parsed_events = 0
+    confirmed_events = 0
+    observations = []
+    issues = []
     duplicates_removed = 0
     skipped_files = 0
     quarantined = 0
@@ -192,18 +140,25 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
             stat = path.stat()
         except OSError:
             continue
-        from spend_app.connection_paths import cache_identity
-        cache_key = cache_identity(database_path, path)
-        signature = (stat.st_size, stat.st_mtime_ns)
+        from spend_app.connection_paths import cache_identity, file_signature
+        cache_key = cache_identity(database_path, path, PARSER_VERSION)
+        try:
+            signature = file_signature(path, stat)
+        except OSError:
+            issues.append("claude_file_unavailable")
+            continue
         if _FILE_SIGNATURES.get(cache_key) == signature:
             skipped_files += 1
+            confirmed_events += _FILE_COUNTS.get(cache_key, 0)
             continue
-        raw_usage_lines = 0
-        with open_text_read_only(path) as handle:
-            for line in handle:
-                if '"usage"' in line and '"message"' in line:
-                    raw_usage_lines += 1
-        session, events, health = parse_file_with_health(path)
+        try:
+            session, events, health = parse_file_with_health(path)
+        except OSError:
+            issues.append("claude_file_unavailable")
+            continue
+        raw_usage_lines = health.parsed
+        if health.partial:
+            issues.append("claude_partial_source_metadata")
         quarantined += health.quarantined + health.skipped
         if not session:
             _FILE_SIGNATURES[cache_key] = signature
@@ -214,6 +169,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
         latest_time: datetime | None = None
         latest_model: str | None = None
         for parsed in events:
+            if parsed.observation:
+                observations.append(parsed.observation)
             usage_rows.append(
                 UsageRow(
                     source=SOURCE,
@@ -230,6 +187,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                     reasoning_tokens=parsed.reasoning_tokens,
                     cost_usd=None,
                     raw_id=parsed.raw_id,
+                    telemetry_complete=parsed.observation.row.telemetry_complete if parsed.observation else True,
+                    unclassified_tokens=parsed.observation.row.unclassified_tokens if parsed.observation else 0,
                 )
             )
             latest_time = parsed.occurred_at
@@ -244,14 +203,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                     "model_key": latest_model,
                 }
             )
-        pending_signatures.append((cache_key, signature))
-    result = persist_rows(
-        database_path=database_path,
-        pricing=pricing,
-        source=SOURCE,
-        usage_rows=usage_rows,
-    )
-    with connect(database_path) as connection:
+        pending_signatures.append((cache_key, signature, len(events)))
+    def finalize(connection):
         for session in session_rows:
             upsert_session(
                 connection,
@@ -262,11 +215,19 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                 ended_at=session["ended_at"],
                 model_key=session["model_key"],
             )
-    for cache_key, signature in pending_signatures:
-        _FILE_SIGNATURES[cache_key] = signature
+    from spend_app.adapters.event_identity import reconcile
+    result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE, usage_rows=usage_rows,
+                          prepare=(lambda connection, rows: reconcile(connection, observations, issues)) if observations else None,
+                          finalize=finalize, issues=issues)
+    if not issues:
+        for cache_key, signature, count in pending_signatures:
+            _FILE_SIGNATURES[cache_key] = signature
+            _FILE_COUNTS[cache_key] = count
     result["files"] = parsed_files
     result["filesSkippedUnchanged"] = skipped_files
-    result["eventsSeen"] = parsed_events
+    result["eventsSeen"] = parsed_events + confirmed_events
+    result["eventsAccepted"] = result.get("eventsAccepted", 0) + confirmed_events
+    result["issues"] = sorted(set(issues))
     result["duplicatesRemoved"] = duplicates_removed
     result["quarantined"] = result.get("quarantined", 0) + quarantined
     return result

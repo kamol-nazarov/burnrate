@@ -24,20 +24,24 @@ linked children outside the approved source are not followed.
 
 | Source | Accepted location examples | Managed capabilities |
 | --- | --- | --- |
-| Codex | `~/.codex`, its `sessions` folder, or a session `.jsonl` | Usage |
-| Claude Code | `~/.claude`, its `projects` folder, or a transcript `.jsonl` | Usage |
+| Codex | `~/.codex`, its `sessions` or `archived_sessions` folder, or a session `.jsonl` | Usage |
+| Claude Code | `~/.claude`, its `projects` or `transcripts` folder, or a transcript `.jsonl` | Usage |
 | Cursor local (experimental) | `~/.cursor`, its `projects` folder, or an `index.db` run store | Usage |
 | Traycer (experimental) | `~/.traycer`, its `host/epic-state` folder, or a `chat.db` | Usage |
-| OpenCode | `~/.local/share/opencode` or its `opencode.db` | Usage |
-| ZCode | `~/.zcode` or `cli/db/db.sqlite` | Usage |
-| Grok Build (experimental) | `~/.grok` or `logs/unified.jsonl` | Usage |
-| Cursor CSV | A local export folder or `.csv` usage export | Usage |
+| OpenCode | `~/.local/share/opencode`, `opencode*.db`, or `storage/message` JSON | Usage |
+| ZCode | `~/.zcode`, `cli/db/db.sqlite`, or `projects` transcripts | Usage |
+| Grok Build (experimental) | `~/.grok`, unified log, or session `updates.jsonl` / `signals.json` | Usage |
+| Cursor export | A CSV folder, `.csv` file, or selected `usage*.json` account export | Usage |
 
 The existing activity/quota readers do not have a custom-file contract.
 Managed local bindings therefore grant **usage only** and suppress those
 default-profile readers. A readable transcript never proves quota access.
-Antigravity's local service and native credential/private-service integrations
-remain externally managed; this wizard does not offer them as new connections.
+Antigravity's experimental RPC remains externally configured. A separate manual
+location on that source can replace RPC with a populated Tokscale sync cache
+(`antigravity-cache/sessions` or one `.jsonl`). This path never runs the producer,
+reads its credentials, or appears in Auto-detect. Missing artifacts are a
+prerequisite issue. Native credential/private-service integrations remain
+externally managed; this wizard does not offer new logins for them.
 Existing unmanaged collection and consent settings remain in effect.
 
 Custom Grok/Traycer locations cannot be activated together without a safe
@@ -133,3 +137,35 @@ This implementation has focused unit evidence with fake boundaries. Real
 Windows vault behavior, installed assets, browser focus/layout, live provider
 scopes, SQLite failure recovery and scheduler concurrency require separate
 authorized release validation. Do not treat these units as runtime validation.
+
+## Compatibility repair notes (Unreleased)
+
+New explicit Codex/Claude home selections include only their known active and
+archive/transcript subroots. Existing saved sessions/projects paths stay narrow;
+rescan never widens them. `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `GROK_HOME` and
+`XDG_DATA_HOME` are visible overrides. A selected child within an explicit root
+is permitted; a conflicting profile is rejected without rewriting `.env`.
+Grok/Traycer overlap is also rejected when `GROK_HOME` selects another profile.
+
+A bounded sample can report that its limit was exhausted. This means history
+or complete shape is unverified, not zero usage. Successful usage with an
+unpriced model stays connected. Parser issues and ambiguous copies appear in
+source health; a cycle that accepted no valid evidence cannot establish health
+for a new binding. Historical data is preserved when a connection is disabled.
+
+Cursor local keeps the existing pre-2026-09-02 SDK authority restriction; it
+is not complete IDE/CLI coverage. Use a supported account export or Admin feed
+for later coverage. Plain CSV `Cost` and JSON `totalCents` are reference values;
+only explicit charged fields become reported charges. Exports without proven
+shared request/account identities cannot establish cross-feed deduplication.
+Do not combine overlapping account exports and Admin history without matching
+provider event IDs and scope; no numeric-only matching is performed.
+
+Admin polling revisits seven days of completed UTC hours. Daily charge requests
+cover closed UTC days, separately from token events. This permits bounded late
+corrections but does not promise complete historical/billing coverage. Malformed,
+repeated or exhausted pages fail visibly and preserve previously accepted data.
+A successful Test and connect still tests access only.
+
+See [the provider repair matrix](providers.md#unreleased-provider-compatibility-repairs)
+for precise format, identity and prerequisite limits.

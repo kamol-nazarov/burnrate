@@ -85,7 +85,7 @@ def settings_candidates(metadata: dict):
                 yield candidate
 
 
-def parse_projection(*, path: Path, chat_id: str, projection_json: str) -> list[UsageRow]:
+def parse_projection(*, path: Path, chat_id: str, projection_json: str, observations=False) -> list[UsageRow]:
     projection = json.loads(projection_json)
     root = projection.get("settings") if isinstance(projection.get("settings"), dict) else {}
     current_harness = root.get("harnessId")
@@ -128,8 +128,7 @@ def parse_projection(*, path: Path, chat_id: str, projection_json: str) -> list[
             current_harness,
             current_model,
         )
-        rows.append(
-            UsageRow(
+        row = UsageRow(
                 source=SOURCE,
                 tool_key=str(current_harness),
                 model_key=model_key,
@@ -147,22 +146,25 @@ def parse_projection(*, path: Path, chat_id: str, projection_json: str) -> list[
                 unclassified_tokens=tokens.unclassified_tokens,
                 telemetry_complete=tokens.telemetry_complete,
             )
-        )
+        from dataclasses import replace
+        from spend_app.adapters.event_identity import Observation
+        logical = stable_id("traycer-event", chat_id, current_harness, event.get("id") or event_index, timestamp_ms)
+        observation = Observation(replace(row, raw_id=logical), (raw_id,), timestamp_ms, "traycer-projection")
+        rows.append(observation if observations else observation.row)
     return rows
 
 
-def parse_database(path: Path) -> list[UsageRow]:
+def parse_database(path: Path, *, database_path=None, observations=False, issues=None) -> list[UsageRow]:
     rows: list[UsageRow] = []
-    try:
-        connection = sqlite_read_only(path)
-    except sqlite3.DatabaseError:
-        return rows
-    cache_prefix = str(path.resolve())
+    from spend_app.connection_paths import cache_identity, file_signature
+    issues = issues if issues is not None else []
+    connection = sqlite_read_only(path)
+    cache_prefix = (cache_identity(database_path or path, path, "traycer-identity-v1"), file_signature(path))
     seen: set[tuple[str, str]] = set()
     try:
         index = projection_index(connection)
         if index is None:
-            return rows
+            raise ValueError("incompatible_traycer_schema")
         for chat_id, version in index:
             key = (cache_prefix, chat_id)
             seen.add(key)
@@ -180,8 +182,10 @@ def parse_database(path: Path) -> list[UsageRow]:
                     path=path,
                     chat_id=chat_id,
                     projection_json=fetched[0],
+                    observations=True,
                 )
-            except (TypeError, json.JSONDecodeError):
+            except (TypeError, ValueError, AttributeError):
+                issues.append("invalid_traycer_projection")
                 continue
             rows.extend(parsed)
             if version is not None:
@@ -190,7 +194,7 @@ def parse_database(path: Path) -> list[UsageRow]:
         connection.close()
     for key in [key for key in _PROJECTION_CACHE if key[0] == cache_prefix and key not in seen]:
         _PROJECTION_CACHE.pop(key, None)
-    return rows
+    return rows if observations else [o.row for o in rows]
 
 
 def ingest(
@@ -203,16 +207,19 @@ def ingest(
     usage_rows: list[UsageRow] = []
     files = 0
     mirrored = 0
+    issues, observations = [], []
     for file_name in sorted(adapter_files(database_glob)):
         path = Path(file_name)
         if not path.is_file():
             continue
         files += 1
         try:
-            parsed = parse_database(path)
-        except sqlite3.DatabaseError:
+            parsed = parse_database(path, database_path=database_path, observations=True, issues=issues)
+        except (OSError, ValueError, sqlite3.DatabaseError):
+            issues.append("traycer_source_unavailable_or_incompatible")
             continue
-        for row in parsed:
+        for observation in parsed:
+            row = observation.row
             # Traycer runs Grok through the grok CLI, whose own log (grok_local)
             # records every call. Where that log exists, it is the authority;
             # emitting the projection's copy too would count each turn twice.
@@ -220,15 +227,19 @@ def ingest(
                 mirrored += 1
                 continue
             usage_rows.append(row)
+            observations.append(observation)
+    from spend_app.adapters.event_identity import reconcile
     result = persist_rows(
         database_path=database_path,
         pricing=pricing,
         source=SOURCE,
-        usage_rows=usage_rows,
+        usage_rows=usage_rows, issues=issues,
+        prepare=lambda connection, rows: reconcile(connection, observations, issues),
     )
     return {
         **result,
         "files": files,
+        "issues": sorted(set(issues)),
         "eventsSeen": len(usage_rows),
         "mirroredGrokEvents": mirrored,
         "unclassifiedEvents": sum(not row.telemetry_complete for row in usage_rows),

@@ -135,26 +135,8 @@ def fetch_pages(
     path: str,
     params: dict,
 ) -> list[dict]:
-    pages: list[dict] = []
-    page: str | None = None
-    seen: set[str] = set()
-    while True:
-        request_params = dict(params)
-        if page:
-            request_params["page"] = page
-        response = client.get(f"{BASE_URL}{path}", params=request_params)
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            return pages
-        pages.append(payload)
-        if not payload.get("has_more"):
-            return pages
-        next_page = payload.get("next_page")
-        if not isinstance(next_page, str) or not next_page or next_page in seen:
-            return pages
-        seen.add(next_page)
-        page = next_page
+    from spend_app.adapters.report_pages import fetch
+    return fetch(client, url=f"{BASE_URL}{path}", params=params)
 
 
 def make_client(admin_key: str) -> httpx.Client:
@@ -197,12 +179,14 @@ def ingest(
             },
         ):
             usage_rows.extend(parse_usage(payload))
+        if end.replace(hour=0, minute=0, second=0, microsecond=0) <= start.replace(hour=0, minute=0, second=0, microsecond=0):
+            return
         for payload in fetch_pages(
             http_client,
             path="/organization/costs",
             params={
-                "start_time": int(start.timestamp()),
-                "end_time": int(end.timestamp()),
+                "start_time": int(start.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()),
+                "end_time": int(end.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()),
                 "bucket_width": "1d",
                 "group_by": ["project_id", "line_item"],
                 "limit": 180,

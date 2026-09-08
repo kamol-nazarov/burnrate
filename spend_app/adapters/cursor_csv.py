@@ -26,6 +26,7 @@ data is an idempotent upsert, never a duplicate.
 from __future__ import annotations
 
 import csv
+import math
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -50,6 +51,7 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
         "input tokens with cache write",
     ),
     "input_without_cache_write": (
+        "input w o cache write",
         "input without cache write tokens",
         "input without cache write",
         "input tokens without cache write",
@@ -64,13 +66,14 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
         "cache read input tokens",
     ),
     "cache_write": (
+        "input w cache write",
         "cache write tokens",
         "cache write",
         "cache creation input tokens",
         "cache creation tokens",
     ),
     "output": ("output tokens", "output"),
-    "cost_usd": ("cost usd", "cost", "charged cost usd"),
+    "cost_usd": ("cost usd", "cost to you", "charged cost usd"),
     "cost_cents": ("cost cents", "charged cents", "cents", "charged cost cents"),
 }
 
@@ -103,8 +106,9 @@ def _count(value: str) -> int:
     if not value:
         return 0
     try:
-        return max(0, int(float(value)))
-    except ValueError:
+        numeric = float(value.replace(",", ""))
+        return int(numeric) if math.isfinite(numeric) and numeric >= 0 and numeric.is_integer() else 0
+    except (ValueError, OverflowError):
         return 0
 
 
@@ -112,8 +116,9 @@ def _optional_float(value: str) -> float | None:
     if not value:
         return None
     try:
-        return float(value)
-    except ValueError:
+        numeric = float(value.removeprefix("$").replace(",", ""))
+        return numeric if math.isfinite(numeric) else None
+    except (ValueError, OverflowError):
         return None
 
 
@@ -137,14 +142,15 @@ def _cost(row: dict[str, object], fields: dict[str, str]) -> float | None:
     return None
 
 
-def parse_csv(path: Path) -> list[UsageRow]:
+def parse_csv(path: Path, *, observations=False) -> list[UsageRow]:
     rows: list[UsageRow] = []
     from spend_app.connection_paths import confined
     with confined(path).open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         fields = resolve_columns(reader.fieldnames)
         if "timestamp" not in fields or "model" not in fields:
-            return rows
+            raise ValueError("Expected a supported Cursor CSV usage export.")
+        positions = {}
         for row in reader:
             occurred_at = _timestamp(_cell(row, fields, "timestamp"))
             if occurred_at is None:
@@ -157,7 +163,7 @@ def parse_csv(path: Path) -> list[UsageRow]:
             cache_write = _count(_cell(row, fields, "cache_write"))
             without_write = _count(_cell(row, fields, "input_without_cache_write"))
             with_write = _count(_cell(row, fields, "input_with_cache_write"))
-            if without_write:
+            if _cell(row, fields, "input_without_cache_write") != "":
                 fresh = without_write
             else:
                 fresh = max(0, with_write - cache_write)
@@ -179,8 +185,7 @@ def parse_csv(path: Path) -> list[UsageRow]:
                     cost_usd,
                 )
             )
-            rows.append(
-                UsageRow(
+            parsed = UsageRow(
                     source=SOURCE,
                     tool_key="cursor",
                     model_key=canonical_model(model),
@@ -195,38 +200,67 @@ def parse_csv(path: Path) -> list[UsageRow]:
                     reasoning_tokens=None,
                     cost_usd=cost_usd,
                     raw_id=raw_id,
-                    telemetry_complete=bool(fresh or cache_read or cache_write or output),
+                    telemetry_complete=all(_cell(row, fields, field) != "" for field in ("input_without_cache_write", "cache_read", "cache_write", "output")),
                 )
-            )
+            from dataclasses import replace
+            from spend_app.adapters.event_identity import Observation, cursor_identity
+            legacy_fields = {key: header for key, header in fields.items() if normalize_header(header) not in {"input w o cache write", "input w cache write", "cost to you"}}
+            if "cost_usd" not in legacy_fields:
+                legacy_fields.update({"cost_usd": header for header in row if normalize_header(header) == "cost"})
+            def old_count(field):
+                try:
+                    return max(0, int(float(_cell(row, legacy_fields, field))))
+                except (ValueError, OverflowError):
+                    return 0
+            old_write = old_count("cache_write")
+            old_fresh = old_count("input_without_cache_write") or max(0, old_count("input_with_cache_write") - old_write)
+            try:
+                old_cost = float(_cell(row, legacy_fields, "cost_usd"))
+            except ValueError:
+                try:
+                    old_cost = float(_cell(row, legacy_fields, "cost_cents")) / 100
+                except ValueError:
+                    old_cost = None
+            legacy = f"cursor-csv:{event_id}" if event_id else stable_id("cursor-csv", occurred_at.isoformat(), user, canonical_model(model), agent,
+                        old_fresh, old_count("cache_read"), old_write, old_count("output"), old_cost)
+            identity = (occurred_at.isoformat(), user, agent, canonical_model(model))
+            ordinal = positions.get(identity, 0)
+            positions[identity] = ordinal + 1
+            canonical = f"cursor-csv:{event_id}" if event_id else stable_id("cursor-csv-observation", *identity, ordinal)
+            shared = cursor_identity(event_id, user)
+            aliases = (f"cursor-admin:{event_id}", legacy) if shared else (legacy,)
+            observation = Observation(replace(parsed, raw_id=shared or canonical), aliases, occurred_at.timestamp(), "cursor-csv", components=(("cursor_shared", True),) if shared else ())
+            rows.append(observation if observations else observation.row)
     return rows
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, import_path: Path) -> dict:
     import_path = Path(import_path)
-    if not import_path.is_dir():
-        return skipped_result(
-            database_path=database_path,
-            source=SOURCE,
-            reason=f"Cursor CSV drop folder is missing: {import_path}",
-        )
-    usage_rows: list[UsageRow] = []
+    if not (import_path.is_dir() or import_path.is_file()):
+        raise FileNotFoundError("Cursor export location is missing or moved.")
+    usage_rows, observations, issues = [], [], []
     files = 0
-    from spend_app.connection_paths import adapter_files
-    for path in (Path(name) for name in sorted(adapter_files(str(import_path / "*.csv")))):
-        if not path.is_file():
-            continue
-        usage_rows.extend(parse_csv(path))
-        files += 1
-    if not files:
-        return skipped_result(
-            database_path=database_path,
-            source=SOURCE,
-            reason=f"No Cursor CSV drops found in {import_path}",
-        )
-    result = persist_rows(
-        database_path=database_path,
-        pricing=pricing,
-        source=SOURCE,
-        usage_rows=usage_rows,
-    )
-    return {**result, "files": files}
+    from spend_app.connection_paths import adapter_files, confined
+    paths = [import_path] if import_path.is_file() else [Path(name) for name in sorted(adapter_files(str(import_path / "*.csv")))]
+    for path in paths:
+        try:
+            if path.suffix.lower() == ".json":
+                import json
+                from spend_app.adapters.cursor_export import parse_export
+                with confined(path).open("r", encoding="utf-8-sig") as stream:
+                    parsed, errors = parse_export(json.load(stream), path.stem.removeprefix("usage."), observations=True)
+                observations.extend(parsed)
+                usage_rows.extend(o.row for o in parsed)
+                issues.extend(errors)
+            else:
+                parsed = parse_csv(path, observations=True)
+                observations.extend(parsed)
+                usage_rows.extend(o.row for o in parsed)
+            files += 1
+        except (OSError, ValueError):
+            issues.append("cursor_export_unavailable_or_incompatible")
+    from spend_app.adapters.event_identity import Observation, reconcile
+    result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE,
+                          usage_rows=usage_rows, issues=issues,
+                          prepare=lambda connection, _: reconcile(connection, observations, issues))
+    return {**result, "files": files, "issues": sorted(set(issues))}

@@ -78,7 +78,10 @@ def parse_millis(value: object) -> datetime | None:
     milliseconds = number(value)
     if milliseconds <= 0:
         return None
-    return datetime.fromtimestamp(milliseconds / 1000, tz=UTC)
+    try:
+        return datetime.fromtimestamp(milliseconds / 1000, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 @dataclass(frozen=True)
