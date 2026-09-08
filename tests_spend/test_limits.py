@@ -58,6 +58,7 @@ def test_codex_rate_limit_tail_parser(tmp_path: Path) -> None:
                 "payload": {
                     "rate_limits": {
                         "plan_type": "pro",
+                        "limit_id": "codex",
                         "primary": {
                             "used_percent": 11,
                             "window_minutes": 10080,
@@ -73,6 +74,7 @@ def test_codex_rate_limit_tail_parser(tmp_path: Path) -> None:
     row = _tail_rate_limit(path)
     assert row is not None
     assert row[1]["plan_type"] == "pro"
+    assert row[1]["limit_id"] == "codex"
     assert row[1]["primary"]["used_percent"] == 11
 
 
@@ -304,6 +306,7 @@ def test_codex_limits_omit_windows_without_percent(tmp_path: Path, monkeypatch) 
                 "payload": {
                     "rate_limits": {
                         "plan_type": "pro",
+                        "limit_id": "codex",
                         "primary": {"window_minutes": 300, "resets_at": 1788747938},
                         "secondary": {
                             "used_percent": 33.5,
@@ -318,9 +321,16 @@ def test_codex_limits_omit_windows_without_percent(tmp_path: Path, monkeypatch) 
         encoding="utf-8",
     )
     monkeypatch.setattr("spend_app.limits.Path.home", lambda: tmp_path)
+    from datetime import UTC, datetime
+    class QuotaClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 8, 31, 12, 5, tzinfo=UTC)
+    monkeypatch.setattr("spend_app.limits.datetime", QuotaClock)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
     result = _codex_limits()
     assert result["status"] == "exact"
-    assert [window["key"] for window in result["windows"]] == ["secondary"]
+    assert [window["key"] for window in result["windows"]] == ["weekly"]
     assert result["windows"][0]["usedPct"] == 33.5
 
 

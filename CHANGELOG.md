@@ -9,6 +9,14 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.3] - 2026-09-08
+
+- Keep model-specific Codex quota pools separate from the main weekly capacity
+  card; accept genuine zero/downward corrections without guessing legacy IDs.
+- Preserve Codex source observation freshness independently of polling, hide
+  expired/unverified quota values, and honor configured scope and managed
+  usage-only/disabled bindings without changing measured usage history.
+
 ## [0.3.0-beta.2] - 2026-09-08
 
 - Treat absent automatic harness defaults as not detected, while missing

@@ -104,7 +104,7 @@ Paths below use Windows conventions. `%USERPROFILE%` is `~`. `%APPDATA%` is typi
 | Source | Local files (patterns) | Network host | Credential | Interface | SQLite | Semantics | Mutation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Codex usage | `%USERPROFILE%\.codex\sessions\**\*.jsonl` | none | none | Official local Codex Desktop telemetry (observed JSONL) | `usage_events` `source=codex_local` `tool_key=codex`; `sessions` | Tokens exact; spend exact if YAML `exactness: exact` | Read-only. Idle Codex UI is not live. |
-| Codex quota | newest `rate_limits` in those JSONL (tail ~2 MiB, 40 newest files) | none | none | Observed local telemetry | `quotas` `provider_key=codex` `limit_key=weekly` `source=codex_local_telemetry` unit `pct` | Exact % + reset from snapshot; unavailable if no weekly window | Read-only |
+| Codex quota | newest verified `limit_id=codex` weekly snapshot in the configured sessions root (tail 2 MB, 40 newest files, 5,000-entry traversal budget) | none | none | Observed local telemetry | `quotas` `provider_key=codex` `limit_key=weekly` `source=codex_local_telemetry` unit `pct` | Observed main-pool % and reset; unavailable without verified identity, after reset, or after six hours | Read-only |
 | Codex live | `%USERPROFILE%\.codex\state_5.sqlite`, `thread_history_1.sqlite` | none | none | Observed local projection DBs | `agent_runs` `id=codex:<thread>` | Live only for in-progress turns | SQLite `mode=ro` |
 | Claude Code usage | `%USERPROFILE%\.claude\projects\**\*.jsonl` | none | none | Official local Claude Code transcripts | `usage_events` `source=claude_local` `tool_key=claude-code`; `sessions` | Tokens exact (incl. 5m/1h cache writes); spend exact | Read-only. Full JSONL lines are parsed; **prompts are not persisted**. |
 | Claude quota (Desktop) | `%APPDATA%\Claude\plan-usage-history.json` or `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\plan-usage-history.json` | none | none | Observed Claude Desktop cache (compact % only) | `quotas` `source=claude_desktop_history` 5h + weekly unit `pct` | Exact % if sample ≤45 min old; **resets unavailable** (not invented) | Read-only |
@@ -180,6 +180,32 @@ Quota: first window with `window_minutes >= 7*24*60` becomes “Codex weekly win
 Live: `inprogress`/`running`, `completed_at` NULL, not archived, updated within 6 hours.
 
 Invoice-exact: yes (`EXACT_USAGE_SOURCES` + `pricing/openai.yaml`).
+
+Codex capacity uses only explicitly identified `codex` quota-pool observations with
+one validated 10,080-minute window, in either window position. Model-specific
+pools (including `codex_bengalfox`), unknown/missing IDs and credit-only updates
+cannot establish general Codex capacity. Percentages are used percentages;
+a new genuine zero or downward correction is accepted. Conflicting observations
+at the same timestamp are unavailable rather than guessed.
+
+The registry's `CODEX_HOME` override controls the sessions root. Scans remain
+confined to that root and skip links/junctions. Budget exhaustion does not cause
+a broader scan. A profile directory is a filesystem scope, not proof of account
+identity; switching accounts within it cannot be independently authenticated
+from this metadata. No provider or credential read is performed.
+
+Source observation time is retained separately from polling time in versioned
+`app_meta` metadata, atomically with quota persistence. Rereading or touching a
+file does not refresh it. Snapshots older than six hours or past their reported
+reset become unavailable; no replacement reset/zero is invented. Previously
+persisted values without main-pool provenance stay unavailable until the next
+valid poll. Existing quota and measured usage history is preserved; no SQL
+schema migration is required. Older binaries ignore this metadata.
+
+Managed local connections still grant usage only. Disabled or usage-only Codex
+bindings suppress quota, including old persisted readings, without falling back
+to another profile. Local quota permission for managed bindings is not offered
+in this version. Missing telemetry does not require a paid turn to finish setup.
 
 ### Claude Code — supported local (OAuth quota experimental)
 
