@@ -81,7 +81,9 @@ CODEX_PAYLOAD = {
     "name": "Codex",
     "plan": "ChatGPT Pro",
     "status": "exact",
-    "observedAt": "2026-08-31T12:05:38Z",
+    "observedAt": POLLED,
+    "poolId": "codex",
+    "scope": "fixture-profile",
     "windows": [
         {
             "key": "primary",
@@ -97,7 +99,7 @@ CODEX_PAYLOAD = {
             "windowMinutes": 10080,
             "usedPct": 33.5,
             "remainingPct": 66.5,
-            "resetAt": "2026-09-06T12:05:38Z",
+            "resetAt": "2026-09-20T12:00:00Z",
         },
     ],
     "detail": "Native Codex rate-limit telemetry.",
@@ -166,7 +168,7 @@ OPENROUTER_PAYLOAD = {
 def fixture_collectors(database_path: Path) -> dict:
     return {
         "claude-code": lambda: claude_quota_samples(CLAUDE_PAYLOAD, source="traycer_profile"),
-        "codex": lambda: codex_quota_samples(CODEX_PAYLOAD, source="codex_local_telemetry"),
+        "codex": lambda: codex_quota_samples(CODEX_PAYLOAD, source="codex_local_telemetry", now=NOW),
         "cursor": lambda: cursor_quota_samples(CURSOR_PAYLOAD, source="cursor_usage_service"),
         "grok": lambda: grok_quota_samples(GROK_PAYLOAD, source="traycer_profile"),
         "opencode": lambda: zai_quota_samples(ZAI_PAYLOAD, source="zai_quota_endpoint"),
@@ -258,7 +260,7 @@ def test_poll_quotas_persists_real_rows_with_undocumented_sources_and_resets(
     codex = rows[("codex", "weekly")]
     assert codex["pct"] == 33.5
     assert codex["source"] == "codex_local_telemetry"
-    assert codex["resets_at"] == "2026-09-06T12:05:38Z"
+    assert codex["resets_at"] == "2026-09-20T12:00:00Z"
 
     cursor_models = rows[("cursor", "cursor_models")]
     other_models = rows[("cursor", "other_models")]
@@ -564,7 +566,7 @@ def test_one_collector_failure_does_not_stop_other_lanes(tmp_path: Path) -> None
         database,
         collectors={
             "grok": broken,
-            "codex": lambda: codex_quota_samples(CODEX_PAYLOAD, source="codex_local_telemetry"),
+            "codex": lambda: codex_quota_samples(CODEX_PAYLOAD, source="codex_local_telemetry", now=NOW),
         },
         now=lambda: POLLED,
     )

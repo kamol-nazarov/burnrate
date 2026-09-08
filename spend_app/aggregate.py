@@ -1345,6 +1345,7 @@ def _quota_row(row: dict, now: datetime, *, month_to_date: Decimal | None = None
             pct = used / allowance * 100
         eta_label = _eta_label(row["resets_at"], now)
     return {
+        **({"observedAt": row.get("observed_at")} if row.get("provider_key") == "codex" else {}),
         "limitKey": row["limit_key"],
         "label": row["label"],
         "pct": pct,
@@ -1491,8 +1492,9 @@ def _activity_from_rows(rows: list[dict]) -> list[dict]:
     ]
 
 
-def _load_quota_rows(connection) -> list[dict]:
-    return [dict(row) for row in connection.execute("SELECT * FROM quotas")]
+def _load_quota_rows(connection, *, now=None) -> list[dict]:
+    from spend_app.codex_quota import read_rows
+    return read_rows(connection, now=now)
 
 
 def _load_activity_rows(connection) -> list[dict]:
@@ -2217,7 +2219,7 @@ def aggregate_summary(
             plan_name = TOOL_NAMES.get(row["tool_key"], row["tool_key"]) + " configured plans" if old_monthly else old_name
             monthly_plans[row["tool_key"]] = (plan_name, old_monthly + monthly)
 
-        quota_rows = quotas if quotas is not None else _load_quota_rows(connection)
+        quota_rows = quotas if quotas is not None else _load_quota_rows(connection, now=now)
         activity_rows = activity if activity is not None else _load_activity_rows(connection)
         capacity = _capacity_from_rows(quota_rows, now=now, month_to_date=month_usage)
         activity_payload = _activity_from_rows(activity_rows)
@@ -2578,7 +2580,7 @@ def aggregate_entity(
             }
             for index, (_start, _end, start_iso, label, key) in enumerate(buckets)
         ]
-        quota_rows = quotas if quotas is not None else _load_quota_rows(connection)
+        quota_rows = quotas if quotas is not None else _load_quota_rows(connection, now=now)
         capacity = _capacity_from_rows(
             quota_rows,
             now=now,
@@ -2738,7 +2740,7 @@ def aggregate_health(
                 }
             )
         gaps = [row[0] for row in connection.execute("SELECT model_key FROM pricing_gaps ORDER BY model_key")]
-        quota_rows = _load_quota_rows(connection)
+        quota_rows = _load_quota_rows(connection, now=now)
         latest_quota: dict[str, dict] = {}
         for row in quota_rows:
             previous = latest_quota.get(row["provider_key"])

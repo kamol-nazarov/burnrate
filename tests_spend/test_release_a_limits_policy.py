@@ -148,6 +148,11 @@ def test_access_token_boundary(tmp_path, monkeypatch):
 def test_limits_snapshot_reports_persisted_rows(tmp_path):
     from spend_app.db import connect, upsert_quota
 
+    from datetime import datetime, timedelta
+    from spend_app.codex_quota import current_scope, save_metadata
+    from spend_app.quotas import QuotaSample
+    moment = datetime.fromisoformat(NOW.replace("Z", "+00:00"))
+    reset = (moment + timedelta(days=5)).isoformat()
     database = tmp_path / "spend.db"
     initialize(database)
     with connect(database) as connection:
@@ -160,9 +165,12 @@ def test_limits_snapshot_reports_persisted_rows(tmp_path):
             source="codex_local_telemetry",
             polled_at=NOW,
             pct=42.0,
-            resets_at=None,
+            resets_at=reset,
         )
-    payload = limits.snapshot_limits(database)
+        save_metadata(connection, QuotaSample(
+            "codex", "weekly", "Codex weekly window", "pct", "codex_local_telemetry",
+            pct=42.0, resets_at=reset, observed_at=NOW, pool_id="codex", scope=current_scope()), NOW)
+    payload = limits.snapshot_limits(database, now=moment)
     codex = next(provider for provider in payload["providers"] if provider["key"] == "codex")
     assert codex["status"] == "exact"
     assert codex["windows"][0]["usedPct"] == 42.0

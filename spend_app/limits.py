@@ -341,83 +341,66 @@ def _cached(name: str, ttl_seconds: int, loader: Callable[[], dict]) -> dict:
     return value
 
 
-def _tail_rate_limit(path: Path) -> tuple[float, dict] | None:
+def _tail_rate_limit(path: Path, *, now: datetime | None = None) -> tuple[float, dict] | None:
+    """Read only bounded metadata; filter the pool BEFORE selecting a record."""
+    from spend_app.codex_quota import observation, newest
+    now = now or datetime.now(UTC)
     try:
         size = path.stat().st_size
         with path.open("rb") as handle:
             handle.seek(max(0, size - 2_000_000))
-            data = handle.read().decode("utf-8", errors="replace")
+            data = handle.read(2_000_000).decode("utf-8", errors="replace")
     except OSError:
         return None
-    for line in reversed(data.splitlines()):
+    latest = None
+    for line in data.splitlines():
         if '"rate_limits"' not in line:
             continue
         try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
+            row = observation(json.loads(line), now)
+        except (ValueError, TypeError):
             continue
-        payload = event.get("payload")
-        limits = payload.get("rate_limits") if isinstance(payload, dict) else None
-        if not isinstance(limits, dict):
-            continue
-        timestamp = event.get("timestamp")
-        try:
-            when = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).timestamp()
-        except (TypeError, ValueError):
-            when = path.stat().st_mtime
-        return when, limits
-    return None
+        latest = newest(latest, row)
+    return latest
 
 
 def _codex_limits() -> dict:
-    candidates = sorted(
-        (Path(name) for name in glob.glob(str(Path.home() / ".codex" / "sessions" / "**" / "*.jsonl"), recursive=True)),
-        key=lambda path: path.stat().st_mtime if path.exists() else 0,
-        reverse=True,
-    )[:40]
-    latest: tuple[float, dict] | None = None
-    for path in candidates:
-        row = _tail_rate_limit(path)
-        if row and (latest is None or row[0] > latest[0]):
-            latest = row
+    from spend_app.codex_quota import scope, freshness_reason, newest
+    from spend_app.connection_paths import source_files, confined, LocationError
+    from spend_app.providers import default_codex_glob
+    root = Path(default_codex_glob().replace("\\", "/").removesuffix("/**/*.jsonl"))
+    missing = {"key": "codex", "name": "Codex", "status": "unavailable", "windows": [],
+               "detail": "No verified main Codex weekly snapshot in the bounded local sample. Alternate and unidentified pools are excluded."}
+    try:
+        root = root.resolve(strict=True)
+        candidates = sorted(source_files(root, "**/*.jsonl", budget=5000),
+                            key=lambda path: path.stat().st_mtime, reverse=True)[:40]
+        now = datetime.now(UTC)
+        latest = None
+        for path in candidates:
+            row = _tail_rate_limit(confined(path, root), now=now)
+            latest = newest(latest, row)
+    except (OSError, LocationError, ValueError):
+        return {**missing, "detail": "Codex quota source is unavailable, outside its approved scope, exceeds the bounded inspection budget, or contains conflicting observations. Check the configured location."}
     if latest is None:
-        return {
-            "key": "codex",
-            "name": "Codex",
-            "status": "unavailable",
-            "detail": "No local rate-limit snapshot was found.",
-            "windows": [],
-        }
-    observed_at, limits = latest
-    windows = []
-    for key, label in (("primary", "Primary"), ("secondary", "Secondary")):
-        window = limits.get(key)
-        if not isinstance(window, dict):
-            continue
-        used = _finite_number(window.get("used_percent"))
-        if used is None:
-            continue
-        minutes = int(window.get("window_minutes") or 0)
-        windows.append(
-            {
-                "key": key,
-                "label": f"{label} · {minutes // 1440}d" if minutes >= 1440 else f"{label} · {minutes}m",
-                "windowMinutes": minutes,
-                "usedPct": used,
-                "remainingPct": max(0.0, 100 - used),
-                "resetAt": _iso_from_seconds(window.get("resets_at")),
-            }
-        )
-    return {
-        "key": "codex",
-        "name": "Codex",
-        "plan": f"ChatGPT {str(limits.get('plan_type') or 'unknown').title()}",
-        "status": "exact",
-        "observedAt": _iso_from_seconds(observed_at),
-        "windows": windows,
-        "detail": "Native Codex rate-limit telemetry.",
-        "credits": limits.get("credits"),
-    }
+        return missing
+    observed, limits = latest
+    if limits.get("ambiguous"):
+        return {**missing, "detail": "Conflicting main-pool observations at the newest timestamp; wait for a fresh snapshot."}
+    window = next(w for w in (limits.get("primary"), limits.get("secondary"))
+                  if isinstance(w, dict) and w.get("window_minutes") == 10080)
+    observed_at = _iso_from_seconds(observed)
+    reset_at = _iso_from_seconds(window["resets_at"])
+    reason = freshness_reason(observed_at, reset_at, now)
+    if reason:
+        return {**missing, "detail": reason, "observedAt": observed_at}
+    return {"key": "codex", "name": "Codex", "status": "exact", "poolId": "codex",
+            "plan": f"ChatGPT {str(limits.get('plan_type') or 'unknown').title()}",
+            "scope": scope(root), "observedAt": observed_at,
+            "windows": [{"key": "weekly", "windowMinutes": 10080,
+                         "usedPct": window["used_percent"], "remainingPct": 100 - window["used_percent"],
+                         "label": "Weekly", "resetAt": reset_at}],
+            "detail": "Main Codex pool from local telemetry; other pools excluded."}
 
 
 def _cursor_access_token() -> str | None:
@@ -1987,12 +1970,13 @@ def collect_limits(database_path: Path | None = None) -> dict:
     return snapshot_limits(database_path)
 
 
-def snapshot_limits(database_path: Path | None = None) -> dict:
+def snapshot_limits(database_path: Path | None = None, *, now: datetime | None = None) -> dict:
     providers = {}
     if database_path is None:
         return {"providers": [], "snapshot": True, "activeAgents": [], "unmeteredTurns": []}
     with connect(database_path) as connection:
-        rows = connection.execute("SELECT * FROM quotas ORDER BY polled_at, id").fetchall()
+        from spend_app.codex_quota import read_rows
+        rows = sorted(read_rows(connection, now=now), key=lambda row: (row["polled_at"], row["id"]))
     latest = {}
     for row in rows:
         latest[(row["provider_key"], row["limit_key"])] = row
@@ -2000,7 +1984,7 @@ def snapshot_limits(database_path: Path | None = None) -> dict:
         item = providers.setdefault(key, {"key": key, "name": key, "status": "unavailable", "windows": [], "detail": row["label"]})
         if row["pct"] is not None or row["used"] is not None:
             item["status"] = "exact"
-            item["windows"].append({"key": limit, "label": row["label"], "usedPct": row["pct"], "used": row["used"], "limit": row["allowance"], "resetAt": row["resets_at"]})
+            item["windows"].append({"key": limit, "label": row["label"], **({"observedAt": row.get("observed_at")} if key == "codex" else {}), "usedPct": row["pct"], "used": row["used"], "limit": row["allowance"], "resetAt": row["resets_at"]})
     return {"providers": list(providers.values()), "snapshot": True, "activeAgents": [], "unmeteredTurns": []}
 
 

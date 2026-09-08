@@ -98,7 +98,14 @@ def test_cached_summary_is_reused_per_clock_and_invalidated_by_data(tmp_path: Pa
             source="codex_local",
             polled_at="2026-08-30T22:30:00Z",
             pct=31.0,
+            resets_at=(NOW + timedelta(days=5)).isoformat(),
         )
+        from spend_app.codex_quota import current_scope, save_metadata
+        from spend_app.quotas import QuotaSample
+        save_metadata(connection, QuotaSample(
+            "codex", "weekly", "Weekly", "percent", "codex_local", pct=31.0,
+            resets_at=(NOW + timedelta(days=5)).isoformat(), observed_at=NOW.isoformat(),
+            pool_id="codex", scope=current_scope()), "2026-08-30T22:30:00Z")
     after_quota = aggregate_summary_cached(**kwargs, now=NOW)
     assert after_quota is not first
     codex = next(card for card in after_quota["capacity"] if card["providerKey"] == "codex")

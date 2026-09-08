@@ -100,6 +100,9 @@ class QuotaSample:
     # Set when the provider answered 429: seconds the lane must wait (from
     # Retry-After when given). Never persisted; drives the lane back-off.
     throttle_seconds: float | None = None
+    observed_at: str | None = None
+    pool_id: str | None = None
+    scope: str | None = None
 
 
 # Per-lane cadence in seconds as (active, idle). A lane is "active" while its
@@ -376,9 +379,9 @@ def antigravity_quota_samples(payload: dict, *, source: str) -> list[QuotaSample
     return samples
 
 
-def codex_quota_samples(payload: dict, *, source: str) -> list[QuotaSample]:
+def codex_quota_samples(payload: dict, *, source: str, now: datetime | None = None) -> list[QuotaSample]:
     label = "Codex weekly window"
-    if payload.get("status") != "exact":
+    if payload.get("status") != "exact" or payload.get("poolId") != "codex":
         return [
             _unavailable(
                 "codex",
@@ -391,18 +394,20 @@ def codex_quota_samples(payload: dict, *, source: str) -> list[QuotaSample]:
     weekly = None
     for window in payload.get("windows") or []:
         minutes = window.get("windowMinutes") if isinstance(window, dict) else None
-        if isinstance(minutes, (int, float)) and not isinstance(minutes, bool) and float(minutes) >= WEEKLY_MINUTES:
+        if isinstance(minutes, (int, float)) and not isinstance(minutes, bool) and float(minutes) == WEEKLY_MINUTES:
             weekly = window
             break
     used_pct = _number(weekly.get("usedPct")) if isinstance(weekly, dict) else None
-    if used_pct is None:
+    from spend_app.codex_quota import freshness_reason
+    reason = freshness_reason(payload.get("observedAt"), _window_reset(weekly) if weekly else None, now or datetime.now(UTC))
+    if used_pct is None or not 0 <= used_pct <= 100 or reason or not payload.get("scope"):
         return [
             _unavailable(
                 "codex",
                 "weekly",
                 label,
                 source,
-                "The local Codex snapshot had no weekly rate-limit window.",
+                reason or "The local Codex snapshot had no verified weekly rate-limit window/scope.",
             )
         ]
     return [
@@ -412,8 +417,11 @@ def codex_quota_samples(payload: dict, *, source: str) -> list[QuotaSample]:
             label=label,
             unit="pct",
             source=source,
-            pct=max(0.0, used_pct),
+            pct=used_pct,
             resets_at=_window_reset(weekly),
+            observed_at=payload["observedAt"],
+            pool_id="codex",
+            scope=payload["scope"],
         )
     ]
 
@@ -548,6 +556,12 @@ def _collect(name: str, ttl: int, loader: Callable[[], dict], builder, source: s
     return _apply_throttle(builder(payload, source=source), payload)
 
 
+def _codex_quota_collector(database_path):
+    from spend_app.codex_quota import current_scope
+    key = f"codex_quota_poll:{Path(database_path).resolve()}:{current_scope()}"
+    return _collect(key, 10, _codex_limits, codex_quota_samples, "codex_local_telemetry")
+
+
 def default_quota_collectors(
     database_path: Path | str,
 ) -> dict[str, Callable[[], list[QuotaSample]]]:
@@ -559,7 +573,7 @@ def default_quota_collectors(
             antigravity_quota_samples,
             "antigravity_local_rpc",
         ),
-        "codex": lambda: _collect("codex_quota_poll", 10, _codex_limits, codex_quota_samples, "codex_local_telemetry"),
+        "codex": lambda: _codex_quota_collector(database_path),
         "claude-code": _claude_quota_collector,
         "cursor": lambda: _collect("cursor_quota_poll", 600, _cursor_limits_uncached, cursor_quota_samples, "cursor_usage_service"),
         "grok": _grok_quota_collector,
@@ -681,6 +695,8 @@ def poll_quotas(
                         )
                     )
             for sample in samples:
+                from spend_app.codex_quota import save_metadata
+                save_metadata(connection, sample, polled_at)
                 fields = _persist_fields(sample)
                 latest = connection.execute(
                     "SELECT id, label, used, allowance, unit, pct, resets_at, source, is_payg "
