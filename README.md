@@ -22,7 +22,7 @@ and development verification limits.
 
 Beta 3 fixes summary loading when heatmap events have unavailable pricing.
 
-See [the latest release notes](RELEASE-0.2.0-beta.2.md) for accounting,
+See [the earlier release notes](RELEASE-0.2.0-beta.2.md) for accounting,
 schema migration, source resilience, and credential consent changes.
 
 New: [0.2 release notes](RELEASE-0.2.0.md), [subscription management](docs/subscriptions.md),

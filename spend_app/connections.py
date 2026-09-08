@@ -51,7 +51,13 @@ class Store:
     def read(self):
         # Status reads do not create directories, switch WAL modes or write.
         from contextlib import closing
+        try:
+            Path(self.path).stat()
+        except FileNotFoundError:
+            return empty_state()
         with closing(sqlite3.connect(Path(self.path).absolute().as_uri() + "?mode=ro", uri=True)) as db:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'").fetchone():
+                return empty_state()
             row = db.execute("SELECT value FROM app_meta WHERE key=?", (KEY,)).fetchone()
             return decode(row[0] if row else None)
 

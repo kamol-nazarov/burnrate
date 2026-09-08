@@ -28,7 +28,9 @@ def test_lanes_only_carry_measurable_limits_and_the_rest_go_to_the_footer() -> N
     has_quota = JS.split("function providerHasQuota(provider)", 1)[1].split("\n}", 1)[0]
     assert "!provider.isPayg" in has_quota and "finite(row.pct) != null" in has_quota
     assert "all.filter(providerHasQuota)" in fn
-    assert "all.filter(provider => !providerHasQuota(provider))" in fn
+    assert "all.filter(provider => !providerHasQuota(provider) ||" in fn
+    assert 'source.state === "detected_without_history"' in fn
+    assert 'connect.hidden = !detected' in fn
     assert 'class="capacity-lane"' in fn and 'class="capacity-foot"' in fn
     assert "foot.hidden = !withoutQuota.length" in fn
     # Pay as you go never invents a figure: unavailable balance is said in words, not as $0.

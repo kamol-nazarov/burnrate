@@ -523,3 +523,25 @@ def test_existing_external_native_consent_is_preserved_not_created(service, monk
     assert c.eligible(spec, service.store.read())
     with pytest.raises(LocationError):
         service.mutate(body("cursor_usage_service"))
+
+
+def test_missing_metadata_database_is_not_created():
+    with patch.object(Path, "stat", side_effect=FileNotFoundError()), patch.object(c.sqlite3, "connect") as open_db:
+        assert c.Store("C:/fake/new.db").read() == c.empty_state()
+        open_db.assert_not_called()
+
+
+def test_uninitialized_database_has_no_managed_bindings():
+    db = Mock()
+    db.execute.return_value.fetchone.return_value = None
+    with patch.object(Path, "stat", return_value=object()), patch.object(c.sqlite3, "connect", return_value=db):
+        assert c.Store("C:/fake/new.db").read() == c.empty_state()
+    db.execute.assert_called_once_with("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'")
+    db.close.assert_called_once_with()
+
+
+def test_unreadable_metadata_does_not_fall_back_to_default_collection():
+    with patch.object(Path, "stat", side_effect=PermissionError()), patch.object(c.sqlite3, "connect") as open_db:
+        with pytest.raises(PermissionError):
+            c.Store("C:/fake/existing.db").read()
+        open_db.assert_not_called()

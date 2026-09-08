@@ -85,6 +85,7 @@ def test_metadata_detection_is_bounded_to_supplied_home(tmp_path):
 
 def test_onboarding_health_reads_do_not_probe_or_mutate(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from spend_app.api import create_app
     from tests_spend.test_api import add_fixture_event, make_settings
     db = tmp_path / "s.db"
@@ -117,6 +118,7 @@ def test_reason_does_not_return_raw_payload():
 
 def test_path_hint_is_home_relative_without_filesystem(monkeypatch):
     from pathlib import Path
+
     from spend_app.diagnostics import LOCAL_PATHS, source_path_hint
     monkeypatch.setattr(Path, "home", lambda: (_ for _ in ()).throw(AssertionError("home lookup")))
     for source, parts in LOCAL_PATHS.items():
@@ -146,6 +148,7 @@ def test_path_hint_is_in_diagnostics_report_without_database():
 
 def test_integration_metadata_exposes_booleans_not_values():
     from types import SimpleNamespace
+
     from spend_app.diagnostics import integration_reports
     settings = SimpleNamespace(openai_admin_key="private-key-do-not-return", anthropic_admin_key=None, cursor_api_key=None)
     reports = integration_reports(settings, environ={"BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE":"true", "BURNRATE_ENABLE_CURSOR_USAGE_SERVICE":"false", "OPENROUTER_MANAGEMENT_KEY":"another-private-key"})
@@ -161,6 +164,7 @@ def test_integration_metadata_exposes_booleans_not_values():
 
 def test_integration_metadata_preserves_vault_connections_without_secret_read():
     from types import SimpleNamespace
+
     from spend_app.diagnostics import integration_reports
     reports = integration_reports(SimpleNamespace(), environ={}, bindings={"openai_admin":{"enabled":True,"credentialRef":"opaque-reference"},"cursor_admin":{"enabled":False,"credentialRef":"disabled-reference"}})
     by_setting = {row["setting"]: row for row in reports}

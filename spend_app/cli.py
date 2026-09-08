@@ -380,7 +380,6 @@ def _main() -> int:
         source = args.source.replace("-", "_")
         spec = REGISTRY.get(source)
         if spec and spec.connection:
-            Store(settings.database_path).bootstrap()
             managed = Store(settings.database_path).read()["bindings"].get(source)
             if managed:
                 if args.session_glob:

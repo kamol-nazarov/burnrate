@@ -9,7 +9,7 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
-## [0.3.0-beta.1] - 2026-09-07
+## [0.3.0-beta.1] - 2026-09-08
 
 - Add an optional Connect harness wizard with bounded local discovery, manual
   verification, revisioned bindings, per-source retries and connection lifecycle.

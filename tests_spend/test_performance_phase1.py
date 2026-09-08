@@ -115,7 +115,8 @@ def test_web_fonts_do_not_block_first_paint() -> None:
     assert "Inter" not in css
     assert "JetBrains" not in css
     # The local stylesheet still loads before the script, and the script stays deferred.
-    assert head.index('href="/spend.css?v=42"') < head.index('src="/spend.js?v=42" defer')
+    assert head.index('href="/spend.css?v=') < head.index('src="/spend.js?v=')
+    assert head.split('src="/spend.js?v=', 1)[1].split(">", 1)[0].endswith('" defer')
 
 
 def test_head_prefetch_starts_data_requests_before_the_script() -> None:

@@ -489,7 +489,8 @@ def media_blocks(css: str) -> dict[str, str]:
             elif css[index] == "}":
                 depth -= 1
             index += 1
-        blocks[query] = css[start : index - 1]
+        # All blocks for a breakpoint participate in the CSS cascade.
+        blocks[query] = blocks.get(query, "") + css[start : index - 1]
     return blocks
 
 

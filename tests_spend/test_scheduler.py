@@ -128,7 +128,17 @@ def test_create_scheduler_does_not_invoke_pollers(tmp_path: Path, monkeypatch) -
     make_scheduler(tmp_path)
 
 
+def _previously_monitored_sources(monkeypatch):
+    from spend_app.connections import empty_state
+    from spend_app.providers import REGISTRY
+
+    state = empty_state()
+    state["legacy"] = [spec.key for spec in REGISTRY.local_ingest()]
+    monkeypatch.setattr("spend_app.connections.Store.read", lambda self: state)
+
+
 def test_local_ingest_job_runs_readers_serially(tmp_path: Path, monkeypatch) -> None:
+    _previously_monitored_sources(monkeypatch)
     calls = []
 
     def recorder(name):
@@ -153,6 +163,7 @@ def test_local_ingest_job_runs_readers_serially(tmp_path: Path, monkeypatch) -> 
 
 
 def test_experimental_provider_failure_is_isolated(tmp_path: Path, monkeypatch) -> None:
+    _previously_monitored_sources(monkeypatch)
     calls: list[str] = []
 
     def recorder(name, *, fail=False):
@@ -208,6 +219,7 @@ def test_experimental_provider_failure_is_isolated(tmp_path: Path, monkeypatch) 
 
 
 def test_official_provider_failure_still_runs_remaining(tmp_path: Path, monkeypatch) -> None:
+    _previously_monitored_sources(monkeypatch)
     calls: list[str] = []
 
     def recorder(name, *, fail=False):

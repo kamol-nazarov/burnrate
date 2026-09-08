@@ -1,7 +1,7 @@
 """Safe source guidance from persisted attempts and bounded metadata presence."""
 
-import re
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
