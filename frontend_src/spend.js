@@ -1897,6 +1897,7 @@ function minTargetSize() {
   // A12: heat cells are separate from the 44px check (spacing exception).
   let min = Infinity;
   let heatMin = Infinity;
+  let secondaryMin = Infinity;
   document.querySelectorAll("button, [role='button'], .legend-card, .model-row, .live-pill").forEach(el => {
     if (!el.getClientRects().length) return;
     if (el.classList.contains("hit-target")) return;
@@ -1907,10 +1908,15 @@ function minTargetSize() {
       heatMin = Math.min(heatMin, box.width, box.height);
       return;
     }
+    if (el.classList.contains("row-secondary")) {
+      secondaryMin = Math.min(secondaryMin, box.height);
+      return;
+    }
     const size = Math.min(box.width, box.height);
     min = Math.min(min, size);
   });
   state.heatMinTarget = heatMin === Infinity ? 0 : heatMin;
+  state.secondaryMinTarget = secondaryMin === Infinity ? 0 : secondaryMin;
   return min === Infinity ? 0 : min;
 }
 function writeProbe(view) {
@@ -1932,6 +1938,7 @@ function writeProbe(view) {
     unpriced: [...document.querySelectorAll(".model-row .numeric")].some(el => el.textContent.trim() === unknown),
     paygPct: [...document.querySelectorAll(".capacity-row .track.payg")].map(track => track.previousElementSibling?.querySelector("b")?.textContent?.trim() || ""),
     minTarget: minTargetSize(),
+    minSecondaryTarget: state.secondaryMinTarget,
     minHeatCell: state.heatMinTarget ?? 0,
     mq1199: window.matchMedia("(max-width:1199px)").matches,
     mq1023: window.matchMedia("(max-width:1023px)").matches,

@@ -181,6 +181,9 @@ def test_viewports_have_no_horizontal_page_scroll(tmp_path: Path) -> None:
             assert report["loading"] is False
             assert "$0.00" not in report["tracked"]
             assert report["minTarget"] >= 44, report
+            # The settings specification permits 30px-tall in-row secondary controls.
+            assert "minSecondaryTarget" in report
+            assert report["minSecondaryTarget"] == 0 or report["minSecondaryTarget"] >= 30, report
             # Heat cells use the spacing exception with an equivalent control:
             # honest nonoverlapping targets, verified separately.
             assert report.get("minHeatCell", 0) >= 17, report
@@ -223,7 +226,7 @@ def test_state_dumps_loading_empty_stale_unpriced(tmp_path: Path) -> None:
         assert "burnrate-skeleton" in loading
         assert "$0.00" not in loading
         assert 'id="coverage-banner"' in loading
-        assert 'class="burnrate-nav"' in loading
+        assert any("burnrate-nav" in classes.split() for classes in re.findall(r'class="([^"]*)"', loading))
         assert 'class="loading"' in loading
         assert ">0 live<" not in loading
     finally:
@@ -267,6 +270,9 @@ def test_state_dumps_loading_empty_stale_unpriced(tmp_path: Path) -> None:
                 assert not re.search(r"(?<!\d)0\.0%", html)
             assert report["overflow"] is False
             assert report["minTarget"] >= 44, report
+            # The settings specification permits 30px-tall in-row secondary controls.
+            assert "minSecondaryTarget" in report
+            assert report["minSecondaryTarget"] == 0 or report["minSecondaryTarget"] >= 30, report
             # Heat cells use the spacing exception with an equivalent control:
             # honest nonoverlapping targets, verified separately.
             assert report.get("minHeatCell", 0) >= 17, report

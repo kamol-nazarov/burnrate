@@ -159,7 +159,7 @@
   window.openHarnessManager=openHarnesses;
   ["nav-connect","capacity-connect"].forEach(id=>el(id).addEventListener("click",showSetup));
   el("rescan-harnesses").addEventListener("click",refreshHarnesses);el("close-harnesses").addEventListener("click",()=>harnessDialog.close());
-  harnessDialog.addEventListener("close",()=>{++harnessGeneration;harnessController?.abort();harnessDialog.setAttribute("aria-busy","false");if(harnessRestore)restoreOpener(harnessOpener,"nav-connect");});
+  harnessDialog.addEventListener("close",()=>{if(harnessDialog.open)return;++harnessGeneration;harnessController?.abort();harnessDialog.setAttribute("aria-busy","false");if(harnessRestore)restoreOpener(harnessOpener,"nav-connect");});
   el("managed-connections").addEventListener("click",()=>{harnessRestore=false;harnessDialog.close();restoreOpener(harnessOpener,"nav-connect");window.BurnrateConnections.open();});
   el("show-setup-help").addEventListener("click",()=>{setup.hidden=false;harnessOpener=el("setup-done");harnessDialog.close();el("setup-done").focus();});
 
@@ -272,8 +272,10 @@
   function openPlans(button=document.activeElement){opener=button;if(!dialog.open)dialog.showModal();showList();readPlans();}
   window.BurnratePlans={open:openPlans};
   ["nav-plans","manage-plans","setup-plans"].forEach(id=>el(id).addEventListener("click",event=>openPlans(event.currentTarget)));
-  el("close-plans").addEventListener("click",()=>dialog.close());
-  dialog.addEventListener("close",()=>{++generation;controller?.abort();writeOwner=null;pending=false;el("save-plan").disabled=false;restoreOpener(opener,"nav-plans");});
+  function invalidatePlanDialog(){++generation;controller?.abort();writeOwner=null;pending=false;el("save-plan").disabled=false;dialog.setAttribute("aria-busy","false");}
+  el("close-plans").addEventListener("click",()=>{invalidatePlanDialog();dialog.close();});
+  dialog.addEventListener("cancel",invalidatePlanDialog);
+  dialog.addEventListener("close",()=>{if(dialog.open)return;invalidatePlanDialog();restoreOpener(opener,"nav-plans");});
   el("new-plan").addEventListener("click",()=>startWizard());
   el("plan-back").addEventListener("click",()=>{if(pending)return;resetPreview();if(step===steps()[0])showList();else{step=steps()[steps().indexOf(step)-1];updateWizard();el("plan-manager-title").focus();}});
   el("term-choice").addEventListener("change",()=>fields(true));

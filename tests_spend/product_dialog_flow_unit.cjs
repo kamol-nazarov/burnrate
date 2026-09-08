@@ -9,7 +9,7 @@ class Element {
   click() { this.onclick?.({currentTarget:this,target:this}); this.dispatch('click'); }
   focus() { document.activeElement=this; }
   showModal() { this.open=true; }
-  close() { this.open=false; this.dispatch('close'); }
+  close() { this.open=false; if(!this.deferClose)this.dispatch('close'); }
   reportValidity() { return !this.required || !!this.value; }
   setAttribute(name,value) { this.attrs[name]=value; }
   getAttribute(name) { return this.attrs[name] ?? null; }
@@ -78,8 +78,11 @@ const planData=amount=>({today:'2026-09-07',timezone:'UTC',tools:['codex','openc
   el('plan-form').dispatch('submit');const retry=latest('/api/subscriptions','POST');
   assert.equal(JSON.parse(retry.options.body).request_id,firstBody.request_id);
   reply(retry,{saved:true});await flush();const oldReload=latest('/api/subscriptions');
-  el('close-plans').click();assert.equal(document.activeElement,el('nav-plans'));
-  el('manage-plans').click();const newReload=latest('/api/subscriptions');reply(newReload,planData('30'));await flush();reply(oldReload,planData('99'));await flush();
+  el('plan-manager').deferClose=true;el('close-plans').click();
+  el('manage-plans').click();const newReload=latest('/api/subscriptions');
+  el('plan-manager').dispatch('close');el('plan-manager').deferClose=false;
+  assert.equal(newReload.options.signal.aborted,false,'queued old close must not cancel reopened load');
+  reply(newReload,planData('30'));await flush();reply(oldReload,planData('99'));await flush();
   assert.equal(el('plan-monthly-total').textContent,'$30.00');assert.doesNotMatch(el('plan-message').textContent,/Saved durably/);
   const row=el('plan-history').items.get(1),actions=row.querySelector('.plan-row-actions');
   actions.querySelectorAll('[data-plan-op]')[2].click();assert.equal(el('plan-step-2').hidden,false);
