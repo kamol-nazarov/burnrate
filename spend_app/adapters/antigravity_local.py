@@ -179,7 +179,10 @@ def parse_trajectory(payload: dict, *, summary: dict | None = None) -> list[Usag
     return rows
 
 
-def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
+def ingest(*, database_path: Path, pricing: PricingEngine, import_path: Path | None = None) -> dict:
+    if import_path is not None:
+        from spend_app.adapters.antigravity_cache import ingest as ingest_cache
+        return ingest_cache(database_path=database_path, pricing=pricing, import_path=import_path)
     try:
         base_url, csrf_token = _antigravity_local_connection()
     except RuntimeError:
@@ -188,6 +191,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
             source=SOURCE,
             reason="Experimental Antigravity localhost gRPC-Web: desktop is not running or the RPC is unavailable.",
         )
+    import time
+    deadline = time.monotonic() + 20
     usage_rows: list[UsageRow] = []
     pending_signatures: list[tuple[tuple[str, str], tuple[object, ...]]] = []
     try:
@@ -209,6 +214,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
             seen = 0
             fetched = 0
             for cascade_id, summary in summaries:
+                if time.monotonic() >= deadline or seen >= 100:
+                    raise RuntimeError("Antigravity reporting deadline or trajectory limit reached; coverage is incomplete.")
                 if not isinstance(summary, dict):
                     continue
                 seen += 1
@@ -219,7 +226,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine) -> dict:
                     summary.get("stepCount"),
                     summary.get("status"),
                 )
-                state_key = (base_url, cascade_id)
+                from spend_app.connection_paths import cache_identity
+                state_key = (cache_identity(database_path, database_path, "antigravity-response-v1"), base_url, cascade_id)
                 if _TRAJECTORY_SIGNATURES.get(state_key) == signature:
                     continue
                 trajectory = _rpc_json(

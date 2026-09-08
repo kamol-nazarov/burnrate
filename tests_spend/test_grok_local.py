@@ -7,6 +7,7 @@ sessions from ``active_sessions.json``. No network call is involved anywhere.
 
 from __future__ import annotations
 
+from spend_app.adapters.event_identity import Observation
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -66,17 +67,18 @@ def test_turns_become_rows_with_model_and_project_from_session_lines(tmp_path: P
     assert first.project == "ExampleProject"
     assert (first.input_tokens, first.cached_input_tokens, first.output_tokens, first.reasoning_tokens) == (21598, 3328, 318, 155)
     assert first.cost_usd is None, "subscription usage carries no metered cost"
-    assert sub.model_key == "supergrok:grok-4.6", "a subagent without its own model line inherits the last model seen"
+    assert sub.model_key == "supergrok:unknown", "a different session does not inherit an unrelated model"
     assert sub.project is None
     assert first.raw_id != sub.raw_id
     assert state["offset"] == log.stat().st_size
 
 
-def test_turns_without_any_model_line_are_skipped(tmp_path: Path) -> None:
+def test_turns_without_model_evidence_retain_unpriced_usage(tmp_path: Path) -> None:
     log = tmp_path / "unified.jsonl"
     _write_log(log, [_turn("2026-09-02T01:25:05.000Z", SID, 1, 100, 10, 5)])
     rows, _state = grok_local.parse_log(log)
-    assert rows == []
+    assert len(rows) == 1 and rows[0].model_key == "supergrok:unknown"
+    assert rows[0].input_tokens == 100 and rows[0].output_tokens == 5
 
 
 def test_reader_is_incremental_and_restarts_after_truncation(tmp_path: Path) -> None:
@@ -111,7 +113,7 @@ def test_ingest_persists_derived_rows_and_tolerates_a_missing_log(tmp_path: Path
     pricing = PricingEngine.load(ROOT / "pricing")
     log = tmp_path / "unified.jsonl"
     missing = grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
-    assert missing["files"] == 0 and missing["rows"] == 0
+    assert missing["status"] == "failed" and missing["eventsSeen"] == 0
     _write_log(log, [_line("2026-09-02T01:00:00Z", "model changed", {"model": "grok-4.6"}), _turn("2026-09-02T01:01:00Z", SID, 1, 100_000, 50_000, 10_000)])
     first = grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
     second = grok_local.ingest(database_path=database, pricing=pricing, log_path=log)
@@ -281,7 +283,7 @@ def test_rotated_grok_log_does_not_reopen_traycer_history(tmp_path: Path, monkey
 
     fake_db = tmp_path / "chat.db"
     fake_db.write_bytes(b"")
-    monkeypatch.setattr(traycer_local, "parse_database", lambda _path: [row(t0)])
+    monkeypatch.setattr(traycer_local, "parse_database", lambda _path, **kwargs: [Observation(row(t0), (), t0.timestamp(), "traycer-projection")])
     seen: list[UsageRow] = []
 
     def capture(**kwargs):
@@ -380,7 +382,7 @@ def test_traycer_drops_grok_rows_the_cli_log_already_covers(tmp_path: Path, monk
     rows = [row("grok", boundary - timedelta(hours=1)), row("grok", boundary), row("grok", boundary + timedelta(hours=1)), row("openrouter", boundary + timedelta(hours=1))]
     fake_db = tmp_path / "chat.db"
     fake_db.write_bytes(b"")
-    monkeypatch.setattr(traycer_local, "parse_database", lambda _path: rows)
+    monkeypatch.setattr(traycer_local, "parse_database", lambda _path, **kwargs: [Observation(r, (), r.occurred_at.timestamp(), "traycer-projection") for r in rows])
     seen: list[UsageRow] = []
 
     def capture(**kwargs):

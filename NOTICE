@@ -42,3 +42,66 @@ Third-party software used at runtime is installed from PyPI and retains
 its own licenses. BURNRATE does not vendor those sources. If a later
 release redistributes Apache-licensed binaries that ship their own
 NOTICE files, those notices must be preserved with the artifact.
+
+Provider compatibility format references and adapted normalization logic
+---------------------------------------------------------------------
+Tokscale, junhoyeo/tokscale, revision a3209ff03da1b71262a4dd97bff854c07ca548b3:
+OpenCode schema/message selection; Codex rollout/fork conventions; Claude
+message identities; Grok updates/signals; ZCode token conventions; Cursor
+export metadata; Antigravity sync artifact producer/reader contracts.
+https://github.com/junhoyeo/tokscale/tree/a3209ff03da1b71262a4dd97bff854c07ca548b3
+
+Token Monitor, Javis603/token-monitor, revision
+e07aeb449353a6f9f0260292beacc27b643550c0: alternate Claude roots and cache
+producer prerequisites. Its reviewed manifest identifies Tokscale base 4.15.1.
+https://github.com/Javis603/token-monitor/tree/e07aeb449353a6f9f0260292beacc27b643550c0
+
+No reference binaries, credentials, personal caches or private endpoints are
+bundled or executed by these compatibility readers. Their metadata contracts
+are observed interfaces, not vendor guarantees. BURNRATE does not adopt the
+references' token estimates, current-model defaults or credential borrowing.
+
+MIT License
+
+Copyright (c) 2025 Junho Yeo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+MIT License
+
+Copyright (c) 2026 Javis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

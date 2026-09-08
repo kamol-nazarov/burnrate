@@ -19,7 +19,7 @@ from spend_app.config import Settings
 from spend_app.db import connect, initialize, upsert_quota
 from spend_app.pricing import PricingEngine
 from spend_app.subscriptions import add_subscription, materialize_subscription_days
-from tests_spend.test_codex_local import write_session
+from tests_spend.test_codex_local import EXPECTED_SESSION_IDS, write_session
 from tests_spend.test_s01_admin_fixtures import _paged_client
 from spend_app.adapters.codex_local import ingest as ingest_codex
 from spend_app.adapters.codex_local import reset_file_cache as reset_codex_cache
@@ -474,13 +474,14 @@ def test_s03_03_cross_source_tokens_sum(tmp_path: Path) -> None:
         }
         union = measured_sql(connection, payload["window"]["from"], payload["window"]["to"])
     assert payload["totals"]["tokens"] == union
+    assert {raw_id for raw_id, source in sources.items() if source == "codex_local"} == set(EXPECTED_SESSION_IDS)
     assert all(
-        (raw_id.startswith("codex-local:") and source == "codex_local")
+        (raw_id.startswith("codex-request:") and source == "codex_local")
         or (raw_id.startswith("openai-usage:") and source == "openai_admin")
         for raw_id, source in sources.items()
     )
     assert not (
-        {raw_id for raw_id in sources if raw_id.startswith("codex-local:")}
+        {raw_id for raw_id in sources if raw_id.startswith("codex-request:")}
         & {raw_id for raw_id in sources if raw_id.startswith("openai-usage:")}
     )
 

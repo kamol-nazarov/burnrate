@@ -33,6 +33,7 @@ from spend_app.adapters.local_common import (
     number,
     optional_number,
     parse_millis,
+    parse_iso_time,
     positive_cost,
     sqlite_read_only,
 )
@@ -60,6 +61,15 @@ DELTA_ISSUE = (
 )
 
 
+def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path) -> dict:
+    from spend_app.adapters.opencode_granular import ingest as collect
+    try:
+        return collect(database_path=database_path, pricing=pricing, source_database=source_database)
+    except (OSError, ValueError, sqlite3.Error):
+        from spend_app.adapters.common import failed_result
+        return failed_result(database_path=database_path, source=SOURCE, reason="OpenCode source is missing, unreadable or incompatible. Recheck the configured source.")
+
+
 def canonical_model(model: str) -> str:
     return f"opencode:{model.strip().lower()}"
 
@@ -82,10 +92,7 @@ class SessionSnapshot:
 def read_session_snapshots(path: Path) -> list[SessionSnapshot]:
     """Cumulative per-session totals exactly as the store reports them."""
     snapshots: list[SessionSnapshot] = []
-    try:
-        connection = sqlite_read_only(path)
-    except sqlite3.DatabaseError:
-        return snapshots
+    connection = sqlite_read_only(path)
     try:
         query = """
             SELECT id,project_id,directory,path,model,cost,tokens_input,tokens_output,
@@ -94,10 +101,7 @@ def read_session_snapshots(path: Path) -> list[SessionSnapshot]:
             WHERE COALESCE(tokens_input,0)+COALESCE(tokens_output,0)+
                   COALESCE(tokens_cache_read,0)+COALESCE(tokens_cache_write,0)>0
         """
-        try:
-            cursor = connection.execute(query)
-        except sqlite3.OperationalError:
-            return snapshots
+        cursor = connection.execute(query)
         for row in cursor:
             (
                 session_id,
@@ -203,6 +207,9 @@ def plan_rows(
         key = f"{snapshot.session_id}\x1f{snapshot.provider_id}"
         prev = previous.get(key)
         totals = _counts(snapshot)
+        if prev and parse_iso_time(prev.get("observed_at")) and snapshot.observed_at < parse_iso_time(prev["observed_at"]):
+            labels.append(("", "opencode_stale_cumulative_snapshot"))
+            continue
         if prev is None:
             # Initial unattributed baseline: count once, label the coarseness.
             rows.append(
@@ -239,36 +246,10 @@ def plan_rows(
                 prev["output_tokens"],
             )
             if any(now < was for now, was in zip(totals, prev_totals)):
-                # Counter reset/decrease: re-baseline conservatively instead
-                # of emitting negative deltas.
-                rows.append(
-                    UsageRow(
-                        source=SOURCE,
-                        tool_key="opencode",
-                        model_key=canonical_model(snapshot.model_id),
-                        occurred_at=snapshot.observed_at,
-                        session_id=snapshot.session_id,
-                        project=snapshot.project,
-                        # Normalized storage: input includes fresh + cached reads.
-                        input_tokens=snapshot.input_tokens + snapshot.cached_input_tokens,
-                        cached_input_tokens=snapshot.cached_input_tokens,
-                        cache_write_tokens=snapshot.cache_write_tokens,
-                        cache_write_1h_tokens=0,
-                        output_tokens=snapshot.output_tokens,
-                        reasoning_tokens=snapshot.reasoning_tokens,
-                        cost_usd=snapshot.cost_usd,
-                        raw_id=stable_id(
-                            "opencode-rebaseline",
-                            snapshot.session_id,
-                            snapshot.provider_id,
-                            int(snapshot.observed_at.timestamp() * 1000),
-                            totals,
-                        ),
-                    )
-                )
-                labels.append(
-                    (rows[-1].raw_id, "Cumulative counters decreased; totals re-baselined at this observation.")
-                )
+                # This legacy shape has no reset/request identity. Appending
+                # a second baseline would invent usage on corrections/copies.
+                labels.append(("", "opencode_cumulative_decrease_requires_granular_evidence"))
+                continue
             elif totals != prev_totals:
                 delta_input = max(0, snapshot.input_tokens - prev["input_tokens"])
                 delta_cached = max(0, snapshot.cached_input_tokens - prev["cached_input_tokens"])
@@ -327,7 +308,7 @@ def progress_for_location(connection, source_database, scope, session_id, provid
     return accounted if accounted is not None else local
 
 
-def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path) -> dict:
+def _ingest_cumulative(*, database_path: Path, pricing: PricingEngine, source_database: Path) -> dict:
     from spend_app.connection_paths import identity
     import hashlib
     scope = hashlib.sha256(identity(source_database.resolve()).encode()).hexdigest()[:24]
@@ -342,10 +323,21 @@ def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path
             for snapshot in snapshots
         }
     rows, next_state, labels = plan_rows(snapshots, previous)
+    accepted_ids = {row.raw_id for row in rows}
+    issues = [issue for raw_id, issue in labels if not raw_id]
+    deferred = set()
+
+    def prepare(connection, prepared_rows):
+        from spend_app.adapters.opencode_granular import reconcile_cumulative
+        result = reconcile_cumulative(connection, prepared_rows, snapshots, issues, deferred)
+        accepted_ids.intersection_update(row.raw_id for row in result)
+        return result
 
     def finalize(connection: sqlite3.Connection) -> None:
         for key, state in next_state.items():
             session_id, provider_id = key.split("\x1f", 1)
+            if (session_id, provider_id) in deferred:
+                continue
             write_opencode_progress(
                 connection,
                 session_id=session_id,
@@ -373,6 +365,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path
                 observed_at=state["observed_at"],
             )
         for raw_id, issue in labels:
+            if raw_id not in accepted_ids:
+                continue
             row = next((row for row in rows if row.raw_id == raw_id), None)
             if row is None:
                 continue
@@ -391,6 +385,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path
         pricing=pricing,
         source=SOURCE,
         usage_rows=rows,
+        prepare=prepare,
         finalize=finalize,
+        issues=issues,
     )
-    return {**result, "files": files, "eventsSeen": len(rows)}
+    return {**result, "files": files, "eventsSeen": len(snapshots), "eventsAccepted": len(snapshots) if not issues else result["eventsAccepted"], "issues": issues}

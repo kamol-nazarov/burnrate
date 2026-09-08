@@ -119,7 +119,7 @@ def test_s02_05_cursor_admin_ingests_current_and_legacy_pages(tmp_path: Path) ->
     assert second["eventsWritten"] == 0
     with connect(current_db) as connection:
         ids = [row[0] for row in connection.execute("SELECT raw_id FROM usage_events")]
-    assert {raw.startswith("cursor-admin:") for raw in ids} == {True}
+    assert set(ids) == {'cursor-reported:71ae9f87e6e35989e5de3fc80a57d466bd26c7568b291714355aff418f00667a', 'cursor-reported:d8ad1fdb77f755d8a5f06c6c8a46d95aa450e19850741d18e127d560bb952d83', 'cursor-reported:17f3ca204252bbf2dbbb3fa0a21d1b423d30d0e64e083e8842ac0ce2d5617790'}
     assert len(ids) == 3
 
     legacy_db = tmp_path / "legacy.db"

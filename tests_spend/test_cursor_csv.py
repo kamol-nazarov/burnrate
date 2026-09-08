@@ -27,12 +27,12 @@ def test_cursor_csv_drop_maps_documented_columns() -> None:
     assert first.output_tokens == 200
     assert first.cost_usd == 0.125
     assert first.session_id == "agent_csv_1"
-    assert first.raw_id.startswith("cursor-csv:")
+    assert first.raw_id == 'cursor-csv-observation:49895f0cf335dbdbc2921bc1bb2b135c2c8698f20cd05b9dac9ef1f698cab05b'
     # Row without an agent id still parses with no session identity.
     assert rows[1].session_id is None
     assert rows[1].input_tokens == 550
     assert rows[1].cached_input_tokens == 150
-    assert rows[1].raw_id.startswith("cursor-csv:")
+    assert rows[1].raw_id == 'cursor-csv-observation:5e20362d89fdeea014187a25571efd99554afa92991764cbe9f9352eeed7a55e'
 
 
 def test_cursor_csv_headers_are_tolerant(tmp_path: Path) -> None:
@@ -52,7 +52,7 @@ def test_cursor_csv_headers_are_tolerant(tmp_path: Path) -> None:
     assert len(rows) == 1
     row = rows[0]
     assert row.model_key == "cursor:grok-4.6"
-    assert row.raw_id == "cursor-csv:event_9"
+    assert row.raw_id == "cursor-reported:3ae7f10ad2a58939572a26db4ecb6195e8077ece2fe6d15fdb285d7c44892421"
     assert row.input_tokens == 1000
     assert row.cached_input_tokens == 900
     assert row.cache_write_tokens == 50
@@ -135,12 +135,12 @@ def test_cursor_csv_zero_cost_is_factual_zero_not_missing(tmp_path: Path) -> Non
     assert rows[0].raw_id == "cursor-csv:event_zero"
 
 
-def test_cursor_csv_missing_drop_folder_is_skipped(tmp_path: Path) -> None:
+def test_cursor_csv_missing_explicit_drop_folder_fails(tmp_path: Path) -> None:
     pricing = PricingEngine.load(ROOT / "pricing")
     result = ingest_cursor_csv(
         database_path=tmp_path / "spend.db",
         pricing=pricing,
         import_path=tmp_path / "missing",
     )
-    assert result["status"] == "skipped"
+    assert result["status"] == "failed"
     assert "missing" in result["reason"]

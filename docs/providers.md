@@ -1,6 +1,85 @@
 # Providers
 
-This is the honest matrix for BURNRATE `0.1.0-beta.1`. Every source states the local file patterns it reads, the HTTPS hosts it may contact, the credential (if any), whether the interface is official or experimental, what is retained, exact/derived/unavailable semantics, and mutation risk.
+This matrix describes the shipped sources, with the Unreleased compatibility changes below taking precedence over older format details. Every source distinguishes usage, quota, reported charges, credentials and mutation risk.
+
+## Unreleased provider compatibility repairs
+
+Format evidence is pinned to [Tokscale a3209ff](https://github.com/junhoyeo/tokscale/tree/a3209ff03da1b71262a4dd97bff854c07ca548b3) and [Token Monitor e07aeb4](https://github.com/Javis603/token-monitor/tree/e07aeb449353a6f9f0260292beacc27b643550c0). The latter manifest identifies Tokscale base 4.15.1. MIT notices are retained in `NOTICE`. No reference binaries, personal caches, providers or cache producers were executed during implementation. The CLI originator also appears in [official Codex extraction fixtures](https://github.com/openai/codex/blob/6924ce636b2186948f2332ac9460b5871b50aa2f/codex-rs/state/src/extract.rs).
+
+| Source | Implemented compatibility | Identity, capability and coverage limits |
+| --- | --- | --- |
+| OpenCode | v1 `message`; v2 `session_message` SQL role/type; legacy message JSON; approved `opencode*.db`; labeled cumulative fallback | Provider/message identity, historical model/time, later revisions. Fine usage consumes proven coarse coverage once in either import order; uncovered remainder stays coarse. Ambiguous provider scope is reported. |
+| Codex | Known CLI/Desktop originators; approved active/archive roots; cumulative, per-request and total-only rollout evidence | Repeated totals do not add last usage twice. Old IDs map through exact aliases; inherited fork history requires child-turn evidence. Total-only stays unsplit. Complete contiguous counter chains refine accepted coarse intervals without adding another baseline. Ambiguous overlapping fragments are refused, preserving accepted history. |
+| Claude Code | `CLAUDE_CONFIG_DIR`, projects/transcripts and approved subagents | Message/request/provider identity, later increases/decreases and partial-to-complete updates. Omitted optional fields do not erase known components. No quota inferred from transcripts. |
+| Grok / Traycer | Unified log, selected updates/signals, Traycer projections | Historical model is session/process-generation scoped, not global. Native usage within the persisted unified interval is suppressed; signal remainder stays unsplit. Native totals are refused when unmapped Traycer Grok history already exists, even if Traycer is disabled. Traycer uses logical chat/event IDs and old path aliases. Custom profiles, including `GROK_HOME`, retain overlap conflicts. |
+| ZCode | Legacy/modern `model_usage`; selected `.zcode/projects` transcripts | Computed totals select evidenced component conventions. No text estimates or current-model guesses. Shared usage IDs reconcile copies; cross-format overlaps without shared IDs are refused in either import order. Missing billing scope is reported. |
+| Cursor local | Existing SDK-agent store | Stable agent/run identity with old aliases; incompatible stores fail visibly. The existing pre-2026-09-02 authority restriction remains. This is not complete IDE/CLI coverage. |
+| Cursor CSV / JSON | Native CSV cache-write columns and selected `usageEventsDisplay` JSON | Actual request ID plus matching explicit user/team scope reconciles Admin/export/CSV copies and preserves old IDs. Other observations remain source-local. `Cost`/`totalCents` are reference values; only charged fields become reported charges. Unknown cache fields stay incomplete. |
+| Antigravity | Manual populated Tokscale sync artifacts, or existing experimental RPC | The inspected producer writes persisted usage metadata; caches are not self-populating or guaranteed complete. Response IDs reconcile cache/RPC copies. Missing producer/cache/runtime is a prerequisite issue. Rows without response identity are reported and skipped. No producer execution, new authentication flow or TLS exception. |
+| OpenAI / Anthropic Admin | Existing official usage/cost APIs and vault bindings | Bounded pages, cursor/schema/deadline failures. Seven-day revisit of completed UTC hours; closed-day charge buckets remain separate. Delays/corrections beyond that window remain possible. |
+| Cursor Admin | Existing documented team API; numeric-string/ISO timestamps; pagination | Fresh reporting observations update stable identities. Repeated/mismatched/exhausted pages fail visibly. Team admin key remains required; reference cost is not an extra charge. |
+| OpenRouter | Existing management credits endpoint | Balance-only. Deposits, top-ups and credits never become token events. Usage still comes from supported harness evidence. |
+
+All managed local bindings remain **usage-only**, including new paths. Existing narrow bindings are not widened by discovery. Unknown models remain usage evidence; missing pricing does not imply a disconnected source. Unsupported schemas, source failures and ambiguous copies are reported rather than converted to zero-use success.
+
+Official contracts checked for reporting changes: [OpenAI Usage](https://platform.openai.com/docs/api-reference/usage), [Anthropic Usage and Cost](https://platform.claude.com/docs/en/manage-claude/usage-cost-api), and [Cursor Admin](https://prod.cursor.com/docs/account/teams/admin-api). Each reporting loop has a 100-page and 20-second deadline, with requests limited to the remaining budget up to ten seconds. No immediate retry is made for authentication, throttling or bad pages. Quota backoff does not shorten a longer provider Retry-After. An access test is not evidence of complete billing history.
+
+### Optional Claude status-line snapshot
+
+The [official schema](https://code.claude.com/docs/en/statusline) reports `rate_limits.five_hour` and `rate_limits.seven_day`, with `used_percentage` and epoch-second `resets_at`. Older versions or sessions may omit them. Context-window utilization is never substituted for quota.
+
+If desired, explicitly enable `BURNRATE_ENABLE_CLAUDE_STATUSLINE=1` in both processes and configure Claude's documented status-line command to invoke the installed Python executable with:
+
+```text
+-m spend_app.claude_statusline --database "C:\path\to\BURNRATE\spend.sqlite3"
+```
+
+Use the actual BURNRATE database path. The helper never opens the database: bounded stdin is reduced to allowlisted metadata and atomically written to a database-scoped file in the adjacent BURNRATE `snapshots` folder. It emits no display text. Preserve/back up an existing status-line configuration; the helper neither edits settings nor wraps commands. Leaving an existing status line unchanged and omitting this bridge is supported.
+
+Snapshots expire after 15 minutes and at provider reset. Producer and collector must use the same Claude profile override; the profile is hashed and account identity is not claimed. Managed Claude usage-only bindings still suppress quota, even with this flag enabled. Missing/stale/unsupported snapshots show unavailable, not zero. No native credential is read.
+
+### Upgrade and verification limits
+
+Automatic defaults that do not exist are reported as not detected/skipped;
+installing a source later allows the next normal cycle to discover it. A moved
+saved binding or missing explicit environment path remains a configured-source
+failure. Permission, schema and unexpected I/O failures are not ordinary absence.
+Other sources and requested summary warming can still progress.
+
+OpenCode result aggregation preserves accepted/written counts, partial pricing,
+quarantine counts and unpriced model lists. Counts describe child import attempts,
+not a newly inferred count of unique historical events. ZCode reads an optional
+session directory only when available and unambiguous, retaining just its final
+project label; absent/unmatched session metadata does not drop valid token rows.
+Grok checks file generation and consumed-prefix anchors before parsing appended
+complete lines. Traycer uses projection versions within the file/database/binding
+scope so another chat's update does not force all projections to be parsed again.
+Incomplete report exceptions retain already-read pages for explicit handling;
+collection still reports failure and preserves previously accepted history rather
+than treating a missing cursor as complete coverage.
+
+The R1–R5 corrections retain explicit Codex request/counter equivalence across
+files and replay, including old IDs. Equal amounts or timestamps alone do not
+establish that equivalence. OpenCode now persists verified message start times
+alongside its existing granular ledger, so completion time is not substituted
+for start during reverse reconciliation. Older records without sufficient start
+evidence report ambiguous overlap and defer the cumulative checkpoint, including
+its logical/path progress, until source replay provides the missing evidence.
+
+Claude field values retain their individual revisions across files, batches
+and saved state. Omissions preserve known fields and one-hour cache writes;
+explicit zeros and downward corrections remain effective. Equal-authority
+conflicts and invalid duration totals remain incomplete rather than being
+resolved by maximum counts. ZCode transcript totals (`total`, `totalTokens`,
+`total_tokens`) constrain component attribution: a contradictory 15-token
+report remains 15 unclassified tokens, while an evidenced additive 21-token
+report remains 21. These changes use compatible optional metadata in `app_meta`,
+not a new SQL schema. The older implementation test results remain historical;
+the corrections have their own focused fake-boundary regression evidence.
+
+There is no SQLite schema migration. Versioned identity/allocation metadata uses existing `app_meta` and ingest transactions. Exact-ID repairs can update or remove proven duplicate priced/unpriced rows. Before release, back up and validate real SQLite atomicity/recovery; older code ignores the ledgers and can reintroduce duplicates if restarted on repaired data.
+
+Evidence here is fake-boundary unit evidence only. Relocated stores, WAL/rotation/junction behavior, scheduler concurrency, OS vault and snapshot permissions, installed dependencies/assets, browser focus, package contents and live provider scopes remain unverified. Unknown identity/account/format combinations remain explicit coverage gaps. No frontend assets were changed or generated for these backend repairs.
 
 BURNRATE is not affiliated with these vendors. Interfaces change; experimental lanes can fail independently.
 

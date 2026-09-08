@@ -276,6 +276,8 @@ def persist_rows(
     usage_rows: Iterable[UsageRow],
     cost_rows: Iterable[CostRow] = (),
     finalize: "Callable[[sqlite3.Connection], None] | None" = None,
+    prepare: "Callable[[sqlite3.Connection, tuple], Iterable[UsageRow]] | None" = None,
+    issues: Iterable[str] = (),
 ) -> dict:
     """Persist one ingest cycle atomically, including the run health record.
 
@@ -285,6 +287,7 @@ def persist_rows(
     """
     initialize(database_path)
     usage_rows = tuple(usage_rows)
+    observed_rows = len(usage_rows)
     cost_rows = tuple(cost_rows)
     unpriced: set[str] = set()
     unpriced_written = 0
@@ -296,6 +299,9 @@ def persist_rows(
         sync_model_prices(connection, pricing)
         run = IngestRun.start(connection, source)
         try:
+            if prepare is not None:
+                usage_rows = tuple(prepare(connection, usage_rows))
+            issues = tuple(issues)
             for row in usage_rows:
                 if not row.telemetry_complete:
                     try:
@@ -388,7 +394,7 @@ def persist_rows(
                         computed_cost_usd=float(computed),
                         raw_id=row.raw_id,
                         ingested_at=utc_now(),
-                        is_exact=event_is_exact(source, price),
+                        is_exact=event_is_exact(row.source, price),
                     ),
                 ):
                     run.events_written += 1
@@ -418,14 +424,17 @@ def persist_rows(
                 error = f"Quarantined malformed rows: {quarantined}"
             elif quarantined:
                 error = f"{error}; quarantined malformed rows: {quarantined}"
-            status = "partial" if unpriced or quarantined else "success"
+            if issues:
+                error = (error + "; " if error else "") + ", ".join(sorted(set(issues)))
+            status = "partial" if unpriced or quarantined or issues else "success"
             run.finish(status=status, error=error)
         except Exception as exc:
             run.finish(status="failed", error=public_error(exc))
             raise
     return {
         "source": source,
-        "eventsSeen": len(usage_rows),
+        "eventsSeen": observed_rows,
+        "eventsAccepted": max(0, len(usage_rows) - quarantined),
         "eventsWritten": run.events_written,
         "unpricedEventsWritten": unpriced_written,
         "coverageGapsWritten": coverage_written,
@@ -434,4 +443,5 @@ def persist_rows(
         "unpricedModels": sorted(unpriced),
         "quarantined": quarantined,
         "status": status,
+        "issues": sorted(set(issues)),
     }

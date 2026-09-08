@@ -10,7 +10,7 @@ from spend_app.aggregate import aggregate_health, aggregate_summary
 from spend_app.db import connect
 from spend_app.pricing import PricingEngine
 from tests_spend.test_admin_adapters import fixture
-from tests_spend.test_codex_local import write_session
+from tests_spend.test_codex_local import EXPECTED_SESSION_IDS, write_session
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,12 +185,13 @@ def test_s01_12_disjoint_codex_local_and_openai_admin(tmp_path: Path) -> None:
             row[0]: row[1]
             for row in connection.execute("SELECT raw_id, source FROM usage_events")
         }
+    assert {raw_id for raw_id, source in sources.items() if source == "codex_local"} == set(EXPECTED_SESSION_IDS)
     assert all(
-        (raw_id.startswith("codex-local:") and source == "codex_local")
+        (raw_id.startswith("codex-request:") and source == "codex_local")
         or (raw_id.startswith("openai-usage:") and source == "openai_admin")
         for raw_id, source in sources.items()
     )
     assert not (
-        {raw_id for raw_id in sources if raw_id.startswith("codex-local:")}
+        {raw_id for raw_id in sources if raw_id.startswith("codex-request:")}
         & {raw_id for raw_id in sources if raw_id.startswith("openai-usage:")}
     )

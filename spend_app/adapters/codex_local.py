@@ -41,12 +41,15 @@ from spend_app.pricing import PricingEngine
 
 SOURCE = "codex_local"
 DESKTOP_ORIGINATOR = "Codex Desktop"
-SUPPORTED_ORIGINATORS = {DESKTOP_ORIGINATOR}
+from spend_app.adapters.codex_records import ORIGINATORS, PARSER_VERSION
+SUPPORTED_ORIGINATORS = set(ORIGINATORS)
+_FILE_COUNTS = {}
 _FILE_SIGNATURES: dict[str, tuple[int, int]] = {}
 
 
 def reset_file_cache() -> None:
     _FILE_SIGNATURES.clear()
+    _FILE_COUNTS.clear()
 
 
 def _parse_time(value: str) -> datetime | None:
@@ -70,6 +73,7 @@ class ParsedEvent:
     output_tokens: int
     reasoning_tokens: int | None
     raw_id: str
+    observation: object = None
 
 
 def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
@@ -78,89 +82,19 @@ def parse_file(path: Path) -> tuple[dict, list[ParsedEvent]]:
 
 
 def parse_file_with_health(path: Path) -> tuple[dict, list[ParsedEvent], SourceHealth]:
+    from spend_app.adapters.codex_records import reduce_records
     health = SourceHealth()
-    location = path.name
-    session: dict = {}
-    current_model: str | None = None
-    events: list[ParsedEvent] = []
-    token_index = 0
+    records = []
     with open_text_read_only(path) as handle:
-        for line_number, line in enumerate(handle, start=1):
-            outer, outcome = parse_jsonl_record(line, line_number=line_number, location=location, health=health)
-            if outer is None:
-                continue
-            payload = outer.get("payload")
-            if not isinstance(payload, dict):
-                continue
-            if outer.get("type") == "session_meta":
-                session_id = str(payload.get("id") or payload.get("session_id") or path.stem)
-                cwd = payload.get("cwd")
-                started = _parse_time(str(payload.get("timestamp") or outer.get("timestamp") or ""))
-                if started is None:
-                    from spend_app.source_health import quarantine as _q
-
-                    health.note(_q("session_meta without a valid timestamp", f"{location}:{line_number}"))
-                    continue
-                session = {
-                    "id": session_id,
-                    "started_at": started,
-                    "project": Path(cwd).name if isinstance(cwd, str) and cwd else None,
-                    "originator": payload.get("originator"),
-                }
-                continue
-            if outer.get("type") == "turn_context" and payload.get("model"):
-                current_model = str(payload["model"])
-                continue
-            if outer.get("type") != "event_msg" or payload.get("type") != "token_count":
-                continue
-            info = payload.get("info")
-            if not isinstance(info, dict) or not isinstance(info.get("last_token_usage"), dict):
-                continue
-            if not session or current_model is None:
-                continue
-            occurred_at = _parse_time(str(outer.get("timestamp") or ""))
-            if occurred_at is None:
-                from spend_app.source_health import quarantine as _q
-
-                health.note(_q("token_count without a valid timestamp", f"{location}:{line_number}"))
-                continue
-            usage = info["last_token_usage"]
-            input_tokens = number(usage.get("input_tokens"))
-            cached_input = number(usage.get("cached_input_tokens"))
-            cache_write = number(usage.get("cache_write_input_tokens"))
-            output_tokens = number(usage.get("output_tokens"))
-            if cached_input > input_tokens:
-                from spend_app.source_health import quarantine as _q
-
-                health.note(
-                    _q("cached_input_tokens exceed input_tokens", f"{location}:{line_number}")
-                )
-                continue
-            reasoning_raw = usage.get("reasoning_output_tokens")
-            reasoning: int | None
-            if reasoning_raw is None:
-                reasoning = None
-            else:
-                reasoning = number(reasoning_raw)
-            # Stable identity format is frozen: changing it would re-mint
-            # identities for already-persisted rows and inflate totals.
-            raw_id = f"codex-local:{session['id']}:{outer['timestamp']}:{token_index}"
-            token_index += 1
-            events.append(
-                ParsedEvent(
-                    session_id=session["id"],
-                    project=session["project"],
-                    model_key=current_model,
-                    occurred_at=occurred_at,
-                    input_tokens=input_tokens,
-                    cached_input_tokens=cached_input,
-                    cache_write_tokens=cache_write,
-                    output_tokens=output_tokens,
-                    reasoning_tokens=reasoning,
-                    raw_id=raw_id,
-                )
-            )
-            health.note_ok()
+        for index, line in enumerate(handle, 1):
+            record, _ = parse_jsonl_record(line, line_number=index, location="codex", health=health)
+            if record is not None:
+                records.append(record)
+    session, observations = reduce_records(records, health, path.stem)
+    events = [ParsedEvent(session_id=o.row.session_id, project=o.row.project, model_key=o.row.model_key,
+                          occurred_at=o.row.occurred_at, input_tokens=o.row.input_tokens, cached_input_tokens=o.row.cached_input_tokens,
+                          cache_write_tokens=o.row.cache_write_tokens, output_tokens=o.row.output_tokens,
+                          reasoning_tokens=o.row.reasoning_tokens, raw_id=o.row.raw_id, observation=o) for o in observations]
     return session, events, health
 
 
@@ -184,6 +118,9 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
     initialize(database_path)
     parsed_files = 0
     parsed_events = 0
+    confirmed_events = 0
+    observations = []
+    issues = []
     skipped_files = 0
     skipped_originator = 0
     quarantined = 0
@@ -197,23 +134,33 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
             stat = path.stat()
         except OSError:
             continue
-        from spend_app.connection_paths import cache_identity
-        cache_key = cache_identity(database_path, path)
-        signature = (stat.st_size, stat.st_mtime_ns)
+        from spend_app.connection_paths import cache_identity, file_signature
+        cache_key = cache_identity(database_path, path, PARSER_VERSION)
+        try:
+            signature = file_signature(path, stat)
+        except OSError:
+            issues.append("codex_file_unavailable")
+            continue
         if _FILE_SIGNATURES.get(cache_key) == signature:
             skipped_files += 1
+            confirmed_events += _FILE_COUNTS.get(cache_key, 0)
             continue
         try:
             session, events, health = parse_file_with_health(path)
         except OSError:
+            issues.append("codex_file_unavailable")
             continue
         quarantined += health.quarantined + health.skipped
+        if health.partial:
+            issues.append("codex_partial_source_metadata")
         if not session:
+            issues.append("codex_session_metadata_missing")
             _FILE_SIGNATURES[cache_key] = signature
             continue
-        if session.get("originator") not in SUPPORTED_ORIGINATORS:
+        if not session.get("supported_origin", session.get("originator") in SUPPORTED_ORIGINATORS):
             skipped_originator += 1
-            key = str(session.get("originator") or "unknown")
+            issues.append("codex_unsupported_originator")
+            key = "unsupported_originator"
             originator_files[key] = originator_files.get(key, 0) + 1
             _FILE_SIGNATURES[cache_key] = signature
             continue
@@ -222,6 +169,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
         latest_time: datetime | None = None
         latest_model: str | None = None
         for parsed in events:
+            if parsed.observation is not None:
+                observations.append(parsed.observation)
             usage_rows.append(
                 UsageRow(
                     source=SOURCE,
@@ -238,6 +187,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                     reasoning_tokens=parsed.reasoning_tokens,
                     cost_usd=None,
                     raw_id=parsed.raw_id,
+                    telemetry_complete=parsed.observation.row.telemetry_complete if parsed.observation else True,
+                    unclassified_tokens=parsed.observation.row.unclassified_tokens if parsed.observation else 0,
                 )
             )
             latest_time = parsed.occurred_at
@@ -252,14 +203,8 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                     "model_key": latest_model,
                 }
             )
-        pending_signatures.append((cache_key, signature))
-    result = persist_rows(
-        database_path=database_path,
-        pricing=pricing,
-        source=SOURCE,
-        usage_rows=usage_rows,
-    )
-    with connect(database_path) as connection:
+        pending_signatures.append((cache_key, signature, len(events)))
+    def finalize(connection):
         for session in session_rows:
             upsert_session(
                 connection,
@@ -270,8 +215,14 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
                 ended_at=session["ended_at"],
                 model_key=session["model_key"],
             )
-    for cache_key, signature in pending_signatures:
-        _FILE_SIGNATURES[cache_key] = signature
+    from spend_app.adapters.event_identity import reconcile
+    result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE, usage_rows=usage_rows,
+                          prepare=(lambda connection, rows: reconcile(connection, observations, issues)) if observations else None,
+                          finalize=finalize, issues=issues)
+    if not issues:
+        for cache_key, signature, count in pending_signatures:
+            _FILE_SIGNATURES[cache_key] = signature
+            _FILE_COUNTS[cache_key] = count
     result["files"] = parsed_files
     result["filesSkippedUnchanged"] = skipped_files
     result["filesSkippedOriginator"] = skipped_originator
@@ -280,5 +231,7 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
         key for key in originator_files if key not in SUPPORTED_ORIGINATORS
     )
     result["quarantined"] = result.get("quarantined", 0) + quarantined
-    result["eventsSeen"] = parsed_events
+    result["eventsSeen"] = parsed_events + confirmed_events
+    result["eventsAccepted"] = result.get("eventsAccepted", 0) + confirmed_events
+    result["issues"] = sorted(set(issues))
     return result

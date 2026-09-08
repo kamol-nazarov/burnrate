@@ -47,6 +47,11 @@ class LanePolicy:
 # Shipped lane registry. Hosts are exact suffix allowlists; a lane must never
 # contact a host outside its list.
 LANES: dict[str, LanePolicy] = {
+    "claude_statusline_snapshot": LanePolicy(
+        "claude_statusline_snapshot", Lane.LOCAL,
+        "Reads an explicitly enabled BURNRATE-owned Claude status-line quota snapshot.",
+        consent_env="BURNRATE_ENABLE_CLAUDE_STATUSLINE",
+    ),
     "codex_local_telemetry": LanePolicy(
         "codex_local_telemetry",
         Lane.LOCAL,
@@ -145,6 +150,10 @@ def authorize(lane_key: str, *, environ: dict[str, str] | None = None) -> tuple[
     policy = LANES.get(lane_key)
     if policy is None:
         return False, f"unknown integration lane: {lane_key}"
+    if policy.lane is Lane.LOCAL and policy.consent_env:
+        source = environ if environ is not None else os.environ
+        enabled = source.get(policy.consent_env, "").strip().lower() in {"1", "true", "yes", "on"}
+        return enabled, None if enabled else "Optional status-line snapshot is disabled. Enable " + policy.consent_env + " explicitly to use it."
     if policy.lane is Lane.LOCAL:
         return True, None
     if policy.lane is Lane.CONFIGURED:

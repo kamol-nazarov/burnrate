@@ -13,7 +13,7 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.3.0-beta.1`.
+Version: `0.3.0-beta.2`. Current beta: [release notes](RELEASE-0.3.0-beta.2.md).
 
 For frontend development, edit the readable files in `frontend_src/`. Run
 `npm ci --prefix scripts/asset-tools --ignore-scripts --no-audit --no-fund`, then
@@ -29,18 +29,19 @@ connection status and optional documented provider API setup. See the
 [connection guide](docs/connections.md) for capabilities, credential requirements
 and development verification limits.
 
-Beta 3 fixes summary loading when heatmap events have unavailable pricing.
+This beta improves provider-format compatibility, historical identity/replay,
+connection error reporting and optional quota snapshots. Usage value, configured
+plan cost and provider-reported charges remain distinct.
 
 See [the earlier release notes](RELEASE-0.2.0-beta.2.md) for accounting,
 schema migration, source resilience, and credential consent changes.
 
-New: [0.2 release notes](RELEASE-0.2.0.md), [subscription management](docs/subscriptions.md),
-optional Setup help, and actionable Diagnostics. Configured plans can now be
-managed in the browser while preserving effective-dated history.
+See [subscription management](docs/subscriptions.md) for effective-dated plans.
+Connect harness remains optional and does not grant quota access to a transcript.
 
-Latest: [frontend reliability hotfix notes](HOTFIX-0.1.2.md). Fixes request
-ownership, polling recovery, wrong-range displays after failures, and Back/Home
-navigation races. Reload an existing tab after deploying the updated assets.
+Earlier frontend reliability changes preserve request ownership, polling recovery,
+wrong-range failure handling and Back/Home navigation races. Reload existing tabs
+after upgrading to load the packaged assets.
 
 ### What's fixed in this patch
 

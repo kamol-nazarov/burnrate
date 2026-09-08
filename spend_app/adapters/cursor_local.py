@@ -40,7 +40,7 @@ def project_name(path: Path) -> str:
         return path.parent.name
 
 
-def parse_database(path: Path) -> list[UsageRow]:
+def parse_database(path: Path, *, observations=False) -> list[UsageRow]:
     rows: list[UsageRow] = []
     connection = sqlite_read_only(path)
     try:
@@ -49,12 +49,7 @@ def parse_database(path: Path) -> list[UsageRow]:
                    COALESCE(finished_at,updated_at,created_at)
             FROM runs WHERE usage_json IS NOT NULL
         """
-        try:
-            cursor = connection.execute(query)
-        except sqlite3.OperationalError:
-            # Agent stores are created lazily; a database without a runs
-            # table (yet) simply holds no usage.
-            return rows
+        cursor = connection.execute(query)
         for run_id, agent_id, model, usage_json, timestamp_text in cursor:
             occurred_at = parse_iso_time(timestamp_text)
             if occurred_at is None:
@@ -68,8 +63,7 @@ def parse_database(path: Path) -> list[UsageRow]:
             fresh = number(usage.get("inputTokens"))
             cached = number(usage.get("cacheReadTokens"))
             writes = number(usage.get("cacheWriteTokens"))
-            rows.append(
-                UsageRow(
+            row = UsageRow(
                     source=SOURCE,
                     tool_key="cursor",
                     model_key=canonical_model(str(model or "unknown")),
@@ -85,36 +79,33 @@ def parse_database(path: Path) -> list[UsageRow]:
                     cost_usd=positive_cost(usage.get("costUsd")),
                     raw_id=stable_id("cursor-local", str(path.resolve()), run_id),
                 )
-            )
+            from dataclasses import replace
+            from spend_app.adapters.event_identity import Observation
+            logical = stable_id("cursor-sdk", agent_id, run_id)
+            observed = Observation(replace(row, raw_id=logical), (row.raw_id,), occurred_at.timestamp(), "cursor-sdk")
+            rows.append(observed if observations else observed.row)
     finally:
         connection.close()
     return rows
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, database_glob: str) -> dict:
-    usage_rows: list[UsageRow] = []
+    usage_rows, observations, issues = [], [], []
     files = 0
     for file_name in sorted(adapter_files(database_glob)):
         path = Path(file_name)
-        if not path.is_file():
-            continue
         files += 1
         try:
-            # The signed-in usage service is authoritative from this cutover
-            # and covers both native and SDK-agent calls. Keeping the local
-            # store only for older history prevents cross-source duplicates.
-            usage_rows.extend(
-                row for row in parse_database(path)
-                if row.occurred_at < USAGE_SERVICE_AUTHORITY_START
-            )
-        except sqlite3.DatabaseError:
-            # Unreadable or mid-checkpoint stores are picked up on the next
-            # poll; never fail the whole ingest for one file.
-            continue
-    result = persist_rows(
-        database_path=database_path,
-        pricing=pricing,
-        source=SOURCE,
-        usage_rows=usage_rows,
-    )
-    return {**result, "files": files}
+            for observation in parse_database(path, observations=True):
+                row = observation.row
+                if row.occurred_at >= USAGE_SERVICE_AUTHORITY_START:
+                    issues.append("cursor_sdk_after_legacy_authority_cutover")
+                    continue
+                observations.append(observation)
+                usage_rows.append(row)
+        except (OSError, ValueError, sqlite3.DatabaseError):
+            issues.append("cursor_sdk_source_unavailable_or_incompatible")
+    from spend_app.adapters.event_identity import reconcile
+    result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE, usage_rows=usage_rows,
+                          prepare=lambda connection, _: reconcile(connection, observations, issues), issues=issues)
+    return {**result, "files": files, "issues": sorted(set(issues))}

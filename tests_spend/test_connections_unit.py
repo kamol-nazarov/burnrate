@@ -213,7 +213,7 @@ def test_invalid_paths_without_filesystem_access(path):
 def test_home_normalization_unicode_spaces_and_identity():
     with patch.object(Path, "resolve", lambda self, **kw: self), patch.object(Path, "is_dir", return_value=True), patch.object(Path, "is_file", return_value=False):
         path = normalize("C:/Users/名前 With Space/.codex", REGISTRY.get("codex_local").connection)
-        assert path.replace("\\", "/").endswith("/.codex/sessions")
+        assert path.replace("\\", "/").endswith("/.codex")
         assert identity("C:/Users/NAME") == identity("c:/users/name")
 
 
@@ -266,7 +266,7 @@ def test_production_store_transaction_uses_versioned_json_without_database():
     with patch.object(c, "connect", fake_connect):
         store = c.Store("fake")
         with store.transaction() as state:
-            state["bindings"]["codex_local"] = {"revision": 1}
+            state["bindings"]["codex_local"] = {"revision": 1, "enabled": True}
         calls = db.execute.call_args_list
         assert calls[0].args == ("BEGIN IMMEDIATE",)
         serialized = calls[-1].args[1][1]
@@ -284,10 +284,11 @@ def test_metadata_sample_never_returns_content(source, data, usable, monkeypatch
     import io
     from spend_app import connection_paths as paths
     monkeypatch.setattr(paths, "source_files", lambda *args, **kwargs: iter([Path("C:/fake/sample.jsonl")]))
+    monkeypatch.setattr(Path, "is_dir", lambda path: False)
     monkeypatch.setattr(Path, "open", lambda *args, **kwargs: io.BytesIO(data))
     result = Inspector().inspect(source, "C:/fake", REGISTRY.get(source).connection)
     assert result["usableSample"] is usable
-    assert set(result) == {"state", "usableSample", "detail"}
+    assert set(result) == {"state", "usableSample", "detail", "patterns"}
 
 
 def test_malformed_metadata_is_not_verified(monkeypatch):
@@ -306,13 +307,18 @@ def test_schema_validation_uses_readonly_metadata_query(monkeypatch):
     db = Mock()
     db.__enter__ = Mock(return_value=db)
     db.__exit__ = Mock(return_value=False)
-    db.execute.side_effect = [Mock(), [(i, name) for i, name in enumerate(meta.columns)], Mock(fetchone=lambda: None)]
+    valid = True
+    def execute(sql, *args):
+        if "table_info" in sql:
+            return [(i, name) for i, name in enumerate(meta.columns)] if valid and '"session"' in sql else []
+        return Mock(fetchone=lambda: None)
+    db.execute.side_effect = execute
     connector = Mock(return_value=db)
     monkeypatch.setattr(paths.sqlite3, "connect", connector)
     assert Inspector().inspect("opencode_local", "C:/fake", meta)["usableSample"] is False
     assert "mode=ro" in connector.call_args.args[0]
     assert "query_only" in db.execute.call_args_list[0].args[0]
-    db.execute.side_effect = [Mock(), [(0, "unrelated")]]
+    valid = False
     with pytest.raises(LocationError, match="incompatible"):
         Inspector().inspect("opencode_local", "C:/fake", meta)
 
@@ -385,7 +391,7 @@ def test_late_validation_cannot_replace_newer_revision(service):
     original = service.inspector.inspect
     def intervening_change(*args):
         with service.store.transaction() as state:
-            state["bindings"]["codex_local"] = {"revision": 1, "location": "C:/newer"}
+            state["bindings"]["codex_local"] = {"revision": 1, "enabled": True, "location": "C:/newer"}
         return original(*args)
     service.inspector.inspect = intervening_change
     with pytest.raises(c.Conflict):

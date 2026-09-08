@@ -9,6 +9,39 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.2] - 2026-09-08
+
+- Treat absent automatic harness defaults as not detected, while missing
+  configured locations and real access/schema errors remain visible failures.
+- Preserve OpenCode child-result counters, unpriced models and partial status
+  across cumulative and mixed-format collection; restore optional ZCode project labels.
+- Restore incremental Grok append reads and per-projection Traycer caching;
+  correct duplicate-removal accounting and retain contradictory Codex totals
+  as incomplete evidence rather than discarding them.
+
+- Correct Codex request/counter identity transitions across files and replay;
+  retain explicit-request equivalence and existing historical aliases.
+- Persist OpenCode message start evidence for reverse cumulative reconciliation;
+  defer ambiguous older checkpoints without advancing their progress.
+- Merge Claude partial usage by field revision across files and persisted state,
+  preserving omitted one-hour writes and exposing conflicting evidence.
+- Conserve ZCode transcript totals; contradictory or missing component splits
+  retain a trustworthy reported total as unclassified usage.
+
+- Repair OpenCode v1/v2/legacy message selection, scoped cumulative remainder
+  handling and unsupported-schema reporting without changing source event IDs.
+- Support evidenced Codex CLI/Desktop roots and counter forms, Claude message
+  revisions, Grok process/session metadata and native totals, and ZCode metadata
+  alternatives. Preserve old IDs through exact alias records where provable.
+- Add manual populated Antigravity cache and selected Cursor JSON export input;
+  neither starts cache producers nor borrows their credentials.
+- Bound admin reporting pagination, retain closed-hour/day reporting windows,
+  revisit seven days for delayed reports, and honor longer quota Retry-After.
+- Add an optional, explicitly enabled Claude status-line snapshot bridge using
+  provider percentages only. Managed local connections remain usage-only.
+- Retain third-party MIT notices and document ambiguous identity/coverage limits
+  and the separately authorized release checks still required.
+
 ## [0.3.0-beta.1] - 2026-09-08
 
 - Add an optional Connect harness wizard with bounded local discovery, manual

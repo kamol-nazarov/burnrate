@@ -148,7 +148,7 @@ class QuotaLaneScheduler:
             if throttles:
                 previous = self._backoff.get(provider_key, 0.0)
                 wait = max(max(throttles), previous * 2, THROTTLE_BACKOFF_MIN_SECONDS)
-                wait = min(wait, THROTTLE_BACKOFF_MAX_SECONDS)
+                wait = max(max(throttles), min(wait, THROTTLE_BACKOFF_MAX_SECONDS))
                 self._backoff[provider_key] = wait
                 self._next_due[provider_key] = self._clock() + wait
             else:
@@ -566,6 +566,10 @@ def default_quota_collectors(
         "opencode": lambda: _collect("zai_quota_poll", 10, _zai_limits_uncached, zai_quota_samples, "zai_quota_endpoint"),
         "openrouter": openrouter_quota_samples,
     }
+    from spend_app.integration_policy import authorize
+    if authorize("claude_statusline_snapshot")[0]:
+        from spend_app.claude_statusline import read_snapshot
+        result["claude-code"] = lambda: claude_quota_samples(read_snapshot(database_path), source="claude_statusline_snapshot")
 
     from spend_app.connections import Service, Store, lock_for, external_key
     from spend_app.config import load_settings

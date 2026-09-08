@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from spend_app.connection_paths import Inspector, LocationError, approved, identity
+from spend_app.connection_paths import Inspector, LocationError, MissingLocation, approved, identity
 from spend_app.db import connect
 from spend_app.providers import REGISTRY
 
@@ -38,9 +38,14 @@ def empty_state():
 
 
 def decode(raw):
-    state = json.loads(raw) if raw else empty_state()
-    if state.get("version") != 1:
+    state = json.loads(raw) if raw is not None else empty_state()
+    if not isinstance(state, dict) or state.get("version") != 1:
         raise LocationError("Connection settings require a newer BURNRATE version.")
+    if not isinstance(state.get("bindings"), dict) or not isinstance(state.get("requests"), dict) or not isinstance(state.get("legacy"), list) or not isinstance(state.get("cleanup"), list):
+        raise LocationError("Connection settings are corrupted; restore or repair them before collecting.")
+    for binding in state["bindings"].values():
+        if not isinstance(binding, dict) or type(binding.get("enabled")) is not bool or type(binding.get("revision")) is not int:
+            raise LocationError("Connection binding metadata is corrupted; defaults were not enabled.")
     return state
 
 
@@ -108,7 +113,20 @@ def external_key(spec, settings):
 
 
 def external(spec, settings):
-    return bool(external_key(spec, settings) or (spec.key == "cursor_csv" and os.getenv("CURSOR_IMPORT_PATH")))
+    return bool(external_key(spec, settings) or (spec.key == "cursor_csv" and os.getenv("CURSOR_IMPORT_PATH")) or (spec.connection.location_env and os.getenv(spec.connection.location_env)))
+
+
+def location_conflict(spec, location):
+    name = spec.connection.location_env
+    raw = os.getenv(name) if name else None
+    if not raw:
+        return False
+    base = Path(raw).expanduser()
+    if spec.key == "opencode_local":
+        base /= "opencode"
+    base = base.resolve()
+    chosen = Path(location).resolve()
+    return not (chosen == base or chosen.is_relative_to(base))
 
 
 def eligible(spec, state):
@@ -158,6 +176,9 @@ class Service:
                 row["credentialConfigured"] = bool(binding.get("credentialRef"))
             if row["externallyManaged"]:
                 row.update(state="externally_managed", detail="Configured outside BURNRATE. Change that explicit setting before managing this source here.")
+            if binding and meta.location_env:
+                row["externallyManaged"] = False
+                row["externalSetting"] = meta.location_env if os.getenv(meta.location_env) else None
             rows.append(row)
         return {"connections": rows, "vaultAvailable": self.vault.available(), "computerScope": "Locations are on the computer running BURNRATE."}
 
@@ -174,6 +195,10 @@ class Service:
             if row["kind"] in {"api", "external"}:
                 continue
             spec = source_spec(row["source"])
+            if spec.connection.manual_only:
+                row["candidates"] = []
+                row["detail"] = "Select an already populated supported cache manually. BURNRATE does not run or enroll its producer."
+                continue
             # Default and managed location may differ: expose both, never guess.
             candidates = list({identity(path): path for path in [default_location(spec, self.settings), row["location"]]}.values())
             row["candidates"] = []
@@ -183,7 +208,7 @@ class Service:
                 except LocationError as exc:
                     result = {"location": path, "state": "needs_attention", "detail": str(exc)}
                 row["candidates"].append(result)
-        return {"connections": [r for r in rows if r["kind"] not in {"api", "external"}]}
+        return {"connections": [r for r in rows if r["kind"] not in {"api", "external"} and not source_spec(r["source"]).connection.manual_only]}
 
     def mutate(self, body):
         if not isinstance(body, dict):
@@ -215,7 +240,7 @@ class Service:
             previous = state["bindings"].get(spec.key)
             if (previous or {}).get("revision", 0) != revision:
                 raise Conflict("Connection changed. Reload before saving.")
-            if external(spec, self.settings):
+            if external(spec, self.settings) and not spec.connection.location_env:
                 raise Conflict("This source has an external override. Change it outside BURNRATE first; no settings were rewritten.")
             if body.get("mode", "manual") not in {"auto", "manual", "api"}:
                 raise LocationError("Choose auto, manual or API mode.")
@@ -260,6 +285,8 @@ class Service:
                             raise Conflict("Connection changed. Reload before rechecking.")
                         record.update(state="needs_attention" if record["enabled"] else "disabled", detail=str(exc), lastVerification=now())
                     raise
+                if location_conflict(spec, checked["location"]):
+                    raise Conflict("Selected location conflicts with " + spec.connection.location_env + ". Resolve the external setting first.")
                 record = {**checked, "mode": body.get("mode", "manual"), "enabled": True,
                           "state": "awaiting_ingest", "detail": "Saved, awaiting first import." if checked["usableSample"] else checked["detail"], "capabilities": ["usage"]}
                 if op == "recheck" and previous and not previous["enabled"]:
@@ -272,6 +299,9 @@ class Service:
                     peer_binding = state["bindings"].get(other)
                     custom = identity(record["location"]) != identity(default_location(spec, self.settings))
                     peer_custom = peer_binding and identity(peer_binding["location"]) != identity(default_location(peer, self.settings))
+                    # An environment-selected Grok profile is not evidence that
+                    # the default Traycer store belongs to that profile.
+                    custom = custom or bool(os.getenv("GROK_HOME"))
                     if eligible(peer, state) and (custom or peer_custom):
                         raise Conflict("Custom Grok and Traycer locations cannot be monitored together. Disable the overlapping source first.")
             record.update(revision=revision + 1, bindingId=spec.key, lastImport=None, importRevision=None)
@@ -319,10 +349,16 @@ class Service:
                 return
             status = result.get("status")
             if status in {"success", "partial"}:
-                seen = result.get("eventsSeen", 0) > 0 or record["state"] == "receiving_usage"
+                accepted = result.get("eventsAccepted", result.get("eventsSeen", 0))
+                if not accepted and result.get("issues"):
+                    record.update(state="needs_attention", detail="Source metadata was read, but usage could not be accepted safely: " + ", ".join(result["issues"]))
+                    return
+                seen = accepted > 0 or record["state"] == "receiving_usage"
                 record.update(lastImport=now(), importRevision=revision,
                               state=("balance_available" if source == "openrouter" else "receiving_usage") if (seen or source == "openrouter") else "waiting_activity",
                               detail=("Balance updated; usage events are a separate connection." if source == "openrouter" else "Import completed. Missing pricing and quota do not disconnect usage.") if (seen or source == "openrouter") else "Readable; waiting for usage. No paid turn is required to finish setup.")
+                if result.get("issues"):
+                    record["detail"] += " Some records need attention: " + "; ".join(str(issue).replace("_", " ") for issue in sorted(set(result["issues"]))[:3]) + ". Review the provider compatibility guidance before changing the source."
             else:
                 record.update(state="needs_attention", detail="Import unavailable. Recheck location, permissions or provider access; collection will retry on its normal cadence.")
 
@@ -332,12 +368,22 @@ def managed_job(settings, pricing, spec, window=None):
     service = Service(settings)
     state = service.store.read()
     binding = state["bindings"].get(spec.key)
+    if binding and not binding["enabled"]:
+        return service, binding, None
     if not eligible(spec, state) and not (spec.connection and external(spec, settings)):
         return service, None, None
-    if binding and spec.connection and spec.connection.shape != "api":
+    if spec.key in {"grok_local", "traycer_local"}:
+        peers = [REGISTRY.get(key) for key in ("grok_local", "traycer_local")]
+        custom = bool(os.getenv("GROK_HOME")) or any(
+            state["bindings"].get(peer.key) and identity(state["bindings"][peer.key]["location"]) != identity(default_location(peer, settings))
+            for peer in peers)
+        if custom and all(eligible(peer, state) for peer in peers):
+            raise Conflict("Selected Grok/Traycer profiles have no proven shared authority. Disable one overlapping source.")
+    if spec.key == "traycer_local" or binding and spec.connection and spec.connection.shape != "api":
         kwargs = {"database_path": settings.database_path, "pricing": pricing}
         if spec.key == "traycer_local":
-            from spend_app.providers import default_grok_log, grok_coverage_start
+            from spend_app.providers import default_grok_log, default_traycer_glob, grok_coverage_start
+            kwargs["database_glob"] = default_traycer_glob()
             kwargs["grok_covered_from"] = grok_coverage_start(default_grok_log(), settings.database_path) if eligible(REGISTRY.get("grok_local"), state) else None
     else:
         kwargs = spec.build_ingest_kwargs(settings, pricing, **(window or {}))
@@ -345,11 +391,13 @@ def managed_job(settings, pricing, spec, window=None):
         meta = spec.connection
         if not binding["enabled"] and not external(spec, settings):
             return service, binding, None
-        if not external(spec, settings):
+        if not external(spec, settings) or meta.location_env:
             if meta.shape == "api":
                 kwargs[meta.argument] = service.vault.get(binding["credentialRef"])
             else:
                 path = service.inspector.normalize(binding["location"], meta)
+                if location_conflict(spec, path):
+                    raise Conflict("Saved location conflicts with " + meta.location_env + "; collection was not redirected.")
                 if identity(path) != identity(binding["location"]):
                     raise LocationError("Saved location moved. Recheck before collecting.")
                 service.inspector.inspect(spec.key, path, meta)
@@ -377,8 +425,19 @@ def execute(settings, pricing, spec, ingest, window=None):
             service, binding, kwargs = managed_job(settings, pricing, spec, window)
             if kwargs is None:
                 return {"status": "skipped", "eventsSeen": 0}
-            with approved(binding["location"] if binding and spec.connection.shape != "api" else None, binding["revision"] if binding else 0):
+            root = binding["location"] if binding and spec.connection.shape != "api" else None
+            if not binding and spec.connection and spec.connection.shape != "api" and not spec.connection.manual_only:
+                root = service.inspector.normalize(default_location(spec, settings), spec.connection)
+            with approved(root, binding["revision"] if binding else 0, binding.get("patterns") if binding else None):
                 result = ingest(**kwargs)
+        except MissingLocation:
+            if not binding and spec.connection and not external(spec, settings):
+                from spend_app.adapters.common import skipped_result
+                return skipped_result(database_path=settings.database_path, source=spec.key,
+                    reason="Default local source was not detected. Install or connect this optional harness when needed.")
+            if binding:
+                service.completion(spec.key, binding["revision"], {"status": "failed"})
+            raise LocationError("Configured source is missing or moved. Recheck its saved location or explicit environment path.") from None
         except Exception:
             if binding:
                 service.completion(spec.key, binding["revision"], {"status": "failed"})
