@@ -9,6 +9,17 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.1] - 2026-09-07
+
+- Add an optional Connect harness wizard with bounded local discovery, manual
+  verification, revisioned bindings, per-source retries and connection lifecycle.
+- Resolve managed locations and credentials on collection cycles; preserve
+  measured history when disabled and keep current-binding health separate.
+- Add explicit documented provider API setup using Windows Credential Manager,
+  with protected requests and no automatic native-credential borrowing.
+- Redesign subscription management as a list and step wizard; add navbar and
+  panel entry points and a read-only harness/integration status dialog.
+
 ## [0.2.0-beta.3] - 2026-09-07
 
 - Fix summary crashes when a heatmap event has unavailable pricing. Unknown

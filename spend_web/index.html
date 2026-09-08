@@ -23,10 +23,11 @@
         };
       })();
     </script>
-    <link rel="stylesheet" href="/spend.css?v=42" />
+    <link rel="stylesheet" href="/spend.css?v=43" />
     <script src="/request-state.js?v=1" defer></script>
     <script src="/spend.js?v=42" defer></script>
-    <script src="/product.js?v=1" defer></script>
+    <script src="/connections.js?v=1" defer></script>
+    <script src="/product.js?v=2" defer></script>
   </head>
   <body class="loading">
     <a class="skip-link" href="#main">Skip to dashboard</a>
@@ -54,6 +55,10 @@
             <span class="burnrate-status-row"><i class="burnrate-status-dot"></i><span id="nav-status-label">Metering</span></span>
             <span class="burnrate-status-detail" id="nav-status-detail">Waiting for telemetry</span>
           </button>
+          <div class="nav-settings" aria-label="Dashboard settings">
+            <button id="nav-connect" class="ghost-button" type="button"><i class="settings-dot" aria-hidden="true"></i><span>Harnesses</span></button>
+            <button id="nav-plans" class="ghost-button" type="button"><span class="mono" id="nav-plans-total">—</span>/mo plans</button>
+          </div>
           <!-- Announces state transitions (live/stale/error and the failing
                source), never each poll's timestamp. -->
           <span class="sr-only" aria-live="polite" id="status-live"></span>
@@ -73,16 +78,13 @@
     </div>
 
     <main id="main">
-      <nav class="product-actions" aria-label="Dashboard settings">
-        <button id="manage-plans" type="button">Manage subscriptions</button>
-        <button id="setup-help" type="button">Setup help</button>
-      </nav>
       <section id="setup-guidance" class="panel" aria-labelledby="setup-title" hidden>
         <h2 id="setup-title">Start with local usage</h2>
         <p>BURNRATE is local-first. Supported local usage can appear without credentials; network integrations and configured subscriptions are optional.</p>
         <p id="setup-timezone"></p>
         <p>Complete a supported turn, then check Diagnostics for the source's status and next action. Adding a configured plan is optional.</p>
         <button id="setup-plans" type="button">Manage subscriptions</button>
+        <button id="setup-help" type="button">Connect harness</button>
         <button id="setup-done" type="button">Done</button>
         <button id="setup-dismiss" type="button">Remind me later</button>
       </section>
@@ -96,8 +98,9 @@
                 <h2>What runs out first</h2>
               </div>
               <div class="panel-meta">
-                <span id="capacity-checked">checked —</span>
-                <strong id="capacity-headline" class="capacity-headline">Loading capacity</strong>
+                <div class="capacity-check"><span id="capacity-checked">checked —</span>
+                <strong id="capacity-headline" class="capacity-headline">Loading capacity</strong></div>
+                <button id="capacity-connect" class="ghost-button" type="button">Connect harness</button>
               </div>
             </header>
             <div id="capacity-body">
@@ -278,14 +281,11 @@
               </div>
             </article>
             <article class="panel subscription-panel">
-              <button class="collapse-toggle" id="subs-toggle" type="button" aria-expanded="false">
-                <span>
-                  <span class="eyebrow">Fixed costs</span>
-                  <span class="collapse-title">Configured subscriptions</span>
-                </span>
-                <span class="collapse-meta mono"><span id="subs-summary">—</span><span id="subs-caret">▼</span></span>
-              </button>
-              <div id="subs-details" hidden>
+              <header class="collapse-toggle fixed-cost-header">
+                <span><span class="eyebrow">Fixed costs</span><span class="collapse-title">Configured subscriptions</span></span>
+                <span class="collapse-meta"><span class="mono" id="subs-summary">—</span><button id="manage-plans" type="button" class="ghost-button row-secondary">Manage</button></span>
+              </header>
+              <div id="subs-details">
                 <div id="subscription-rows"></div>
                 <div class="subs-total"><span>Monthly equivalent</span><strong class="mono" id="subscription-total">—</strong></div>
               </div>
@@ -442,28 +442,33 @@
         <span class="mono" id="range-label">—</span>
       </footer>
     </main>
-    <dialog id="plan-manager" aria-labelledby="plan-manager-title">
-      <header><h2 id="plan-manager-title">Configured subscriptions</h2><button id="close-plans" type="button">Close</button></header>
-      <p>Calendar-based cost attribution, not verified payments. Ending a plan here does not cancel it with the provider.</p>
-      <p id="plan-timezone"></p>
-      <div id="plan-history"></div>
-      <button id="reload-plans" type="button">Reload history (keep input)</button>
-      <button id="new-plan" type="button">Add another plan</button>
-      <form id="plan-form">
-        <label>Action<select id="plan-action"><option value="add">Add a plan</option><option value="schedule">Schedule a new price</option><option value="end">Record last active date</option><option value="correct">Correct historical entry</option></select></label>
-        <label id="plan-choice-label">Plan<select id="plan-choice"></select></label>
-        <label id="term-choice-label">Historical term<select id="term-choice"></select></label>
-        <label id="plan-name-label">Name<input id="plan-name" maxlength="80" autocomplete="off"></label>
-        <label id="plan-tool-label">Tool / shared plan<select id="plan-tool"></select></label>
-        <label id="plan-amount-label">USD per billing period<input id="plan-amount" type="number" min="0" max="1000000" step="0.01"></label>
-        <label id="plan-cadence-label">Billing period<select id="plan-cadence"><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label>
-        <label id="plan-start-label">Effective start date<input id="plan-start" type="date"></label>
-        <label id="plan-end-label">Last active date (inclusive; blank means ongoing)<input id="plan-end" type="date"></label>
-        <pre id="plan-preview" hidden></pre>
-        <label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label>
-        <button id="save-plan" type="submit">Save plan</button>
+    <dialog id="plan-manager" class="settings-dialog" aria-labelledby="plan-manager-title">
+      <header class="settings-dialog-header"><div><p class="eyebrow">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Subscriptions</h2></div><button id="close-plans" class="ghost-button" type="button">Close</button></header>
+      <section id="plan-list-view">
+        <div class="plan-total-card"><span>Monthly equivalent</span><strong id="plan-monthly-total" class="mono">—</strong></div>
+        <div id="plan-history" class="settings-list"></div>
+        <footer class="settings-dialog-footer"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button" type="button">Add a plan</button></footer>
+      </section>
+      <form id="plan-form" hidden novalidate>
+        <div hidden><select id="plan-action"><option value="add">Add</option><option value="schedule">Schedule</option><option value="end">End</option><option value="correct">Correct</option></select><select id="plan-choice"></select></div>
+        <ol id="plan-steps" class="plan-steps" aria-label="Plan steps"><li><span>1</span>Tool</li><li><span>2</span>Price</li><li><span>3</span>Dates</li></ol>
+        <div class="plan-wizard-body">
+          <section id="plan-step-1"><h3>Which tool is this plan for?</h3><div id="plan-tool-slot"><div id="plan-tool-fields"><label id="plan-tool-label">Tool<select id="plan-tool" class="sr-only" tabindex="-1" aria-hidden="true"></select></label><div id="plan-tool-cards" class="plan-tool-cards" role="group" aria-label="Tool"></div><label id="plan-name-label">Plan name<input id="plan-name" maxlength="80" autocomplete="off"></label></div></div><p class="settings-helper">OpenCode and ZCode share one Z.AI plan. Two plans can use the same tool.</p></section>
+          <section id="plan-step-2" hidden><h3>What does it cost?</h3><label id="term-choice-label" hidden>Historical term<select id="term-choice"></select></label><details id="plan-correction-fields" hidden><summary>Name and tool</summary></details><label id="plan-amount-label">Price per period<span class="money-input"><span aria-hidden="true">$</span><input id="plan-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal"></span></label><label id="plan-cadence-label">Billed every<select id="plan-cadence" hidden><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label><div class="cadence-control" role="group" aria-label="Billed every"><button type="button" data-cadence="monthly">Month</button><button type="button" data-cadence="quarterly">Quarter</button><button type="button" data-cadence="annual">Year</button></div><div class="plan-live-cards"><div><span id="plan-day-label">Per day</span><strong id="plan-per-day" class="mono">—</strong></div><div><span>Monthly equiv</span><strong id="plan-equiv" class="mono">—</strong></div><div><span>Fixed costs after</span><strong id="plan-after" class="mono">—</strong></div></div><p class="settings-helper">Daily cost is the amount divided by days in the calendar period. Not provider billing.</p></section>
+          <section id="plan-step-3" hidden><h3>When does it apply?</h3><label id="plan-start-label">Effective start<input id="plan-start" type="date"></label><label id="plan-end-label"><span id="plan-end-caption">Last active date (optional)</span><input id="plan-end" type="date"></label><p id="plan-end-note" class="settings-warning" hidden>Inclusive. Attribution stops the following day. This does not cancel the plan with the provider.</p><div id="plan-review" class="plan-review"><strong><i class="tool-swatch"></i><span></span></strong><p></p></div><div id="plan-preview" hidden><div class="correction-totals"><div>Before<strong class="mono" id="plan-before-value"></strong></div><span aria-hidden="true">→</span><div>After<strong class="mono" id="plan-after-value"></strong></div></div><p id="plan-affected"></p><p id="plan-preview-note" class="settings-helper"></p></div><label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label></section>
+          <p id="plan-timezone" class="settings-helper"></p>
+        </div>
+        <footer class="settings-dialog-footer"><button id="plan-back" class="ghost-button" type="button">Cancel</button><button id="save-plan" class="primary-button" type="submit">Continue</button></footer>
       </form>
       <p id="plan-message" role="status" aria-live="polite"></p>
     </dialog>
+    <dialog id="harness-manager" class="settings-dialog" aria-labelledby="harness-manager-title">
+      <header class="settings-dialog-header"><div><p class="eyebrow">Sources</p><h2 id="harness-manager-title" tabindex="-1">Connect a harness</h2><p class="harness-intro">Local harness files are read as-is. No credentials are needed. Network integrations are optional and off until you enable them.</p></div><div class="dialog-actions"><button id="rescan-harnesses" class="ghost-button" type="button">Rescan</button><button id="close-harnesses" class="ghost-button" type="button">Close</button></div></header>
+      <p id="harness-message" role="status" aria-live="polite" hidden></p>
+      <div id="harness-content"><section class="harness-section"><header><p class="eyebrow">Local harnesses</p><span id="harness-scanned" class="settings-helper"></span></header><div id="harness-rows"></div></section><section class="harness-section"><header><p class="eyebrow">Optional network integrations</p><span class="settings-helper">keys stay in .env · never stored in SQLite</span></header><p id="harness-vault-note" class="settings-helper" hidden>Some keys are managed in Windows Credential Manager. Manage saved connections to replace or disconnect them.</p><div id="integration-rows"></div></section></div>
+      <footer class="settings-dialog-footer"><p><i class="settings-dot good-dot" aria-hidden="true"></i>Nothing leaves this machine unless a key or opt-in above is enabled.</p><a id="harness-docs" class="settings-link" target="_blank" rel="noopener noreferrer">Provider documentation →</a></footer>
+      <div class="harness-extra"><button id="managed-connections" class="ghost-button" type="button">Manage saved connections</button><button id="show-setup-help" class="ghost-button" type="button">Setup help</button></div>
+    </dialog>
+
   </body>
 </html>

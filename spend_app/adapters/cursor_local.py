@@ -7,6 +7,7 @@ come from the experimental undocumented DashboardService in ``cursor_usage``.
 from __future__ import annotations
 
 import glob
+from spend_app.connection_paths import adapter_files
 import json
 import sqlite3
 from datetime import UTC, datetime
@@ -93,7 +94,7 @@ def parse_database(path: Path) -> list[UsageRow]:
 def ingest(*, database_path: Path, pricing: PricingEngine, database_glob: str) -> dict:
     usage_rows: list[UsageRow] = []
     files = 0
-    for file_name in sorted(glob.glob(database_glob, recursive=True)):
+    for file_name in sorted(adapter_files(database_glob)):
         path = Path(file_name)
         if not path.is_file():
             continue

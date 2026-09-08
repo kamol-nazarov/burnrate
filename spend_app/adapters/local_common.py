@@ -50,6 +50,8 @@ def positive_cost(value: object) -> float | None:
 
 
 def sqlite_read_only(path: Path) -> sqlite3.Connection:
+    from spend_app.connection_paths import confined
+    path = confined(path)
     uri_path = quote(path.resolve().as_posix(), safe="/:.")
     connection = sqlite3.connect(f"file:{uri_path}?mode=ro", uri=True, timeout=5)
     connection.execute("PRAGMA query_only=ON")
@@ -58,7 +60,8 @@ def sqlite_read_only(path: Path) -> sqlite3.Connection:
 
 def open_text_read_only(path: Path):
     """Open a provider JSONL/text file without write or truncate access."""
-    handle = os.open(path, os.O_RDONLY)
+    from spend_app.connection_paths import confined
+    handle = os.open(confined(path), os.O_RDONLY)
     return os.fdopen(handle, "r", encoding="utf-8", errors="replace")
 
 

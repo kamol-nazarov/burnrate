@@ -22,14 +22,15 @@ RUNNER = """
  const upgraded=HISTORY;
  const phase=localStorage.getItem('setup-test-phase');
  if(!phase){
-   assert(el('setup-guidance').hidden===upgraded,'returning users must not be forced into setup');
-   if(upgraded)el('setup-help').click();
+   assert(el('setup-guidance').hidden,'setup must remain optional for every user');
+   el('nav-connect').click();await wait(()=>el('harness-manager').open);el('show-setup-help').click();
+   assert(!el('setup-guidance').hidden,'setup guidance did not open');
    el('setup-dismiss').click();localStorage.setItem('setup-test-phase','dismissed');location.reload();return;
  }
  assert(el('setup-guidance').hidden,'dismissal did not persist');
- el('setup-help').click();assert(!el('setup-guidance').hidden,'setup not resumable');
+ el('nav-connect').click();await wait(()=>el('harness-manager').open);el('show-setup-help').click();assert(!el('setup-guidance').hidden,'setup not resumable');
  el('setup-done').click();assert(localStorage.getItem('burnrate:setup:v1')==='complete','completion not persisted');
- assert(document.activeElement.id==='setup-help','focus not restored');
+ assert(document.activeElement.id==='nav-connect','focus not restored');
  el('diagnostics-button').click();await wait(()=>!el('diagnostics-view').hidden&&el('source-guidance').children.length>0);
  assert(el('source-guidance').textContent.includes('Complete a supported turn'),'actionable next step missing');
  el('setup-result').textContent=JSON.stringify({pass:true});

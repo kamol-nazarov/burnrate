@@ -77,7 +77,8 @@ def parse_log(path: Path, state: dict | None = None) -> tuple[list[UsageRow], di
     if size < int(state.get("offset") or 0):
         # Truncated or rotated: start over; stable ids make the reread safe.
         state = _fresh_state()
-    fd = os.open(path, os.O_RDONLY)
+    from spend_app.connection_paths import confined
+    fd = os.open(confined(path), os.O_RDONLY)
     with os.fdopen(fd, "rb") as handle:
         handle.seek(int(state["offset"]))
         chunk = handle.read()
@@ -157,7 +158,8 @@ def coverage_start(path: Path, database_path: Path | None = None) -> datetime | 
     """
     file_start = None
     try:
-        fd = os.open(path, os.O_RDONLY)
+        from spend_app.connection_paths import confined
+        fd = os.open(confined(path), os.O_RDONLY)
         with os.fdopen(fd, "rb") as handle:
             first = handle.readline()
         record = json.loads(first.decode("utf-8", errors="replace"))
@@ -186,7 +188,8 @@ def coverage_start(path: Path, database_path: Path | None = None) -> datetime | 
 
 
 def ingest(*, database_path: Path, pricing: PricingEngine, log_path: Path) -> dict:
-    key = str(log_path)
+    from spend_app.connection_paths import cache_identity
+    key = cache_identity(database_path, log_path)
     files = int(log_path.is_file())
     previous = _STATE.get(key)
     usage_rows, next_state = parse_log(log_path, previous) if files else ([], previous or _fresh_state())

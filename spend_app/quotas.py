@@ -157,6 +157,7 @@ class QuotaLaneScheduler:
 
 
 _DEFAULT_LANES = QuotaLaneScheduler()
+_DATABASE_LANES = {}
 
 
 def lane_is_active(database_path: Path | str, provider_key: str, *, now: datetime | None = None) -> bool:
@@ -550,7 +551,7 @@ def _collect(name: str, ttl: int, loader: Callable[[], dict], builder, source: s
 def default_quota_collectors(
     database_path: Path | str,
 ) -> dict[str, Callable[[], list[QuotaSample]]]:
-    return {
+    result = {
         "antigravity": lambda: _collect(
             "antigravity_quota_poll",
             30,
@@ -565,6 +566,31 @@ def default_quota_collectors(
         "opencode": lambda: _collect("zai_quota_poll", 10, _zai_limits_uncached, zai_quota_samples, "zai_quota_endpoint"),
         "openrouter": openrouter_quota_samples,
     }
+
+    from spend_app.connections import Service, Store, lock_for, external_key
+    from spend_app.config import load_settings
+    from spend_app.providers import REGISTRY
+    from dataclasses import replace
+    settings = replace(load_settings(), database_path=Path(database_path))
+    sources = {"codex": "codex_local", "claude-code": "claude_local", "cursor": "cursor_local", "grok": "grok_local", "opencode": "opencode_local", "antigravity": "antigravity_local", "openrouter": "openrouter"}
+    def guarded(provider, reader):
+        def collect():
+            with lock_for(database_path):
+                state = Store(database_path).read()
+                binding = state["bindings"].get(sources[provider])
+                if binding and provider != "openrouter":
+                    return unavailable_samples(provider, "Managed location grants usage only. Activity/quota at custom locations are not supported; no default profile was read.")
+                if binding and provider == "openrouter":
+                    if not binding["enabled"]:
+                        return unavailable_samples(provider, "Balance connection is disconnected.")
+                    service = Service(settings)
+                    key = external_key(REGISTRY.get("openrouter"), settings) or service.vault.get(binding["credentialRef"])
+                    samples = openrouter_quota_samples(collector=lambda: _openrouter_credits_uncached(key))
+                    ok = any(sample.used is not None for sample in samples)
+                    return samples
+                return reader()
+        return collect
+    return {provider: guarded(provider, reader) for provider, reader in result.items()}
 
 
 def _persist_fields(sample: QuotaSample) -> tuple:
@@ -584,6 +610,10 @@ def _persist_fields(sample: QuotaSample) -> tuple:
     )
 
 
+from spend_app.connections import serialize_collection
+
+
+@serialize_collection
 def poll_quotas(
     database_path: Path | str,
     *,
@@ -603,8 +633,13 @@ def poll_quotas(
     polled_at = (now or utc_now)()
     initialize(path)
     resolved = collectors if collectors is not None else default_quota_collectors(path)
-    scheduler = lanes if lanes is not None else (_DEFAULT_LANES if collectors is None else None)
+    scheduler = lanes if lanes is not None else (_DATABASE_LANES.setdefault(str(path.resolve()), QuotaLaneScheduler()) if collectors is None else None)
     is_active = activity or (lambda provider: lane_is_active(path, provider))
+    managed_completion = None
+    if collectors is None:
+        from spend_app.connections import Store
+        managed_completion = Store(path).read()["bindings"].get("openrouter")
+    balance_ok = False
     written = 0
     skipped = 0
     polled: list[str] = []
@@ -625,6 +660,8 @@ def poll_quotas(
                     provider_key,
                     "Quota collection failed for this lane; it will retry on the next tick.",
                 )
+            if provider_key == "openrouter":
+                balance_ok = any(sample.used is not None for sample in samples)
             if scheduler is not None:
                 scheduler.record(provider_key, samples, active=is_active(provider_key))
             present = {sample.limit_key for sample in samples}
@@ -672,6 +709,11 @@ def poll_quotas(
                     is_payg=sample.is_payg,
                 )
                 written += 1
+    if managed_completion and "openrouter" in polled:
+        from spend_app.connections import Service
+        from spend_app.config import load_settings
+        from dataclasses import replace
+        Service(replace(load_settings(), database_path=path)).completion("openrouter", managed_completion["revision"], {"status": "success" if balance_ok else "failed", "eventsSeen": 0})
     return {
         "polledAt": polled_at,
         "written": written,
@@ -803,19 +845,26 @@ def _clear_unseen_live_runs(connection, seen_ids: set[str]) -> int:
     return int(cursor.rowcount or 0)
 
 
-def default_activity_collector() -> dict:
-    activity = _traycer_activity()
-    return {
-        **activity,
-        "grokSessions": _grok_active_sessions(),
-        "codexSessions": _codex_active_sessions(),
-        "cursorSessions": _cursor_active_sessions(),
-        "zcodeSessions": _zcode_active_sessions(),
-        "antigravitySessions": _antigravity_active_sessions(),
-        "claudeSessions": _claude_active_sessions(),
+def default_activity_collector(database_path=None) -> dict:
+    bindings = {}
+    if database_path is not None:
+        from spend_app.connections import Store
+        bindings = Store(database_path).read()["bindings"]
+    # Existing readers have no custom-root contract. Do not read another
+    # default profile for a managed usage binding (including disabled ones).
+    activity = {} if "traycer_local" in bindings else _traycer_activity()
+    readers = {
+        "grokSessions": ("grok_local", _grok_active_sessions),
+        "codexSessions": ("codex_local", _codex_active_sessions),
+        "cursorSessions": ("cursor_local", _cursor_active_sessions),
+        "zcodeSessions": ("zcode_local", _zcode_active_sessions),
+        "antigravitySessions": ("antigravity_local", _antigravity_active_sessions),
+        "claudeSessions": ("claude_local", _claude_active_sessions),
     }
+    return {**activity, **{field: [] if source in bindings else reader() for field, (source, reader) in readers.items()}}
 
 
+@serialize_collection
 def poll_activity(
     database_path: Path | str,
     *,
@@ -825,7 +874,7 @@ def poll_activity(
     path = Path(database_path)
     polled_at = (now or utc_now)()
     initialize(path)
-    activity = (collector or default_activity_collector)()
+    activity = collector() if collector else default_activity_collector(path)
     records = agent_run_records(activity)
     new = 0
     with connect(path) as connection:

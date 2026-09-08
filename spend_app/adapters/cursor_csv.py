@@ -139,7 +139,8 @@ def _cost(row: dict[str, object], fields: dict[str, str]) -> float | None:
 
 def parse_csv(path: Path) -> list[UsageRow]:
     rows: list[UsageRow] = []
-    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+    from spend_app.connection_paths import confined
+    with confined(path).open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         fields = resolve_columns(reader.fieldnames)
         if "timestamp" not in fields or "model" not in fields:
@@ -210,7 +211,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, import_path: Path) ->
         )
     usage_rows: list[UsageRow] = []
     files = 0
-    for path in sorted(import_path.glob("*.csv")):
+    from spend_app.connection_paths import adapter_files
+    for path in (Path(name) for name in sorted(adapter_files(str(import_path / "*.csv")))):
         if not path.is_file():
             continue
         usage_rows.extend(parse_csv(path))

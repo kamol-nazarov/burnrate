@@ -73,6 +73,8 @@ try {
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
 const colorFor = key => TOOL_COLORS[key] || "#858c98";
+window.colorFor = colorFor;
+window.openHarnessUsage = key => loadEntity("tool", key);
 const finite = value => {
   if (value == null || value === "") return null;
   const n = Number(value);
@@ -887,7 +889,7 @@ function renderCapacity(data) {
   // Lanes carry a measurable limit; everything else (pay as you go, unavailable
   // pollers) is folded into one footer sentence per provider.
   const providers = all.filter(providerHasQuota);
-  const withoutQuota = all.filter(provider => !providerHasQuota(provider));
+  const withoutQuota = all.filter(provider => !providerHasQuota(provider) || (window.productSourceGuidance || []).some(source => source.state === "detected_without_history" && window.ProductLogic?.capacitySourceKey(source.source) === provider.providerKey));
   const lead = providers[0] || all[0];
   const peakRaw = lead.isPayg ? null : finite(lead.peakPct);
   const peak = peakRaw == null ? ease("capPeak", null) : ease("capPeak", peakRaw);
@@ -953,7 +955,8 @@ function renderCapacity(data) {
     setText(eta.querySelector("strong"), leadModel ? leadModel.eta.value : unknown);
     setText(eta.querySelector("span"), leadModel ? leadModel.eta.label : "to reset");
   });
-  reconcileChildren(foot, withoutQuota, provider => "foot:" + provider.providerKey, () => nodeFrom(`<span class="capacity-foot-item"><i></i><b></b><span></span></span>`), (node, provider) => {
+  reconcileChildren(foot, withoutQuota, provider => "foot:" + provider.providerKey, () => nodeFrom(`<span class="capacity-foot-item"><i></i><b></b><span></span><button type="button" class="settings-link row-secondary" hidden>Connect →</button></span>`), (node, provider) => {
+    node.dataset.provider = provider.providerKey;
     const rows = provider.rows || [];
     setStyle(node.querySelector("i"), "background", colorFor(provider.providerKey));
     setText(node.querySelector("b"), provider.providerName || "");
@@ -968,10 +971,16 @@ function renderCapacity(data) {
     } else {
       text = provider.reason || rows.map(row => row.reason).find(Boolean) || labelReason || "quota unavailable";
     }
-    setText(node.querySelector("span"), text);
+    const detected = (window.productSourceGuidance || []).some(source => source.state === "detected_without_history" && window.ProductLogic?.capacitySourceKey(source.source) === provider.providerKey);
+    setText(node.querySelector("span"), detected ? "detected, no history yet" : text);
+    if (detected) setStyle(node.querySelector("i"), "background", "var(--amber)");
+    const connect = node.querySelector("button"); connect.hidden = !detected;
+    connect.onclick = event => window.openHarnessManager?.(event.currentTarget);
   });
   foot.hidden = !withoutQuota.length;
 }
+
+window.refreshCapacitySourceHints = () => { if (state.summary) renderCapacity(state.summary); };
 
 function renderActivity(data) {
   const rows = data.activity || [];
@@ -1423,10 +1432,9 @@ function renderSubs(data) {
   const supplied = rows.map(row => finite(row.monthlyEquivalent ?? row.amountUsd)).filter(value => value != null);
   const monthly = supplied.length ? supplied.reduce((sum, value) => sum + value, 0) : null;
   setText($("subs-summary"), `${rows.length} plan${rows.length === 1 ? "" : "s"} · ${monthly == null ? unknown : usd(monthly) + "/mo"}`);
-  setText($("subs-caret"), state.subsOpen ? "▲" : "▼");
-  setAttr($("subs-toggle"), "aria-expanded", String(state.subsOpen));
-  $("subs-details").hidden = !state.subsOpen;
+  $("subs-details").hidden = false;
   setText($("subscription-total"), usd(monthly));
+  setText($("nav-plans-total"), $("subscription-total").textContent);
   const root = $("subscription-rows");
   if (!rows.length) {
     setEmpty(root, `<p class="panel-empty">No configured subscriptions.</p>`);
@@ -1945,7 +1953,6 @@ function writeProbe(view) {
 }
 
 $("mix-toggle").addEventListener("click", () => { state.mixOpen = !state.mixOpen; if (state.summary) renderMix(state.summary); });
-$("subs-toggle").addEventListener("click", () => { state.subsOpen = !state.subsOpen; if (state.summary) renderSubs(state.summary); });
 document.querySelectorAll("[data-mode]").forEach(button => button.addEventListener("click", () => {
   state.mode = button.dataset.mode;
   document.querySelectorAll("[data-mode]").forEach(item => {

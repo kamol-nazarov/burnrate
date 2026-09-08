@@ -9,6 +9,7 @@ interfaces.
 from __future__ import annotations
 
 import glob
+from spend_app.connection_paths import adapter_files
 import json
 import sqlite3
 from datetime import UTC, datetime
@@ -202,7 +203,7 @@ def ingest(
     usage_rows: list[UsageRow] = []
     files = 0
     mirrored = 0
-    for file_name in sorted(glob.glob(database_glob, recursive=True)):
+    for file_name in sorted(adapter_files(database_glob)):
         path = Path(file_name)
         if not path.is_file():
             continue

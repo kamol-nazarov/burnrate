@@ -1,5 +1,30 @@
 # Troubleshooting
 
+## Connect a harness
+
+Open the harness count in the navbar, **Connect harness** in Capacity, or the
+same button in Setup help. The dialog shows source states, home-relative known
+location hints, last-success freshness and experimental labels. These hints do
+not disclose the server user's absolute home; custom bindings remain available
+under **Manage saved connections** in the existing connection wizard.
+
+**View usage** opens the corresponding tool detail. **Recheck** and **Rescan**
+refresh `/api/onboarding`; they do not import history or contact providers.
+Missing or failed sources link to provider documentation. A detected source
+without history also gets an amber notice and **Connect →** in Capacity.
+
+Optional integrations show configuration presence, never credential values.
+Their switches are read-only indicators: clicking one reveals the setting name
+and `.env`/restart instructions, with a copy button for the setting name. The
+server does not write `.env`. Existing Windows Credential Manager connections
+are also identified as configured, with a note directing you to Manage saved
+connections for their lifecycle. No keys or vault references are returned.
+
+If setup metadata cannot load, the dialog replaces its rows with the setup
+unavailable message. Retry with Rescan. Closing and reopening reloads metadata,
+and late responses from a closed dialog cannot replace the current view.
+The dashboard remains usable while this optional dialog is unavailable.
+
 ## `burnrate doctor`
 
 ```powershell

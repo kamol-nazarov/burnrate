@@ -25,6 +25,7 @@ Live-session rule:
 from __future__ import annotations
 
 import glob
+from spend_app.connection_paths import adapter_files
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -190,13 +191,14 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
     usage_rows: list[UsageRow] = []
     session_rows: list[dict] = []
     pending_signatures: list[tuple[str, tuple[int, int]]] = []
-    for file_name in sorted(glob.glob(session_glob, recursive=True)):
+    for file_name in sorted(adapter_files(session_glob)):
         path = Path(file_name)
         try:
             stat = path.stat()
         except OSError:
             continue
-        cache_key = str(path.resolve())
+        from spend_app.connection_paths import cache_identity
+        cache_key = cache_identity(database_path, path)
         signature = (stat.st_size, stat.st_mtime_ns)
         if _FILE_SIGNATURES.get(cache_key) == signature:
             skipped_files += 1

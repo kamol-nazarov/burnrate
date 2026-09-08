@@ -10,6 +10,7 @@ from spend_app.db import connect, initialize, prune_ingest_runs
 from spend_app.pricing import PricingEngine
 from spend_app.providers import (
     ProviderSpec,
+    REGISTRY,
     ingest_anthropic_admin,
     ingest_antigravity_local,
     ingest_claude_local,
@@ -57,17 +58,21 @@ def _ingest_callable(spec: ProviderSpec):
     return spec.ingest
 
 
-def _run_ingest_specs(jobs: list[tuple[ProviderSpec, dict]]) -> None:
+def _run_ingest_specs(jobs: list[tuple[ProviderSpec, dict]], settings=None, pricing=None, window=None) -> None:
     errors: list[BaseException] = []
     for spec, kwargs in jobs:
         ingest = _ingest_callable(spec)
         if ingest is None:
             continue
         try:
-            ingest(**kwargs)
+            if settings is None:
+                ingest(**kwargs)
+            else:
+                from spend_app.connections import execute
+                execute(settings, pricing, spec, ingest, window)
         except Exception as exc:
             from spend_app.adapters.common import failed_result, public_error
-            failed_result(database_path=kwargs["database_path"], source=spec.key, reason=public_error(exc))
+            failed_result(database_path=settings.database_path if settings else kwargs["database_path"], source=spec.key, reason=public_error(exc))
             if spec.stability == "experimental":
                 continue
             errors.append(exc)
@@ -88,7 +93,7 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
     def local_ingest_jobs() -> None:
         errors: list[BaseException] = []
         try:
-            _run_ingest_specs(list(iter_local_ingest(settings, pricing)))
+            _run_ingest_specs([(spec, {}) for spec in REGISTRY if spec.kind in {"local", "manual"}], settings, pricing)
         except Exception as exc:
             errors.append(exc)
         try:
@@ -133,7 +138,7 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
     def admin_jobs() -> None:
         end = datetime.now(UTC)
         start = end - timedelta(hours=2)
-        _run_ingest_specs(list(iter_admin_ingest(settings, pricing, start=start, end=end)))
+        _run_ingest_specs([(spec, {}) for spec in REGISTRY.admin_ingest()], settings, pricing, {"start": start, "end": end})
 
     scheduler.add_job(
         admin_jobs,

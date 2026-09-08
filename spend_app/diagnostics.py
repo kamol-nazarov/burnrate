@@ -1,6 +1,7 @@
 """Safe source guidance from persisted attempts and bounded metadata presence."""
 
 import re
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,35 @@ EXPERIMENTAL = {
     "antigravity_local",
 }
 HELP_URL = "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+
+
+def source_path_hint(source):
+    """Known-location hint only: never reveal the process user's absolute home."""
+    parts = LOCAL_PATHS.get(source)
+    return "~/" + "/".join(parts) if parts else None
+
+
+def integration_reports(settings, *, environ=None, bindings=None):
+    """Configuration presence only. No credential reads, probes or writes."""
+    from spend_app.integration_policy import LANES
+    env = os.environ if environ is None else environ
+    bindings = bindings or {}
+    reports = []
+    for source, setting in SETTINGS.items():
+        lane = LANES["openrouter_credits" if source == "openrouter" else source]
+        binding = bindings.get(source, {})
+        managed = bool(binding.get("enabled") and binding.get("credentialRef"))
+        external = bool(env.get(setting) or getattr(settings, setting.lower(), None))
+        reports.append({"setting": setting, "configured": external or managed,
+                        "host": lane.allowed_hosts[0], "experimental": False,
+                        "managed": managed, "external": external})
+    for key in ("claude_oauth_usage", "cursor_usage_service", "zai_quota_endpoint"):
+        lane = LANES[key]
+        reports.append({"setting": lane.consent_env,
+                        "configured": str(env.get(lane.consent_env, "")).strip().lower() in {"1", "true", "yes", "on"},
+                        "host": lane.allowed_hosts[0], "experimental": True,
+                        "managed": False, "external": True})
+    return reports
 
 
 def detect_local_sources(home: Path):
@@ -58,8 +88,12 @@ def safe_reason(raw, source=""):
     return "The latest source attempt reported a problem; other sources continue independently."
 
 
-def source_reports(connection, now, detected=None):
+def source_reports(connection, now, detected=None, settings=None):
     detected = detected or {}
+    bindings = {}
+    if settings is not None:
+        from spend_app.connections import Store
+        bindings = Store(settings.database_path).read()["bindings"]
     sources = set(LOCAL_PATHS) | set(SETTINGS) | {"cursor_usage_service", "cursor_csv"}
     sources.update(
         row[0] for row in connection.execute("SELECT DISTINCT source FROM ingest_runs")
@@ -117,6 +151,13 @@ def source_reports(connection, now, detected=None):
             action = "Check that the harness has completed a turn and the existing local ingestion process is running."
         elif state == "healthy" and total:
             action = "No action needed for usage. Quota availability and pricing are reported separately."
+        binding = bindings.get(source)
+        if binding:
+            state = binding["state"]
+            reason = binding["detail"]
+            success = binding.get("lastImport")
+            age = None
+            action = "Open Connect harness to recheck, change location or disconnect."
         models = [
             row[0]
             for row in connection.execute(
@@ -133,6 +174,7 @@ def source_reports(connection, now, detected=None):
         reports.append(
             {
                 "source": source,
+                "path": source_path_hint(source),
                 "state": state,
                 "lastAttempt": (latest["finished_at"] or latest["started_at"])
                 if latest

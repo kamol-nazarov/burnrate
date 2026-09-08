@@ -165,6 +165,38 @@ def _skip_cursor_usage_when_admin_enabled(settings: Settings) -> bool:
 
 
 @dataclass(frozen=True)
+class ConnectionSpec:
+    name: str
+    argument: str
+    default: Callable
+    suffix: str = ""
+    shape: str = "jsonl"
+    home_name: str = ""
+    child: str = ""
+    table: str = ""
+    columns: tuple = ()
+    credential_env: str = ""
+    credential_help: str = ""
+
+
+# Setup metadata extends the same registry used by dispatch.
+CONNECTION_SPECS = {
+    "codex_local": ConnectionSpec("Codex", "session_glob", default_codex_glob, "**/*.jsonl", home_name=".codex", child="sessions"),
+    "claude_local": ConnectionSpec("Claude Code", "session_glob", default_claude_glob, "**/*.jsonl", home_name=".claude", child="projects"),
+    "traycer_local": ConnectionSpec("Traycer", "database_glob", default_traycer_glob, "**/chat/chat.db", "sqlite", ".traycer", "host/epic-state", "chat_projection", ("chat_id", "projection_json")),
+    "cursor_local": ConnectionSpec("Cursor local", "database_glob", default_cursor_glob, "**/sdk-agent-store/*/index.db", "sqlite", ".cursor", "projects", "runs", ("run_id", "agent_id", "usage_json", "model", "finished_at", "updated_at", "created_at")),
+    "opencode_local": ConnectionSpec("OpenCode", "source_database", default_opencode_database, shape="sqlite", home_name="opencode", child="opencode.db", table="session", columns=("id", "project_id", "directory", "path", "model", "cost", "tokens_input", "tokens_output", "tokens_reasoning", "tokens_cache_read", "tokens_cache_write", "time_updated")),
+    "zcode_local": ConnectionSpec("ZCode", "source_database", default_zcode_database, shape="sqlite", home_name=".zcode", child="cli/db/db.sqlite", table="model_usage", columns=("id", "session_id", "provider_id", "model_id", "completed_at", "input_tokens", "output_tokens", "reasoning_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "raw_usage_json", "status")),
+    "grok_local": ConnectionSpec("Grok Build", "log_path", default_grok_log, home_name=".grok", child="logs/unified.jsonl"),
+    "cursor_csv": ConnectionSpec("Cursor CSV", "import_path", lambda: _home() / "BURNRATE-imports", "*.csv", "csv"),
+    "openai_admin": ConnectionSpec("OpenAI Admin", "admin_key", lambda: "", shape="api", credential_env="OPENAI_ADMIN_KEY", credential_help="Organization Admin API key created by an organization owner, with organization usage and cost read access. Not a ChatGPT subscription login."),
+    "anthropic_admin": ConnectionSpec("Anthropic Admin", "admin_key", lambda: "", shape="api", credential_env="ANTHROPIC_ADMIN_KEY", credential_help="Claude Console organization Admin API key with usage and cost report access (admin role required to create it). Not a Claude subscription login."),
+    "cursor_admin": ConnectionSpec("Cursor Admin", "api_key", lambda: "", shape="api", credential_env="CURSOR_API_KEY", credential_help="Team Admin API key from Cursor team dashboard settings, created by a team admin. Reads team usage; not a Cursor session token."),
+    "openrouter": ConnectionSpec("OpenRouter balance", "api_key", lambda: "", shape="api", credential_env="OPENROUTER_MANAGEMENT_KEY", credential_help="OpenRouter management key with credits access. Provides account balance only, not usage events or subscription quota."),
+}
+
+
+@dataclass(frozen=True)
 class ProviderSpec:
     """One ingest source (or quota-only lane) and its capability report."""
 
@@ -179,6 +211,7 @@ class ProviderSpec:
     scheduler_alias: str | None = None
     ingest_kwargs: KwargsFn | None = None
     skip_if: SkipFn | None = None
+    connection: ConnectionSpec | None = None
     capability_exactness: Mapping[str, str] | None = None
 
     def __post_init__(self) -> None:
@@ -239,6 +272,7 @@ def _spec(
 ) -> ProviderSpec:
     return ProviderSpec(
         key=key,
+        connection=CONNECTION_SPECS.get(key),
         ingest_import=ingest_import,
         capabilities=frozenset(capabilities),
         stability=stability,

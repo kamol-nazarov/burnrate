@@ -1,8 +1,28 @@
 # Configured subscriptions
 
-Use **Manage subscriptions** on the dashboard to add plans, schedule changes,
-inspect term history, record an ending, or explicitly correct an entry.
+Open **/mo plans** in the navbar or **Manage** beside Fixed costs. The Fixed
+costs panel stays expanded. The dialog opens to a list of every plan, with an
+active-term monthly-equivalent total, prices, dates and proportional term bars.
 Adding plans is optional and requires no provider credentials.
+
+**Add a plan** walks through **Tool → Price → Dates**. Choose a tool and name,
+enter its price and Month/Quarter/Year cadence, then review its dates before
+saving. The price step shows cents-rounded daily and monthly equivalents and
+the current total plus the proposed monthly equivalent. OpenCode and ZCode use
+the shared Z.AI tool option. Duplicate tool/name combinations are allowed.
+
+Click a row's **Edit** button to reveal **Change price**, **Record end**, and
+**View history**. Change price skips Tool and starts with the latest term's
+price, with the effective date defaulting to the server's current date. Record
+end shows only the inclusive last-active date and does not cancel the provider's
+subscription. History shows each term and a **Correct** action; **Correct a
+term…** also allows selection of the historical term.
+
+Corrections use Price and Dates, followed by the existing server-generated
+before/after preview and affected-day count. Check the confirmation box before
+**Confirm correction**. Name and tool corrections remain available in the
+expandable section of the Price step. Cancel/Back stays within the dialog;
+Close returns focus to the button that opened it.
 
 Amounts are configured cost attribution, not verified payments, provider refunds,
 or cash saved. Monthly equivalents are reference figures. Calendar proration uses
@@ -18,11 +38,13 @@ its provider. Future scheduled terms remain in history if the plan ends earlier.
 Separate plans can use the same tool. OpenCode and ZCode can share one Z.AI plan;
 this does not imply per-account usage attribution.
 
-**Schedule a new price** preserves earlier terms. To repair a historical typo,
-choose **Correct historical entry**, inspect the affected-period preview, and
+**Change price** preserves earlier terms. To repair a historical typo,
+choose **Correct**, inspect the affected-period preview, and
 explicitly confirm it. A stale editor receives a conflict; reload history before
-retrying. Failed saves keep form fields and their retry identity. Use **Add another
-plan** to intentionally add a second identical plan. Permanent deletion is unavailable.
+retrying; close and reopen the dialog to reload history. Failed saves keep form
+fields and their retry identity. Successful saves return to the list and reload
+history. Use **Add a plan** again to intentionally add a second identical plan.
+Permanent deletion is unavailable.
 
 Schema 10 preserves existing subscription IDs and inclusive end dates without
 inventing revisions. Before upgrading an existing database, BURNRATE creates and

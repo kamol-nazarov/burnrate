@@ -50,7 +50,7 @@ def asset_version(path: Path) -> str:
 
 def render_index(web_root: Path) -> str:
     html = (web_root / "index.html").read_text(encoding="utf-8")
-    for name, marker in (("spend.css", "42"), ("spend.js", "42"), ("request-state.js", "1"), ("product.js", "1"), ("favicon.svg", "1")):
+    for name, marker in (("spend.css", "43"), ("spend.js", "42"), ("request-state.js", "1"), ("product.js", "2"), ("connections.js", "1"), ("favicon.svg", "1")):
         html = html.replace(f"/{name}?v={marker}", f"/{name}?v={asset_version(web_root / name)}")
     return html
 
@@ -94,16 +94,11 @@ def create_app(
     scheduler = create_scheduler(settings, pricing) if enable_scheduler else None
     from spend_app.diagnostics import detect_local_sources, source_reports
     from spend_app.db import connect
-    presence = None
 
     def source_guidance():
-        nonlocal presence
-        if presence is None:
-            # Metadata-only, known locations, once per runtime. Explicitly
-            # scheduler-disabled test/smoke apps never inspect personal stores.
-            presence = detect_local_sources(Path.home()) if enable_scheduler else {}
+        presence = {}
         with connect(settings.database_path) as connection:
-            return source_reports(connection, current_now(), presence)
+            return source_reports(connection, current_now(), presence, settings=settings)
     resource_stack = ExitStack()
     web_root = Path(resource_stack.enter_context(as_file(files("spend_web"))))
 
@@ -143,6 +138,10 @@ def create_app(
             resource_stack.close()
 
     app = FastAPI(title="BURNRATE", version=__version__, lifespan=lifespan)
+    from spend_app.connections import Store
+    Store(settings.database_path).bootstrap()
+    from spend_app.connection_api import connection_router
+    app.include_router(connection_router(settings))
     from spend_app.product_api import product_router
     app.include_router(product_router(settings))
     app.state._resource_stack = resource_stack
@@ -169,10 +168,9 @@ def create_app(
 
     @app.middleware("http")
     async def access_boundary(request, call_next):
-        if _access_token and request.url.path.startswith("/api/"):
-            header = request.headers.get("authorization", "")
-            if header != f"Bearer {_access_token}":
-                return JSONResponse({"error": "Authentication required for the API"}, status_code=401)
+        from spend_app.connection_api import access_allowed
+        if not access_allowed(request, _access_token):
+            return JSONResponse({"error": "Authentication required for the API"}, status_code=401)
         return await call_next(request)
 
     @app.exception_handler(ValueError)
@@ -241,10 +239,14 @@ def create_app(
 
     @app.get("/api/onboarding")
     def onboarding():
+        from spend_app.diagnostics import integration_reports, HELP_URL
+        from spend_app.connections import Store
         with connect(settings.database_path) as connection:
             history = connection.execute("SELECT EXISTS(SELECT 1 FROM usage_events) OR EXISTS(SELECT 1 FROM unpriced_usage_events)").fetchone()[0]
         return {"timezone": settings.timezone, "timezoneSetting": "SPEND_TIMEZONE in your BURNRATE environment configuration",
                 "hasHistory": bool(history), "sources": source_guidance(),
+                "integrations": integration_reports(settings, bindings=Store(settings.database_path).read()["bindings"]),
+                "documentation": HELP_URL,
                 "detail": "BURNRATE stores usage locally. Provider network integrations are optional and remain under your existing configuration."}
 
     @app.get("/api/spend/limits")
@@ -304,6 +306,11 @@ def create_app(
             media_type="application/javascript",
             headers={"Cache-Control": _asset_cache_header(request, path)},
         )
+
+    @app.get("/connections.js")
+    def connections_js(request: Request):
+        path = web_root / "connections.js"
+        return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": _asset_cache_header(request, path)})
 
     @app.get("/product.js")
     def product_js(request: Request):

@@ -2,12 +2,9 @@ import json
 from datetime import UTC, datetime
 
 import pytest
-from fastapi.testclient import TestClient
 
-from spend_app.api import create_app
 from spend_app.db import connect, initialize
 from spend_app.diagnostics import detect_local_sources, safe_reason, source_reports
-from tests_spend.test_api import add_fixture_event, make_settings
 
 NOW = datetime(2026, 9, 1, 12, tzinfo=UTC)
 
@@ -87,6 +84,9 @@ def test_metadata_detection_is_bounded_to_supplied_home(tmp_path):
 
 
 def test_onboarding_health_reads_do_not_probe_or_mutate(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from spend_app.api import create_app
+    from tests_spend.test_api import add_fixture_event, make_settings
     db = tmp_path / "s.db"
     app = create_app(make_settings(db), enable_scheduler=False, now=NOW)
 
@@ -113,3 +113,57 @@ def test_reason_does_not_return_raw_payload():
         "upstream failed with account-id and an arbitrary private path", "grok_local"
     )
     assert "account-id" not in text and "private path" not in text
+
+
+def test_path_hint_is_home_relative_without_filesystem(monkeypatch):
+    from pathlib import Path
+    from spend_app.diagnostics import LOCAL_PATHS, source_path_hint
+    monkeypatch.setattr(Path, "home", lambda: (_ for _ in ()).throw(AssertionError("home lookup")))
+    for source, parts in LOCAL_PATHS.items():
+        assert source_path_hint(source) == "~/" + "/".join(parts)
+    assert source_path_hint("openai_admin") is None
+
+
+def test_path_hint_is_in_diagnostics_report_without_database():
+    from unittest.mock import Mock
+    class Connection:
+        def execute(self, sql, params=()):
+            if "SELECT DISTINCT" in sql or "FROM pricing_gaps" in sql:
+                return []
+            if "SELECT MAX(finished_at)" in sql:
+                return Mock(fetchone=lambda: (None,))
+            if "COUNT(*)" in sql:
+                return Mock(fetchone=lambda: (0, 0))
+            if "ORDER BY id DESC" in sql:
+                return Mock(fetchone=lambda: None)
+            raise AssertionError(sql)
+    reports = source_reports(Connection(), NOW, {"codex_local": True})
+    codex = next(row for row in reports if row["source"] == "codex_local")
+    assert codex["path"] == "~/.codex/sessions"
+    assert codex["state"] == "detected_without_history"
+    assert all(row["path"] is None or row["path"].startswith("~/") for row in reports)
+
+
+def test_integration_metadata_exposes_booleans_not_values():
+    from types import SimpleNamespace
+    from spend_app.diagnostics import integration_reports
+    settings = SimpleNamespace(openai_admin_key="private-key-do-not-return", anthropic_admin_key=None, cursor_api_key=None)
+    reports = integration_reports(settings, environ={"BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE":"true", "BURNRATE_ENABLE_CURSOR_USAGE_SERVICE":"false", "OPENROUTER_MANAGEMENT_KEY":"another-private-key"})
+    assert len(reports) == 7
+    by_setting = {row["setting"]: row for row in reports}
+    assert by_setting["OPENAI_ADMIN_KEY"]["configured"] is True
+    assert by_setting["OPENAI_ADMIN_KEY"]["host"] == "api.openai.com"
+    assert by_setting["BURNRATE_ENABLE_CLAUDE_OAUTH_USAGE"]["configured"] is True
+    assert by_setting["BURNRATE_ENABLE_CURSOR_USAGE_SERVICE"]["configured"] is False
+    assert all(type(row["configured"]) is bool for row in reports)
+    assert "private-key" not in json.dumps(reports)
+
+
+def test_integration_metadata_preserves_vault_connections_without_secret_read():
+    from types import SimpleNamespace
+    from spend_app.diagnostics import integration_reports
+    reports = integration_reports(SimpleNamespace(), environ={}, bindings={"openai_admin":{"enabled":True,"credentialRef":"opaque-reference"},"cursor_admin":{"enabled":False,"credentialRef":"disabled-reference"}})
+    by_setting = {row["setting"]: row for row in reports}
+    assert by_setting["OPENAI_ADMIN_KEY"]["configured"] and by_setting["OPENAI_ADMIN_KEY"]["managed"]
+    assert not by_setting["CURSOR_API_KEY"]["configured"]
+    assert "reference" not in json.dumps(reports)

@@ -53,7 +53,7 @@ _RUNTIME_IMPORTS = (
     "tzdata",
     "starlette",
 )
-_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "favicon.svg")
+_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "connections.js", "favicon.svg")
 
 
 def _decimal_or_none(value: object):
@@ -374,6 +374,23 @@ def _main() -> int:
         return _cmd_init(settings)
     if args.command == "doctor":
         return _cmd_doctor(settings)
+    if args.command == "backfill":
+        from spend_app.connections import Store, execute, Conflict
+        from spend_app.providers import REGISTRY
+        source = args.source.replace("-", "_")
+        spec = REGISTRY.get(source)
+        if spec and spec.connection:
+            Store(settings.database_path).bootstrap()
+            managed = Store(settings.database_path).read()["bindings"].get(source)
+            if managed:
+                if args.session_glob:
+                    print(json.dumps({"error": "Change the managed location in Connect harness before overriding it."}))
+                    return 2
+                end = _parse_utc(args.end, datetime.now(UTC))
+                start = _parse_utc(args.start, end - timedelta(hours=2))
+                result = execute(settings, PricingEngine.load(settings.pricing_path), spec, spec.ingest, {"start": start, "end": end})
+                print(json.dumps(result, indent=2))
+                return 2 if result["status"] == "failed" else 0
     if args.command == "backfill" and args.source == "openai-admin":
         end = _parse_utc(args.end, datetime.now(UTC))
         start = _parse_utc(args.start, end - timedelta(hours=2))

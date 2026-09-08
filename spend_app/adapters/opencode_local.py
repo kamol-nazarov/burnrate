@@ -317,16 +317,27 @@ def plan_rows(
     return rows, next_state, labels
 
 
+def progress_for_location(connection, source_database, scope, session_id, provider_id):
+    local = read_opencode_progress(connection, session_id=scope + ":" + session_id, provider_id=provider_id)
+    # The original logical (session, provider) watermark is the existing
+    # deduplication authority, NOT a filesystem cursor. Keep it when moving
+    # an already observed session so a newer cumulative baseline cannot be
+    # billed again. Physical-location progress remains separately scoped.
+    accounted = read_opencode_progress(connection, session_id=session_id, provider_id=provider_id)
+    return accounted if accounted is not None else local
+
+
 def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path) -> dict:
+    from spend_app.connection_paths import identity
+    import hashlib
+    scope = hashlib.sha256(identity(source_database.resolve()).encode()).hexdigest()[:24]
     files = int(source_database.is_file())
     snapshots = read_session_snapshots(source_database) if files else []
     initialize(database_path)
     with connect(database_path) as connection:
         previous = {
-            f"{snapshot.session_id}\x1f{snapshot.provider_id}": read_opencode_progress(
-                connection,
-                session_id=snapshot.session_id,
-                provider_id=snapshot.provider_id,
+            f"{snapshot.session_id}\x1f{snapshot.provider_id}": progress_for_location(
+                connection, source_database, scope, snapshot.session_id, snapshot.provider_id
             )
             for snapshot in snapshots
         }
@@ -338,6 +349,19 @@ def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path
             write_opencode_progress(
                 connection,
                 session_id=session_id,
+                provider_id=provider_id,
+                input_tokens=state["input_tokens"],
+                cached_input_tokens=state["cached_input_tokens"],
+                cache_write_tokens=state["cache_write_tokens"],
+                output_tokens=state["output_tokens"],
+                reasoning_tokens=state["reasoning_tokens"],
+                cost_usd=state["cost_usd"],
+                model_id=state["model_id"],
+                observed_at=state["observed_at"],
+            )
+            write_opencode_progress(
+                connection,
+                session_id=scope + ":" + session_id,
                 provider_id=provider_id,
                 input_tokens=state["input_tokens"],
                 cached_input_tokens=state["cached_input_tokens"],

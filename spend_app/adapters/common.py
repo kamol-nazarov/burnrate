@@ -84,6 +84,17 @@ class CostRow:
 def public_error(exc: BaseException) -> str:
     """Strip credential-shaped tokens from adapter errors before persistence."""
 
+    from spend_app.connection_paths import APPROVED_REVISION
+    if APPROVED_REVISION.get():
+        if isinstance(exc, PermissionError):
+            return "Permission denied reading the connected source. Recheck access."
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in {401, 403}:
+            return "Connected provider rejected the credential or its read scope."
+        if status == 429:
+            return "Connected provider rate limited collection. Wait for the normal retry cadence."
+        return "Connected source could not be imported. Recheck its location, schema or provider access."
+
     def _replace(match: re.Match[str]) -> str:
         prefix = match.group("prefix")
         return f"{prefix}[redacted]" if prefix else "[redacted]"
