@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from spend_app.connection_paths import Inspector, LocationError, approved, identity
+from spend_app.connection_paths import Inspector, LocationError, MissingLocation, approved, identity
 from spend_app.db import connect
 from spend_app.providers import REGISTRY
 
@@ -430,6 +430,14 @@ def execute(settings, pricing, spec, ingest, window=None):
                 root = service.inspector.normalize(default_location(spec, settings), spec.connection)
             with approved(root, binding["revision"] if binding else 0, binding.get("patterns") if binding else None):
                 result = ingest(**kwargs)
+        except MissingLocation:
+            if not binding and spec.connection and not external(spec, settings):
+                from spend_app.adapters.common import skipped_result
+                return skipped_result(database_path=settings.database_path, source=spec.key,
+                    reason="Default local source was not detected. Install or connect this optional harness when needed.")
+            if binding:
+                service.completion(spec.key, binding["revision"], {"status": "failed"})
+            raise LocationError("Configured source is missing or moved. Recheck its saved location or explicit environment path.") from None
         except Exception:
             if binding:
                 service.completion(spec.key, binding["revision"], {"status": "failed"})

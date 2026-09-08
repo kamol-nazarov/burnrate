@@ -103,7 +103,10 @@ def parse_file_with_health(path: Path) -> tuple[dict, list[ParsedEvent], SourceH
             record, _ = parse_jsonl_record(line, line_number=index, location="claude", health=health)
             if record is not None:
                 records.append(record)
+    parsed_lines = health.parsed
     session, observations = reduce_records(records, health, path.stem)
+    # The reducer's accepted-observation accounting is separate from JSON lines.
+    health.parsed = parsed_lines
     events = [ParsedEvent(session_id=o.row.session_id, project=o.row.project, model_key=o.row.model_key,
                           occurred_at=o.row.occurred_at, input_tokens=o.row.input_tokens, cached_input_tokens=o.row.cached_input_tokens,
                           cache_write_tokens=o.row.cache_write_tokens, cache_write_1h_tokens=o.row.cache_write_1h_tokens,

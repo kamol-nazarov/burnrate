@@ -2,6 +2,9 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+from spend_app.adapters.report_pages import IncompleteReport
+
 import httpx
 
 from spend_app.adapters.anthropic_admin import fetch_pages as fetch_anthropic_pages
@@ -123,7 +126,7 @@ def test_cursor_official_event_shape_uses_charged_cents_authority() -> None:
     assert row.cached_input_tokens == 400
     assert row.cache_write_tokens == 100
     assert row.cost_usd == 0.125
-    assert row.raw_id == "cursor-admin:event_fixture_1"
+    assert row.raw_id == "cursor-reported:5b07f100af3ae3e2bb05fb0d14122fca2e350da40447e6e538516fa79b505a2f"
 
 
 def test_openai_pagination_stops_when_has_more_lacks_cursor() -> None:
@@ -137,12 +140,12 @@ def test_openai_pagination_stops_when_has_more_lacks_cursor() -> None:
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
-    pages = fetch_pages(
-        client,
-        path="/organization/usage/completions",
-        params={"start_time": 1},
-    )
-    assert len(pages) == 1
+    with pytest.raises(IncompleteReport, match="Missing or repeated"):
+        fetch_pages(
+            client,
+            path="/organization/usage/completions",
+            params={"start_time": 1},
+        )
     assert calls["count"] == 1
 
 
@@ -244,7 +247,7 @@ def test_cursor_current_documented_event_shape() -> None:
     assert row.cache_write_tokens == 100
     assert row.output_tokens == 200
     assert row.cost_usd == 0.125
-    assert row.raw_id == "cursor-admin:ident_cur_1"
+    assert row.raw_id == "cursor-reported:d8ad1fdb77f755d8a5f06c6c8a46d95aa450e19850741d18e127d560bb952d83"
 
 
 def test_cursor_pagination_honors_num_pages_and_has_next_page() -> None:
@@ -257,9 +260,9 @@ def test_cursor_pagination_honors_num_pages_and_has_next_page() -> None:
     assert fetched == pages
     rows = [row for payload in fetched for row in parse_cursor_events(payload)]
     assert [row.raw_id for row in rows] == [
-        "cursor-admin:ident_cur_1",
-        "cursor-admin:ident_cur_2",
-        "cursor-admin:ident_cur_3",
+        "cursor-reported:d8ad1fdb77f755d8a5f06c6c8a46d95aa450e19850741d18e127d560bb952d83",
+        "cursor-reported:71ae9f87e6e35989e5de3fc80a57d466bd26c7568b291714355aff418f00667a",
+        "cursor-reported:17f3ca204252bbf2dbbb3fa0a21d1b423d30d0e64e083e8842ac0ce2d5617790",
     ]
 
 
@@ -273,8 +276,8 @@ def test_cursor_pagination_honors_legacy_total_pages() -> None:
     assert fetched == pages
     rows = [row for payload in fetched for row in parse_cursor_events(payload)]
     assert [row.raw_id for row in rows] == [
-        "cursor-admin:event_legacy_p1_1",
-        "cursor-admin:event_legacy_p2_1",
+        "cursor-reported:eb546e920a290ff075b01a6b3fbfdd539c47d8edbfcba98765da344768342cfc",
+        "cursor-reported:1ec140fcfed2268d5fb51ac84819c105a3806b3b0cc2d14e9081445f06067cca",
     ]
     # Legacy billed cost authority: chargedCents, not tokenUsage.totalCents.
     assert rows[0].cost_usd == 0.1
@@ -293,12 +296,12 @@ def test_anthropic_pagination_stops_when_has_more_lacks_cursor() -> None:
         )
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
-    pages = fetch_anthropic_pages(
-        client,
-        path="/v1/organizations/usage_report/messages",
-        params={"starting_at": "2026-08-30T00:00:00Z"},
-    )
-    assert len(pages) == 1
+    with pytest.raises(IncompleteReport, match="Missing or repeated"):
+        fetch_anthropic_pages(
+            client,
+            path="/v1/organizations/usage_report/messages",
+            params={"starting_at": "2026-08-30T00:00:00Z"},
+        )
     assert calls["count"] == 1
 
 

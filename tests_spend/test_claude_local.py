@@ -62,7 +62,7 @@ def test_parser_deduplicates_repeated_assistant_snapshots(tmp_path: Path) -> Non
     assert events[0].input_tokens == 1002
     assert events[0].cache_write_tokens == 500
     assert events[0].cache_write_1h_tokens == 500
-    assert events[0].raw_id == "claude-local:claude-session:msg_fixture"
+    assert events[0].raw_id == "claude-message:8b80abb61333615fbb559a883ba765bb63ba0b03b98abe596737285f4b371901"
 
 
 def test_ingest_prices_one_hour_writes_and_is_idempotent(tmp_path: Path) -> None:
@@ -98,7 +98,7 @@ def test_ingest_prices_one_hour_writes_and_is_idempotent(tmp_path: Path) -> None
         "ExampleProject",
         "claude-session",
         "claude-opus-5",
-        "claude-local:claude-session:msg_fixture",
+        "claude-message:8b80abb61333615fbb559a883ba765bb63ba0b03b98abe596737285f4b371901",
     )
     assert tuple(session) == ("claude-session", "ExampleProject", "claude-opus-5", "claude-code")
 
@@ -173,7 +173,7 @@ def test_replay_skips_duplicate_raw_ids_when_file_cache_misses(tmp_path: Path) -
     assert second["eventsWritten"] == 0
     with connect(database) as connection:
         raw_ids = [row[0] for row in connection.execute("SELECT raw_id FROM usage_events")]
-    assert raw_ids == ["claude-local:claude-session:msg_fixture"]
+    assert raw_ids == ["claude-message:8b80abb61333615fbb559a883ba765bb63ba0b03b98abe596737285f4b371901"]
 
 
 def test_omitted_thinking_tokens_stay_null(tmp_path: Path) -> None:

@@ -40,6 +40,24 @@ Snapshots expire after 15 minutes and at provider reset. Producer and collector 
 
 ### Upgrade and verification limits
 
+Automatic defaults that do not exist are reported as not detected/skipped;
+installing a source later allows the next normal cycle to discover it. A moved
+saved binding or missing explicit environment path remains a configured-source
+failure. Permission, schema and unexpected I/O failures are not ordinary absence.
+Other sources and requested summary warming can still progress.
+
+OpenCode result aggregation preserves accepted/written counts, partial pricing,
+quarantine counts and unpriced model lists. Counts describe child import attempts,
+not a newly inferred count of unique historical events. ZCode reads an optional
+session directory only when available and unambiguous, retaining just its final
+project label; absent/unmatched session metadata does not drop valid token rows.
+Grok checks file generation and consumed-prefix anchors before parsing appended
+complete lines. Traycer uses projection versions within the file/database/binding
+scope so another chat's update does not force all projections to be parsed again.
+Incomplete report exceptions retain already-read pages for explicit handling;
+collection still reports failure and preserves previously accepted history rather
+than treating a missing cursor as complete coverage.
+
 The R1–R5 corrections retain explicit Codex request/counter equivalence across
 files and replay, including old IDs. Equal amounts or timestamps alone do not
 establish that equivalence. OpenCode now persists verified message start times

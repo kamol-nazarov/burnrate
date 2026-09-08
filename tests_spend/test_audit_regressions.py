@@ -411,9 +411,9 @@ def test_traycer_ingest_reparses_only_projections_whose_sequence_advanced(tmp_pa
     parsed: list[str] = []
     original = traycer_local.parse_projection
 
-    def counting(*, path, chat_id, projection_json):
+    def counting(*, path, chat_id, projection_json, observations=False):
         parsed.append(chat_id)
-        return original(path=path, chat_id=chat_id, projection_json=projection_json)
+        return original(path=path, chat_id=chat_id, projection_json=projection_json, observations=observations)
 
     monkeypatch.setattr(traycer_local, "parse_projection", counting)
     first = traycer_local.parse_database(store)

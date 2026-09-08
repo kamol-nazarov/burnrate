@@ -156,10 +156,12 @@ def parse_projection(*, path: Path, chat_id: str, projection_json: str, observat
 
 def parse_database(path: Path, *, database_path=None, observations=False, issues=None) -> list[UsageRow]:
     rows: list[UsageRow] = []
-    from spend_app.connection_paths import cache_identity, file_signature
+    from spend_app.connection_paths import cache_identity
     issues = issues if issues is not None else []
     connection = sqlite_read_only(path)
-    cache_prefix = (cache_identity(database_path or path, path, "traycer-identity-v1"), file_signature(path))
+    stat = path.stat()
+    cache_prefix = (cache_identity(database_path or path, path, "traycer-identity-v1"),
+                    (stat.st_dev, stat.st_ino, getattr(stat, "st_birthtime_ns", None)))
     seen: set[tuple[str, str]] = set()
     try:
         index = projection_index(connection)

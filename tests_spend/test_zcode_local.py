@@ -1,3 +1,4 @@
+import pytest
 import json
 import sqlite3
 from datetime import UTC, datetime
@@ -103,7 +104,8 @@ def test_zcode_missing_usage_table_is_empty_not_an_error(tmp_path: Path) -> None
     path = tmp_path / "db.sqlite"
     with sqlite3.connect(path):
         pass
-    assert parse_database(path) == ([], 0)
+    with pytest.raises(ValueError, match="incompatible_zcode_schema"):
+        parse_database(path)
 
 
 def test_ingest_is_idempotent_and_skips_duplicate_raw_ids(tmp_path: Path) -> None:

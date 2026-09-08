@@ -1,3 +1,4 @@
+import pytest
 import json
 import sqlite3
 from datetime import UTC, datetime
@@ -114,7 +115,8 @@ def test_cursor_local_tolerates_missing_runs_table(tmp_path: Path) -> None:
     connection.commit()
     connection.close()
 
-    assert parse_cursor(database) == []
+    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+        parse_cursor(database)
 
 
 def test_opencode_excludes_traycer_openrouter_mirror(tmp_path: Path) -> None:
@@ -460,7 +462,8 @@ def test_opencode_tolerates_missing_session_table(tmp_path: Path) -> None:
     connection.execute("CREATE TABLE other(x)")
     connection.commit()
     connection.close()
-    assert parse_opencode(database) == []
+    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+        parse_opencode(database)
 
 
 def test_opencode_fixture_skips_mirrors_and_is_idempotent(tmp_path: Path) -> None:

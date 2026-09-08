@@ -12,9 +12,13 @@ def select_rows(db, limit=None):
     if not REQUIRED <= columns or not {"completed_at", "started_at"} & columns:
         raise ValueError("incompatible_zcode_schema")
     names = sorted(REQUIRED) + list(OPTIONAL)
-    projection = ",".join('"' + name + '"' if name in columns else 'NULL' for name in names)
+    projection = ",".join('m."' + name + '"' if name in columns else 'NULL' for name in names)
+    session_columns = {row[1] for row in db.execute('PRAGMA table_info("session")')}
+    project = '(SELECT CASE WHEN COUNT(*)=1 THEN MAX(s.directory) END FROM session s WHERE s.id=m.session_id)' if {"id", "directory"} <= session_columns else 'NULL'
+    projection += ',' + project
+    names.append('_project_directory')
     predicate = " WHERE status='completed'" if "status" in columns else " WHERE completed_at IS NOT NULL" if "completed_at" in columns else ""
-    sql = "SELECT " + projection + " FROM model_usage" + predicate
+    sql = "SELECT " + projection + " FROM model_usage m" + predicate
     if limit is not None:
         sql += " LIMIT " + str(int(limit))
     return [dict(zip(names, row)) for row in db.execute(sql)], "computed_total_tokens" in columns
@@ -23,6 +27,10 @@ def select_rows(db, limit=None):
 def parse_row(record, modern=False):
     from spend_app.adapters.zcode_local import PLAN_PROVIDERS, canonical_model, _reasoning_tokens
     provider = record.get("provider_id")
+    directory = record.get('_project_directory')
+    project = directory.strip().replace('\\', '/').rstrip('/').rsplit('/', 1)[-1] or None if isinstance(directory, str) else None
+    if project and (project.endswith(':') or any(ord(ch) < 32 for ch in project)):
+        project = None
     if provider and provider not in PLAN_PROVIDERS:
         return None, "non_plan"
     stamp = parse_millis(record.get("completed_at") or record.get("started_at"))
@@ -51,10 +59,10 @@ def parse_row(record, modern=False):
         if total is None:
             return None, "unknown_zcode_token_convention"
         return UsageRow("zcode_local", "zcode", canonical_model(record.get("model_id")), stamp,
-                        str(record.get("session_id") or "") or None, None, 0, 0, 0, 0, 0, None, None,
+                        str(record.get("session_id") or "") or None, project, 0, 0, 0, 0, 0, None, None,
                         stable_id("zcode-local", record["id"]), total, False), "unknown_zcode_token_convention"
     if not provider:
         issue = "zcode_billing_scope_unavailable"
     return UsageRow("zcode_local", "zcode", canonical_model(record.get("model_id")), stamp,
-                    str(record.get("session_id") or "") or None, None, inp, cached, writes, 0,
+                    str(record.get("session_id") or "") or None, project, inp, cached, writes, 0,
                     out, reason, None, stable_id("zcode-local", record["id"]), 0, complete), issue

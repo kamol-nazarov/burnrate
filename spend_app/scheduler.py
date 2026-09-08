@@ -66,10 +66,12 @@ def _run_ingest_specs(jobs: list[tuple[ProviderSpec, dict]], settings=None, pric
             continue
         try:
             if settings is None:
-                ingest(**kwargs)
+                result = ingest(**kwargs)
             else:
                 from spend_app.connections import execute
-                execute(settings, pricing, spec, ingest, window)
+                result = execute(settings, pricing, spec, ingest, window)
+            if isinstance(result, dict) and result.get("status") == "failed" and spec.stability != "experimental":
+                errors.append(RuntimeError(f"{spec.key} reported failed collection"))
         except Exception as exc:
             from spend_app.adapters.common import failed_result, public_error
             failed_result(database_path=settings.database_path if settings else kwargs["database_path"], source=spec.key, reason=public_error(exc))

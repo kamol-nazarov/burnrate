@@ -19,6 +19,10 @@ class LocationError(ValueError):
     pass
 
 
+class MissingLocation(LocationError):
+    """A genuinely absent location, distinct from permission/schema/I/O errors."""
+
+
 class SampleLimit(LocationError):
     pass
 
@@ -40,8 +44,10 @@ def normalize(raw, meta):
         path = path.resolve(strict=True)
     except PermissionError:
         raise LocationError("Permission denied. Grant this user read access.") from None
+    except FileNotFoundError:
+        raise MissingLocation("Location is missing or moved. Choose its current location.") from None
     except OSError:
-        raise LocationError("Location is missing or moved. Choose its current location.") from None
+        raise LocationError("Location could not be inspected. Check source access and filesystem health.") from None
     if str(path).startswith(("\\\\", "//")):
         raise LocationError("Network locations are not supported.")
     if identity(path) in {identity(Path(path.anchor)), identity(Path.home())}:

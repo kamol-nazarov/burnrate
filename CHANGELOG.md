@@ -9,6 +9,14 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+- Treat absent automatic harness defaults as not detected, while missing
+  configured locations and real access/schema errors remain visible failures.
+- Preserve OpenCode child-result counters, unpriced models and partial status
+  across cumulative and mixed-format collection; restore optional ZCode project labels.
+- Restore incremental Grok append reads and per-projection Traycer caching;
+  correct duplicate-removal accounting and retain contradictory Codex totals
+  as incomplete evidence rather than discarding them.
+
 - Correct Codex request/counter identity transitions across files and replay;
   retain explicit-request equivalence and existing historical aliases.
 - Persist OpenCode message start evidence for reverse cumulative reconciliation;

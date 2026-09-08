@@ -66,7 +66,8 @@ def usage_vector(raw):
     values = (inp or 0, cache or 0, write or 0, out or 0)
     measured = total if total is not None else (values[0] + values[2] + values[3])
     if measured < values[0] + values[2] + values[3]:
-        return None
+        return {"values": (0, 0, 0, 0), "known": (False, False, False, False), "total": measured,
+                "complete": False, "reasoning": None, "conflict": True}
     if measured != values[0] + values[2] + values[3]:
         complete = False
     return {"values": values, "known": tuple(value is not None for value in (inp, cache, write, out)), "total": measured, "complete": complete, "reasoning": count(raw.get("reasoning_output_tokens"))}
@@ -148,6 +149,8 @@ def reduce_records(records, health, fallback_session):
         current_model = model_from(payload) or model_from(info) or current_model
         last = usage_vector(info.get("last_token_usage"))
         cumulative = usage_vector(info.get("total_token_usage"))
+        if (last and last.get("conflict")) or (cumulative and cumulative.get("conflict")):
+            health.note(quarantine("codex_reported_total_component_conflict"))
         request = payload.get("request_id") or info.get("request_id")
         request = request if isinstance(request, str) and request else None
         legacy = None

@@ -152,6 +152,7 @@ def test_ingest_cycle_prewarms_only_recently_requested_windows(tmp_path: Path, m
     aggregate.reset_memo()
     database, _pricing = fixture_database(tmp_path)
     settings = _settings(tmp_path, database)
+    monkeypatch.setattr("spend_app.connections.execute", lambda *args, **kwargs: {"status":"skipped", "eventsSeen":0})
     for name in ("codex", "claude", "traycer", "cursor", "opencode"):
         monkeypatch.setattr(f"spend_app.scheduler.ingest_{name}_local", lambda **_kwargs: {"status": "success"})
     warmed: list[tuple[str, str]] = []

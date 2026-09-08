@@ -135,6 +135,7 @@ def _previously_monitored_sources(monkeypatch):
     state = empty_state()
     state["legacy"] = [spec.key for spec in REGISTRY.local_ingest()]
     monkeypatch.setattr("spend_app.connections.Store.read", lambda self: state)
+    monkeypatch.setattr("spend_app.connections.execute", lambda settings, pricing, spec, ingest, window=None: ingest(database_path=settings.database_path) if spec.key in state["legacy"] else {"status":"skipped"})
 
 
 def test_local_ingest_job_runs_readers_serially(tmp_path: Path, monkeypatch) -> None:

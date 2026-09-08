@@ -237,7 +237,8 @@ def parse_csv(path: Path, *, observations=False) -> list[UsageRow]:
 def ingest(*, database_path: Path, pricing: PricingEngine, import_path: Path) -> dict:
     import_path = Path(import_path)
     if not (import_path.is_dir() or import_path.is_file()):
-        raise FileNotFoundError("Cursor export location is missing or moved.")
+        from spend_app.adapters.common import failed_result
+        return failed_result(database_path=database_path, source=SOURCE, reason="Cursor export location is missing or moved. Recheck the configured path.")
     usage_rows, observations, issues = [], [], []
     files = 0
     from spend_app.connection_paths import adapter_files, confined
@@ -260,6 +261,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, import_path: Path) ->
         except (OSError, ValueError):
             issues.append("cursor_export_unavailable_or_incompatible")
     from spend_app.adapters.event_identity import Observation, reconcile
+    if not paths:
+        return skipped_result(database_path=database_path, source=SOURCE, reason="The readable Cursor export folder contains no exports yet.")
     result = persist_rows(database_path=database_path, pricing=pricing, source=SOURCE,
                           usage_rows=usage_rows, issues=issues,
                           prepare=lambda connection, _: reconcile(connection, observations, issues))

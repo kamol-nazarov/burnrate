@@ -45,27 +45,44 @@ def _fresh_state() -> dict:
 
 
 def parse_log(path: Path, state: dict | None = None) -> tuple[list[UsageRow], dict]:
-    """Replay changed files; only committed complete-line observations are cached.
-
-    Full replay avoids carrying a process model across same-size rotation or
-    truncate/regrow. Event IDs retain the 0.3.0 contract.
-    """
+    """Read appended complete lines after checking generation/prefix anchors."""
     from spend_app.connection_paths import confined, file_signature
     from spend_app.adapters.grok_records import reduce_records
     signature = file_signature(path)
     if state and tuple(state.get("signature", ())) == signature:
         return [], dict(state, confirmed=state.get("accepted", 0))
+    import hashlib
+    stat = path.stat()
+    generation = (stat.st_dev, stat.st_ino, getattr(stat, 'st_birthtime_ns', None))
     records, issues = [], []
     with confined(path).open("rb") as handle:
-        for line in handle:
+        def anchors(offset):
+            handle.seek(0)
+            head = handle.read(min(4096, offset))
+            handle.seek(max(0, offset-4096))
+            tail = handle.read(min(4096, offset))
+            return hashlib.sha256(head+tail).hexdigest()
+        offset = state.get('offset', 0) if state else 0
+        append = bool(state and offset and stat.st_size >= offset and tuple(state.get('generation', ())) == generation
+                      and state.get('anchors') == anchors(offset))
+        offset = offset if append else 0
+        handle.seek(offset)
+        while True:
+            line = handle.readline()
+            if not line:
+                break
             if not line.endswith(b"\n"):
                 break
+            offset += len(line)
             try:
                 records.append(json.loads(line))
             except (ValueError, UnicodeError):
                 issues.append("malformed_grok_metadata")
-    rows, next_state, parsed_issues = reduce_records(records)
-    next_state.update(signature=signature, accepted=len(rows), confirmed=0,
+        prefix = anchors(offset)
+    rows, next_state, parsed_issues = reduce_records(records, state if append else None)
+    confirmed = state.get('accepted', 0) if append else 0
+    next_state.update(signature=signature, accepted=confirmed + len(rows), confirmed=confirmed,
+                      offset=offset, generation=generation, anchors=prefix,
                       issues=issues + parsed_issues)
     return rows, next_state
 
@@ -119,7 +136,8 @@ def ingest(*, database_path: Path, pricing: PricingEngine, log_path: Path) -> di
         return {**result, "files": files, "issues": sorted(set(issues))}
     key = cache_identity(database_path, log_path, "grok-generation-v1")
     if not log_path.is_file():
-        raise FileNotFoundError("Grok usage log is missing or moved.")
+        from spend_app.adapters.common import failed_result
+        return failed_result(database_path=database_path, source=SOURCE, reason="Grok usage log is missing or moved. Recheck the configured path.")
     usage_rows, next_state = parse_log(log_path, _STATE.get(key))
     issues = next_state.get("issues", [])
     result = persist_rows(

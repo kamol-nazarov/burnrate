@@ -10,6 +10,7 @@ from spend_app.pricing import PricingEngine
 
 
 ROOT = Path(__file__).resolve().parents[1]
+EXPECTED_SESSION_IDS = ('codex-request:da12a37120e6df3f1a202b5d37dd71eb644959e7a3299c3aa6798f57a3c059a6', 'codex-request:cda368ec2248e3b7688b839efeb394d044473a0557d82921f6a1f6aed40dbd1c')
 
 
 def write_session(path: Path, model: str = "gpt-5.6-sol") -> None:
@@ -49,7 +50,7 @@ def write_session(path: Path, model: str = "gpt-5.6-sol") -> None:
                         "cache_write_input_tokens": 100,
                         "output_tokens": 200,
                         "reasoning_output_tokens": 50,
-                        "total_tokens": 1200,
+                        "total_tokens": 1300,  # explicit separate-write fixture: 1000 + 100 + 200
                     }
                 },
             },
@@ -85,7 +86,7 @@ def test_parser_extracts_only_structured_usage(tmp_path: Path) -> None:
     assert events[0].cached_input_tokens == 400
     assert events[0].cache_write_tokens == 100
     assert events[0].reasoning_tokens == 50
-    assert events[0].raw_id == "codex-local:session-fixture:2026-08-30T20:00:02Z:0"
+    assert events[0].raw_id == "codex-request:da12a37120e6df3f1a202b5d37dd71eb644959e7a3299c3aa6798f57a3c059a6"
 
 
 def test_backfill_is_idempotent_end_to_end(tmp_path: Path) -> None:

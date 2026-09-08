@@ -63,7 +63,11 @@ DELTA_ISSUE = (
 
 def ingest(*, database_path: Path, pricing: PricingEngine, source_database: Path) -> dict:
     from spend_app.adapters.opencode_granular import ingest as collect
-    return collect(database_path=database_path, pricing=pricing, source_database=source_database)
+    try:
+        return collect(database_path=database_path, pricing=pricing, source_database=source_database)
+    except (OSError, ValueError, sqlite3.Error):
+        from spend_app.adapters.common import failed_result
+        return failed_result(database_path=database_path, source=SOURCE, reason="OpenCode source is missing, unreadable or incompatible. Recheck the configured source.")
 
 
 def canonical_model(model: str) -> str:

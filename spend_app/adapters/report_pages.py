@@ -11,7 +11,9 @@ def reporting_window(now):
 
 
 class IncompleteReport(ValueError):
-    pass
+    def __init__(self, message, pages=()):
+        super().__init__(message)
+        self.partial_pages = tuple(pages)  # Never interpolated into logs/errors.
 
 
 def fetch(client, *, url, params, max_pages=100, seconds=20, clock=time.monotonic):
@@ -20,17 +22,17 @@ def fetch(client, *, url, params, max_pages=100, seconds=20, clock=time.monotoni
     for _ in range(max_pages):
         remaining = deadline - clock()
         if remaining <= 0:
-            raise IncompleteReport("Reporting deadline reached; historical coverage is incomplete.")
+            raise IncompleteReport("Reporting deadline reached; historical coverage is incomplete.", pages)
         response = client.get(url, params={**params, **({"page": page} if page else {})}, timeout=min(10, remaining))
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list) or type(payload.get("has_more")) is not bool:
-            raise IncompleteReport("Invalid reporting page; previous accepted history was preserved.")
+            raise IncompleteReport("Invalid reporting page; previous accepted history was preserved.", pages)
         pages.append(payload)
         if not payload["has_more"]:
             return pages
         page = payload.get("next_page")
         if not isinstance(page, str) or not page or page in seen:
-            raise IncompleteReport("Missing or repeated reporting cursor; partial pages are not complete coverage.")
+            raise IncompleteReport("Missing or repeated reporting cursor; partial pages are not complete coverage.", pages)
         seen.add(page)
-    raise IncompleteReport("Reporting page limit reached; historical coverage is incomplete.")
+    raise IncompleteReport("Reporting page limit reached; historical coverage is incomplete.", pages)

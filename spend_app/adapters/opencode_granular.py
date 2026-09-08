@@ -144,27 +144,47 @@ def reconcile_cumulative(connection, rows, snapshots, issues=None, deferred=None
     return outputs
 
 
+def combine_results(results, *, issues=(), formats=()):
+    """Aggregate attempt counters, not a new count of unique measured events."""
+    result = dict(results[0]) if len(results) == 1 else {"source": "opencode_local"}
+    result.setdefault("source", "opencode_local")
+    counters = ("eventsSeen", "eventsAccepted", "eventsWritten", "unpricedEventsWritten", "coverageGapsWritten",
+                "costBucketsSeen", "costBucketsWritten", "quarantined", "files")
+    if len(results) != 1:
+        for name in counters:
+            if any(name in child for child in results):
+                result[name] = sum(child.get(name, 0) for child in results)
+    for name in ("unpricedModels", "issues"):
+        result[name] = sorted(set(item for child in results for item in child.get(name, [])) | (set(issues) if name == "issues" else set()))
+    statuses = {child.get("status", "failed") for child in results}
+    if statuses & {"success", "partial"}:
+        result["status"] = "partial" if statuses - {"success"} or result["issues"] or result["unpricedModels"] else "success"
+    else:
+        result["status"] = "failed" if "failed" in statuses or result["issues"] else "skipped"
+    result["formats"] = sorted(set(formats))
+    return result
+
+
 def ingest(*, database_path, pricing, source_database):
     path = Path(source_database)
     if not path.exists():
         raise ValueError("OpenCode location is missing or moved.")
     messages, cumulative, issues, formats = read_source(path)
     from spend_app.adapters.opencode_local import _ingest_cumulative
-    legacy_seen = 0
     legacy_results = []
     for legacy in cumulative:
         try:
             result = _ingest_cumulative(database_path=database_path, pricing=pricing, source_database=legacy)
             legacy_results.append(result)
-            legacy_seen += result.get("eventsSeen", 0)
             issues.extend(result.get("issues", []))
         except (OSError, ValueError, sqlite3.Error):
             issues.append("opencode_cumulative_source_unavailable")
+            from spend_app.adapters.common import failed_result
+            legacy_results.append(failed_result(database_path=database_path, source="opencode_local", reason="OpenCode cumulative source could not be read."))
     if cumulative and not legacy_results and not messages:
         raise ValueError("OpenCode cumulative source could not be read.")
     if not messages and cumulative:
-        totals = {key: sum(result.get(key, 0) for result in legacy_results) for key in ("eventsWritten", "unpricedEventsWritten", "coverageGapsWritten", "files")}
-        return {**totals, "source": "opencode_local", "status": "partial" if issues else "success", "eventsSeen": legacy_seen, "eventsAccepted": 0 if issues else legacy_seen, "formats": formats, "issues": issues}
+        return combine_results(legacy_results, issues=issues, formats=formats)
     result = persist_rows(database_path=database_path, pricing=pricing, source="opencode_local", usage_rows=[m.row for m in messages],
                           prepare=lambda connection, rows: reconcile_messages(connection, messages, issues), issues=issues)
-    return {**result, "formats": formats, "issues": sorted(set(issues))}
+    return combine_results([*legacy_results, result], issues=issues, formats=formats)
