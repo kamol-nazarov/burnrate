@@ -133,7 +133,7 @@ def test_s01_11_missing_credential_is_unavailable_not_zero(tmp_path: Path) -> No
     )
     ingest = next(item for item in health["ingest"] if item["source"] == "openai_admin")
     assert ingest["status"] == "unavailable"
-    assert ingest["error"] == "unavailable â€” credential missing"
+    assert ingest["error"] == "unavailable — credential missing"
     assert ingest.get("value") not in {0, 0.0}
     assert "0" != ingest["status"]
 

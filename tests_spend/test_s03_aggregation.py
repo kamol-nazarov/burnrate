@@ -710,7 +710,7 @@ def test_s03_09_approx_marker_and_missing_not_zero(tmp_path: Path) -> None:
     unlisted = next(model for model in payload["models"] if model["key"] == "opencode:unlisted-model")
     assert cursor["isExact"] is False
     assert cursor["value"] is not None
-    assert cursor["valueMarker"] == "â‰ˆ"
+    assert cursor["valueMarker"] == "≈"
     assert sol["isExact"] is True
     assert sol["valueMarker"] is None
     assert unlisted["value"] is None
