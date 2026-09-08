@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
-CSS = (ROOT / "spend_web" / "spend.css").read_text(encoding="utf-8")
+CSS = (ROOT / "frontend_src" / "spend.css").read_text(encoding="utf-8")
 
 
 def _region(start: str, end: str = "\nfunction ") -> str:

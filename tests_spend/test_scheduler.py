@@ -163,7 +163,6 @@ def test_local_ingest_job_runs_readers_serially(tmp_path: Path, monkeypatch) -> 
 
 
 def test_experimental_provider_failure_is_isolated(tmp_path: Path, monkeypatch) -> None:
-    _previously_monitored_sources(monkeypatch)
     calls: list[str] = []
 
     def recorder(name, *, fail=False):
@@ -201,6 +200,8 @@ def test_experimental_provider_failure_is_isolated(tmp_path: Path, monkeypatch) 
         "spend_app.providers.PROVIDERS",
         PROVIDERS[: traycer_at + 1] + (extra,) + PROVIDERS[traycer_at + 1 :],
     )
+    # Include the injected reader in this existing-user monitoring fixture.
+    _previously_monitored_sources(monkeypatch)
     scheduler = make_scheduler(tmp_path)
     jobs = {job.id: job for job in scheduler.get_jobs()}
     jobs["local-ingest"].func()
