@@ -9,6 +9,11 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.2.0-beta.3] - 2026-09-07
+
+- Fix summary crashes when a heatmap event has unavailable pricing. Unknown
+  values are excluded from dollar totals; known values, including zero, remain.
+
 ## [0.2.0-beta.2] - 2026-09-07
 
 - Separate usage value, configured plan accrual, and provider-reported charges.

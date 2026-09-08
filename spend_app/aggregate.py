@@ -1846,6 +1846,8 @@ def _heatmap_cells(
         enriched = _enrich(events, pricing, _cost_buckets(connection, start, end))
         heat: dict[tuple[int, int], Decimal] = defaultdict(Decimal)
         for event in enriched:
+            if event["spend"] is None:
+                continue
             local = event["when"].astimezone(zone)
             heat[(local.weekday(), local.hour)] += event["spend"]
         for event in unpriced:

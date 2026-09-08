@@ -13,7 +13,9 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.2.0-beta.2`.
+Version: `0.2.0-beta.3`.
+
+Beta 3 fixes summary loading when heatmap events have unavailable pricing.
 
 See [the latest release notes](RELEASE-0.2.0-beta.2.md) for accounting,
 schema migration, source resilience, and credential consent changes.
