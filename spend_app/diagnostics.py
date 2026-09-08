@@ -40,6 +40,7 @@ def source_path_hint(source):
 def integration_reports(settings, *, environ=None, bindings=None):
     """Configuration presence only. No credential reads, probes or writes."""
     from spend_app.integration_policy import LANES
+
     env = os.environ if environ is None else environ
     bindings = bindings or {}
     reports = []
@@ -48,15 +49,29 @@ def integration_reports(settings, *, environ=None, bindings=None):
         binding = bindings.get(source, {})
         managed = bool(binding.get("enabled") and binding.get("credentialRef"))
         external = bool(env.get(setting) or getattr(settings, setting.lower(), None))
-        reports.append({"setting": setting, "configured": external or managed,
-                        "host": lane.allowed_hosts[0], "experimental": False,
-                        "managed": managed, "external": external})
+        reports.append(
+            {
+                "setting": setting,
+                "configured": external or managed,
+                "host": lane.allowed_hosts[0],
+                "experimental": False,
+                "managed": managed,
+                "external": external,
+            }
+        )
     for key in ("claude_oauth_usage", "cursor_usage_service", "zai_quota_endpoint"):
         lane = LANES[key]
-        reports.append({"setting": lane.consent_env,
-                        "configured": str(env.get(lane.consent_env, "")).strip().lower() in {"1", "true", "yes", "on"},
-                        "host": lane.allowed_hosts[0], "experimental": True,
-                        "managed": False, "external": True})
+        reports.append(
+            {
+                "setting": lane.consent_env,
+                "configured": str(env.get(lane.consent_env, "")).strip().lower()
+                in {"1", "true", "yes", "on"},
+                "host": lane.allowed_hosts[0],
+                "experimental": True,
+                "managed": False,
+                "external": True,
+            }
+        )
     return reports
 
 
@@ -93,6 +108,7 @@ def source_reports(connection, now, detected=None, settings=None):
     bindings = {}
     if settings is not None:
         from spend_app.connections import Store
+
         bindings = Store(settings.database_path).read()["bindings"]
     sources = set(LOCAL_PATHS) | set(SETTINGS) | {"cursor_usage_service", "cursor_csv"}
     sources.update(

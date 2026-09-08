@@ -53,7 +53,7 @@ _RUNTIME_IMPORTS = (
     "tzdata",
     "starlette",
 )
-_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "connections.js", "favicon.svg")
+_WEB_ASSETS = ("index.html", "spend.css", "spend.js", "request-state.js", "product.js", "product-helpers.js", "harness.js", "connections.js", "favicon.svg")
 
 
 def _decimal_or_none(value: object):

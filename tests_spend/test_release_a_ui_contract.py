@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HTML = (ROOT / "spend_web" / "index.html").read_text(encoding="utf-8")
-CSS = (ROOT / "spend_web" / "spend.css").read_text(encoding="utf-8")
-JS = (ROOT / "spend_web" / "spend.js").read_text(encoding="utf-8")
+HTML = (ROOT / "frontend_src" / "index.html").read_text(encoding="utf-8")
+CSS = (ROOT / "frontend_src" / "spend.css").read_text(encoding="utf-8")
+JS = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
 
 
 def test_subscription_labels_are_cadence_honest() -> None:

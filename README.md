@@ -15,6 +15,15 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 
 Version: `0.3.0-beta.1`.
 
+For frontend development, edit the readable files in `frontend_src/`. Run
+`npm ci --prefix scripts/asset-tools --ignore-scripts --no-audit --no-fund`, then
+`node scripts/optimize-assets.cjs` to regenerate the committed `spend_web/`
+assets and their checksums. Node is a development tool only; Python installs
+use the committed assets. Existing public IDs and CSS classes are preserved.
+Size gates measure every shipped JavaScript module and the shipped stylesheet;
+source-level contract assertions use the readable sources, while browser tests
+continue to serve the optimized files.
+
 Use **Connect harness** for guided local discovery, manual locations, persistent
 connection status and optional documented provider API setup. See the
 [connection guide](docs/connections.md) for capabilities, credential requirements

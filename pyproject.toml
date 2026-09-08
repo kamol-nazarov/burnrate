@@ -48,6 +48,9 @@ burnrate = "spend_app.cli:main"
 include = [
   "spend_app/**",
   "spend_web/**",
+  "frontend_src/**",
+  "scripts/optimize-assets.cjs",
+  "scripts/asset-tools/package*.json",
   "pricing/**",
   "tests_spend/**",
   "README.md",

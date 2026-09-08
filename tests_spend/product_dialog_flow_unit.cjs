@@ -40,7 +40,7 @@ for(const [asset,old] of [['spend.css','42'],['product.js','1']]){
   assert.notEqual(marker,old);
   assert.ok(apiSource.includes(`("${asset}", "${marker}")`),'HTML and content-hash marker must agree');
 }
-const newStyles=fs.readFileSync(require.resolve('../spend_web/spend.css'),'utf8').split('/* Source and subscription entry points:')[1];
+const newStyles=fs.readFileSync(require.resolve('../frontend_src/spend.css'),'utf8').split('/* Source and subscription entry points:')[1];
 const palette=new Set(['--surface','--soft','--raised','--border','--border-strong','--hair','--text','--secondary','--muted','--dim','--accent','--green','--amber','--danger','--warn-bg','--warn-border','--good-bg','--good-border','--font-mono']);
 for(const match of newStyles.matchAll(/var\((--[\w-]+)/g))assert.ok(palette.has(match[1]),`Undeclared palette use: ${match[1]}`);
 assert.doesNotMatch(newStyles,/#[\da-f]{3,8}\b|rgba?\(/i);
@@ -54,7 +54,7 @@ const context={window,document,console,Date,Intl,BigInt,AbortController,Option:f
   nodeFrom:()=>new Element(),setText:(node,text)=>{node.textContent=text;},setEmpty:(node,html)=>{node.items.clear();node.textContent=html;},
   reconcileChildren:(root,rows,key,create,update)=>{const next=new Map();rows.forEach((row,index)=>{const id=key(row,index);const node=root.items.get(id)||create();update(node,row,index);next.set(id,node);});root.items=next;}};
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(require.resolve('../spend_web/product.js'),'utf8'),context);
+for(const file of ['product-helpers.js','harness.js','product.js'])vm.runInContext(fs.readFileSync(require.resolve('../spend_web/'+file),'utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const reply=(request,data,ok=true,status=200)=>request.resolve({ok,status,json:async()=>data});
 const latest=(url,method='GET')=>requests.filter(r=>r.url===url && (r.options.method||'GET')===method).at(-1);

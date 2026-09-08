@@ -27,49 +27,51 @@
     <script src="/request-state.js?v=1" defer></script>
     <script src="/spend.js?v=42" defer></script>
     <script src="/connections.js?v=1" defer></script>
+    <script src="/product-helpers.js?v=1" defer></script>
+    <script src="/harness.js?v=1" defer></script>
     <script src="/product.js?v=2" defer></script>
   </head>
   <body class="loading">
-    <a class="skip-link" href="#main">Skip to dashboard</a>
-    <header class="burnrate-nav" role="banner">
-      <div class="burnrate-nav__inner">
-        <button class="burnrate-brand" id="home-button" type="button" aria-label="Return to spend overview">
-          <span class="burnrate-mark" aria-hidden="true">
+    <a class="skip-link g" href="#main">Skip to dashboard</a>
+    <header class="burnrate-nav j" role="banner">
+      <div class="burnrate-nav__inner k">
+        <button class="burnrate-brand l" id="home-button" type="button" aria-label="Return to spend overview">
+          <span class="burnrate-mark n" aria-hidden="true">
             <img src="/favicon.svg?v=1" alt="" width="42" height="42" />
           </span>
-          <span class="burnrate-lockup">
-            <span class="burnrate-wordmark"><span>BURN</span><strong>RATE</strong></span>
-            <span class="burnrate-tagline">AI cost intelligence</span>
+          <span class="burnrate-lockup o">
+            <span class="burnrate-wordmark q"><span>BURN</span><strong>RATE</strong></span>
+            <span class="burnrate-tagline r">AI cost intelligence</span>
           </span>
         </button>
-        <div class="burnrate-nav__stats">
-          <div class="burnrate-stat burnrate-stat--rate">
-            <span class="burnrate-stat__label">Burn rate</span>
-            <span class="burnrate-stat__value burnrate-stat__value--rate burnrate-skeleton" id="nav-run-rate" aria-label="Burn rate loading"></span>
+        <div class="burnrate-nav__stats t">
+          <div class="burnrate-stat u burnrate-stat--rate bx">
+            <span class="burnrate-stat__label v">Burn rate</span>
+            <span class="burnrate-stat__value f burnrate-stat__value--rate w burnrate-skeleton" id="nav-run-rate" aria-label="Burn rate loading"></span>
           </div>
-          <div class="burnrate-stat burnrate-stat--today">
-            <span class="burnrate-stat__label">Today</span>
-            <span class="burnrate-stat__value burnrate-stat__value--today burnrate-skeleton" id="nav-today" aria-label="Today's spend loading"></span>
+          <div class="burnrate-stat u burnrate-stat--today by">
+            <span class="burnrate-stat__label v">Today</span>
+            <span class="burnrate-stat__value f burnrate-stat__value--today x burnrate-skeleton" id="nav-today" aria-label="Today's spend loading"></span>
           </div>
-          <button class="burnrate-stat burnrate-stat--status" id="diagnostics-button" type="button" data-state="loading" aria-label="Metering status loading">
-            <span class="burnrate-status-row"><i class="burnrate-status-dot"></i><span id="nav-status-label">Metering</span></span>
-            <span class="burnrate-status-detail" id="nav-status-detail">Waiting for telemetry</span>
+          <button class="burnrate-stat u burnrate-stat--status G" id="diagnostics-button" type="button" data-state="loading" aria-label="Metering status loading">
+            <span class="burnrate-status-row H"><i class="burnrate-status-dot I"></i><span id="nav-status-label">Metering</span></span>
+            <span class="burnrate-status-detail J" id="nav-status-detail">Waiting for telemetry</span>
           </button>
-          <div class="nav-settings" aria-label="Dashboard settings">
-            <button id="nav-connect" class="ghost-button" type="button"><i class="settings-dot" aria-hidden="true"></i><span>Harnesses</span></button>
-            <button id="nav-plans" class="ghost-button" type="button"><span class="mono" id="nav-plans-total">—</span>/mo plans</button>
+          <div class="nav-settings bE" aria-label="Dashboard settings">
+            <button id="nav-connect" class="ghost-button bF" type="button"><i class="settings-dot bG" aria-hidden="true"></i><span>Harnesses</span></button>
+            <button id="nav-plans" class="ghost-button bF" type="button"><span class="mono" id="nav-plans-total">—</span>/mo plans</button>
           </div>
           <!-- Announces state transitions (live/stale/error and the failing
                source), never each poll's timestamp. -->
-          <span class="sr-only" aria-live="polite" id="status-live"></span>
+          <span class="sr-only bu" aria-live="polite" id="status-live"></span>
         </div>
       </div>
     </header>
 
-    <div class="coverage-banner" id="coverage-banner" role="status">
-      <span class="coverage-banner__mark"><i></i><strong id="coverage-title">Pricing coverage</strong></span>
-      <span class="coverage-banner__note" id="coverage-note">Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated.</span>
-      <span class="coverage-banner__exact mono" id="coverage-exact">exact: —</span>
+    <div class="coverage-banner N" id="coverage-banner" role="status">
+      <span class="coverage-banner__mark O"><i></i><strong id="coverage-title">Pricing coverage</strong></span>
+      <span class="coverage-banner__note P" id="coverage-note">Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated.</span>
+      <span class="coverage-banner__exact Q mono" id="coverage-exact">exact: —</span>
     </div>
 
     <div class="error-banner" id="error-banner" role="alert" hidden>
@@ -89,105 +91,105 @@
         <button id="setup-dismiss" type="button">Remind me later</button>
       </section>
       <section id="overview-view">
-        <h1 class="overview-h1" id="overview-heading">Spend overview</h1>
-        <div class="split-row">
-          <article class="panel capacity-panel" aria-label="Provider usage limits">
-            <header class="panel-header">
+        <h1 class="overview-h1 R" id="overview-heading">Spend overview</h1>
+        <div class="split-row V">
+          <article class="panel capacity-panel aa" aria-label="Provider usage limits">
+            <header class="panel-header ab">
               <div>
-                <p class="eyebrow">Capacity</p>
+                <p class="eyebrow S">Capacity</p>
                 <h2>What runs out first</h2>
               </div>
-              <div class="panel-meta">
-                <div class="capacity-check"><span id="capacity-checked">checked —</span>
+              <div class="panel-meta ac">
+                <div class="capacity-check bI"><span id="capacity-checked">checked —</span>
                 <strong id="capacity-headline" class="capacity-headline">Loading capacity</strong></div>
-                <button id="capacity-connect" class="ghost-button" type="button">Connect harness</button>
+                <button id="capacity-connect" class="ghost-button bF" type="button">Connect harness</button>
               </div>
             </header>
             <div id="capacity-body">
-              <div class="skel-stack" aria-hidden="true">
-                <span class="skel skel-w50"></span>
-                <span class="skel skel-bar"></span>
-                <span class="skel skel-w70"></span>
-                <span class="skel skel-bar"></span>
+              <div class="skel-stack y" aria-hidden="true">
+                <span class="skel skel-w50 C"></span>
+                <span class="skel skel-bar z"></span>
+                <span class="skel skel-w70 E"></span>
+                <span class="skel skel-bar z"></span>
               </div>
             </div>
           </article>
 
           <article class="panel activity-panel" aria-label="Live activity">
-            <header class="panel-header">
+            <header class="panel-header ab">
               <div>
-                <p class="eyebrow">Activity</p>
+                <p class="eyebrow S">Activity</p>
                 <h2>Running now</h2>
               </div>
               <span class="live-pill idle" id="live-pill"><i></i><span id="live-count" class="burnrate-skeleton" aria-label="Live activity loading"></span></span>
             </header>
             <div id="activity-body">
-              <div class="skel-stack" aria-hidden="true">
-                <span class="skel skel-w60"></span>
-                <span class="skel skel-w40"></span>
-                <span class="skel skel-w80"></span>
+              <div class="skel-stack y" aria-hidden="true">
+                <span class="skel skel-w60 D"></span>
+                <span class="skel skel-w40 A"></span>
+                <span class="skel skel-w80 F"></span>
               </div>
             </div>
-            <p class="activity-foot">Usage posts when a turn completes, so a live run contributes nothing to the figures below until it finishes.</p>
+            <p class="activity-foot av">Usage posts when a turn completes, so a live run contributes nothing to the figures below until it finishes.</p>
           </article>
         </div>
 
-        <div class="window-row">
+        <div class="window-row T">
           <div>
-            <span class="eyebrow">Analysis window</span>
+            <span class="eyebrow S">Analysis window</span>
             <span class="window-note" id="window-note">Usage and value across tools</span>
           </div>
           <div class="range-switch" id="range-switch" role="radiogroup" aria-label="Spend window"></div>
         </div>
 
-        <p class="range-status" id="overview-range-status" role="status" hidden></p>
-        <section class="kpi-grid" id="kpi-grid" aria-label="Spend KPIs">
-          <article class="kpi-card">
+        <p class="range-status bv" id="overview-range-status" role="status" hidden></p>
+        <section class="kpi-grid W" id="kpi-grid" aria-label="Spend KPIs">
+          <article class="kpi-card aw">
             <div><span>Tracked value</span><b id="tracked-chip">—</b></div>
-            <strong class="kpi-value"><span class="marker" id="tracked-marker"></span><span id="tracked-value" class="burnrate-skeleton"></span></strong>
+            <strong class="kpi-value c"><span class="marker ax" id="tracked-marker"></span><span id="tracked-value" class="burnrate-skeleton"></span></strong>
             <p id="tracked-note">—</p>
           </article>
-          <article class="kpi-card">
+          <article class="kpi-card aw">
             <div><span>Measured tokens</span><b id="tokens-chip" class="good">exact</b></div>
-            <strong class="kpi-value"><span id="measured-tokens" class="burnrate-skeleton"></span></strong>
+            <strong class="kpi-value c"><span id="measured-tokens" class="burnrate-skeleton"></span></strong>
             <p id="tokens-note">—</p>
           </article>
-          <article class="kpi-card">
+          <article class="kpi-card aw">
             <div><span>API cost per 1M tokens</span><b id="effective-rate-chip">API rates</b></div>
-            <strong class="kpi-value"><span class="marker" id="effective-rate-marker"></span><span id="effective-rate" class="burnrate-skeleton"></span></strong>
+            <strong class="kpi-value c"><span class="marker ax" id="effective-rate-marker"></span><span id="effective-rate" class="burnrate-skeleton"></span></strong>
             <p id="effective-rate-note">—</p>
           </article>
-          <article class="kpi-card">
+          <article class="kpi-card aw">
             <div><span>Cache reuse</span><b id="cache-chip" class="good">exact</b></div>
-            <strong class="kpi-value"><span id="cache-reuse" class="burnrate-skeleton"></span></strong>
+            <strong class="kpi-value c"><span id="cache-reuse" class="burnrate-skeleton"></span></strong>
             <p id="cache-note">—</p>
           </article>
-          <article class="kpi-card">
+          <article class="kpi-card aw">
             <div><span>Sessions</span><b id="sessions-chip" class="neutral">activity</b></div>
-            <strong class="kpi-value"><span id="sessions-value" class="burnrate-skeleton"></span></strong>
+            <strong class="kpi-value c"><span id="sessions-value" class="burnrate-skeleton"></span></strong>
             <p id="sessions-note">—</p>
           </article>
         </section>
 
-        <div class="split-row">
-          <article class="panel trend-panel">
-            <header class="panel-header">
+        <div class="split-row V">
+          <article class="panel trend-panel ay">
+            <header class="panel-header ab">
               <div>
-                <p class="eyebrow">Trend</p>
+                <p class="eyebrow S">Trend</p>
                 <h2>Token activity</h2>
               </div>
-              <div class="trend-actions">
-                <div class="hover-readout">
+              <div class="trend-actions az">
+                <div class="hover-readout aA">
                   <span id="hover-label">Window total</span>
                   <strong class="mono" id="hover-value">—</strong>
                 </div>
-                <div class="mode-switch" role="group" aria-label="Chart mode">
+                <div class="mode-switch U" role="group" aria-label="Chart mode">
                   <button type="button" data-mode="stacked" class="active" aria-pressed="true">Stacked</button>
                   <button type="button" data-mode="cumulative" aria-pressed="false">Cumulative</button>
                 </div>
               </div>
             </header>
-            <div class="chart-shell" id="chart-shell">
+            <div class="chart-shell aB" id="chart-shell">
               <div class="value-gutter" id="value-gutter"></div>
               <div class="plot" id="stacked-plot"></div>
               <svg class="cumulative-plot" id="cumulative-plot" viewBox="0 0 600 222" preserveAspectRatio="none" hidden>
@@ -203,11 +205,11 @@
               </svg>
               <div class="chart-hit-targets" id="chart-hit-targets"></div>
               <div class="chart-tooltip" id="chart-tooltip" role="tooltip" hidden></div>
-              <div class="sr-only" aria-live="polite" id="chart-live"></div>
+              <div class="sr-only bu" aria-live="polite" id="chart-live"></div>
             </div>
             <div class="chart-axis mono" id="chart-axis"></div>
             <div class="legend-cards" id="legend-cards"></div>
-            <div class="sr-only">
+            <div class="sr-only bu">
               <table>
                 <caption>Token activity over time</caption>
                 <thead><tr><th>Bucket</th><th>Total</th><th>Tool breakdown</th></tr></thead>
@@ -216,33 +218,33 @@
             </div>
           </article>
 
-          <div class="side-stack">
-            <article class="panel waste-panel">
-              <p class="eyebrow">Recoverable</p>
+          <div class="side-stack Y">
+            <article class="panel waste-panel aJ">
+              <p class="eyebrow S">Recoverable</p>
               <h2>Where money leaks</h2>
               <div class="waste-headline">
-                <span class="marker" id="waste-marker">≈</span>
+                <span class="marker ax" id="waste-marker">≈</span>
                 <strong class="mono" id="waste-headline">—</strong>
                 <span id="waste-headline-note">per day</span>
               </div>
-              <p class="waste-copy">Priced against each provider's own published cached-input discount, not a target I invented.</p>
+              <p class="waste-copy aK">Priced against each provider's own published cached-input discount, not a target I invented.</p>
               <div id="waste-items"></div>
-              <div class="savings-row">
+              <div class="savings-row aN">
                 <span><i></i>Saved versus no cache</span>
                 <strong class="mono" id="cache-savings">—</strong>
               </div>
             </article>
-            <article class="panel forecast-panel">
-              <p class="eyebrow">Forecast</p>
+            <article class="panel forecast-panel aO">
+              <p class="eyebrow S">Forecast</p>
               <h2>Plans against value</h2>
               <div class="forecast-value">
-                <span class="marker" id="projected-marker">≈</span>
-                <strong class="big-number mono" id="forecast-value">—</strong>
+                <span class="marker ax" id="projected-marker">≈</span>
+                <strong class="big-number e mono" id="forecast-value">—</strong>
                 <span id="forecast-delta"></span>
               </div>
               <p id="forecast-note">—</p>
-              <div class="pace-track"><i id="pace-bar"></i><b></b></div>
-              <div class="pace-labels mono">
+              <div class="pace-track aP"><i id="pace-bar"></i><b></b></div>
+              <div class="pace-labels aQ mono">
                 <span id="pace-label">usage —</span>
                 <span id="run-rate">plans —</span>
               </div>
@@ -250,11 +252,11 @@
           </div>
         </div>
 
-        <div class="split-row split-row--start">
-          <article class="panel table-panel">
-            <header class="panel-header">
+        <div class="split-row V split-row--start X">
+          <article class="panel table-panel aR">
+            <header class="panel-header ab">
               <div>
-                <p class="eyebrow">Unit economics</p>
+                <p class="eyebrow S">Unit economics</p>
                 <h2>Cost by model</h2>
               </div>
               <span>click a row to drill in</span>
@@ -265,14 +267,14 @@
             </div>
           </article>
 
-          <div class="side-stack">
-            <article class="panel mix-panel">
-              <button class="collapse-toggle" id="mix-toggle" type="button" aria-expanded="true">
+          <div class="side-stack Y">
+            <article class="panel mix-panel aY">
+              <button class="collapse-toggle aV" id="mix-toggle" type="button" aria-expanded="true">
                 <span>
-                  <span class="eyebrow">Token structure</span>
-                  <span class="collapse-title">What you pay for</span>
+                  <span class="eyebrow S">Token structure</span>
+                  <span class="collapse-title aW">What you pay for</span>
                 </span>
-                <span class="collapse-meta mono"><span id="mix-summary">—</span><span id="mix-caret">▲</span></span>
+                <span class="collapse-meta aX mono"><span id="mix-summary">—</span><span id="mix-caret">▲</span></span>
               </button>
               <div class="mix-bar" id="mix-bar"></div>
               <div id="mix-details">
@@ -280,42 +282,42 @@
                 <p id="mix-note">—</p>
               </div>
             </article>
-            <article class="panel subscription-panel">
-              <header class="collapse-toggle fixed-cost-header">
-                <span><span class="eyebrow">Fixed costs</span><span class="collapse-title">Configured subscriptions</span></span>
-                <span class="collapse-meta"><span class="mono" id="subs-summary">—</span><button id="manage-plans" type="button" class="ghost-button row-secondary">Manage</button></span>
+            <article class="panel subscription-panel aZ">
+              <header class="collapse-toggle aV fixed-cost-header bJ">
+                <span><span class="eyebrow S">Fixed costs</span><span class="collapse-title aW">Configured subscriptions</span></span>
+                <span class="collapse-meta aX"><span class="mono" id="subs-summary">—</span><button id="manage-plans" type="button" class="ghost-button bF row-secondary bK">Manage</button></span>
               </header>
               <div id="subs-details">
                 <div id="subscription-rows"></div>
-                <div class="subs-total"><span>Monthly equivalent</span><strong class="mono" id="subscription-total">—</strong></div>
+                <div class="subs-total bc"><span>Monthly equivalent</span><strong class="mono" id="subscription-total">—</strong></div>
               </div>
             </article>
           </div>
         </div>
 
-        <article class="panel heat-panel">
-          <header class="panel-header">
+        <article class="panel heat-panel bd">
+          <header class="panel-header ab">
             <div>
-              <p class="eyebrow">Rhythm</p>
+              <p class="eyebrow S">Rhythm</p>
               <h2>When you spend</h2>
             </div>
-            <div class="hover-readout">
+            <div class="hover-readout aA">
               <span id="heat-label">Peak window</span>
               <strong class="mono" id="heat-value">—</strong>
             </div>
           </header>
-          <p class="sr-only" id="heat-unit">reference usage (USD at documented rates)</p>
+          <p class="sr-only bu" id="heat-unit">reference usage (USD at documented rates)</p>
           <div class="heat-warning" id="heat-warning" hidden>
             <i></i>
             <strong>Window too short for a weekly pattern</strong>
             <span id="heat-note">Showing the trailing 7-day pattern. Switch to 1w or longer for figures that match the selected window.</span>
           </div>
           <div class="heatmap" id="heatmap"></div>
-          <div class="heat-legend">
+          <div class="heat-legend bg">
             <div class="mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
-            <div class="heat-scale">Low<div><i></i><i></i><i></i><i></i></div>High</div>
+            <div class="heat-scale bh">Low<div><i></i><i></i><i></i><i></i></div>High</div>
           </div>
-          <div class="sr-only">
+          <div class="sr-only bu">
             <table>
               <caption>Reference usage by weekday and hour, in US dollars at documented rates</caption>
               <tbody id="heat-table-body"></tbody>
@@ -325,35 +327,35 @@
       </section>
 
       <section id="detail-view" hidden>
-        <button class="back-button" id="detail-back" type="button">← Overview</button>
-        <div class="page-heading">
+        <button class="back-button bi" id="detail-back" type="button">← Overview</button>
+        <div class="page-heading bj">
           <div>
-            <p class="eyebrow" id="detail-kind">Detail</p>
+            <p class="eyebrow S" id="detail-kind">Detail</p>
             <h1 id="detail-heading"><i id="detail-swatch"></i><span id="detail-name">—</span><span class="chip" id="detail-plan">—</span><span class="chip" id="detail-cov">—</span></h1>
             <p id="detail-sub">—</p>
           </div>
           <div class="range-switch detail-ranges" id="detail-ranges" role="radiogroup" aria-label="Detail window"></div>
         </div>
-        <p class="range-status" id="detail-range-status" role="status" hidden></p>
-        <div class="share-strip">
+        <p class="range-status bv" id="detail-range-status" role="status" hidden></p>
+        <div class="share-strip bk">
           <span>Share of tracked value</span>
-          <div class="share-bar"><i id="detail-share-bar"></i><b></b></div>
+          <div class="share-bar bl"><i id="detail-share-bar"></i><b></b></div>
           <strong class="mono" id="detail-share-label">—</strong>
         </div>
-        <section class="kpi-grid detail-kpis" id="detail-kpis"></section>
-        <div class="split-row">
+        <section class="kpi-grid W detail-kpis" id="detail-kpis"></section>
+        <div class="split-row V">
           <article class="panel">
-            <header class="panel-header">
+            <header class="panel-header ab">
               <div>
-                <p class="eyebrow">Trend</p>
+                <p class="eyebrow S">Trend</p>
                 <h2>Token activity</h2>
               </div>
-              <div class="hover-readout">
+              <div class="hover-readout aA">
                 <span id="detail-hover-label">Window total</span>
                 <strong class="mono" id="detail-hover-value">—</strong>
               </div>
             </header>
-            <div class="chart-shell chart-shell--detail" id="detail-chart-shell">
+            <div class="chart-shell aB chart-shell--detail aC" id="detail-chart-shell">
               <div class="value-gutter" id="detail-gutter"></div>
               <div class="plot" id="detail-bars"></div>
               <div class="chart-hit-targets" id="detail-hits"></div>
@@ -361,26 +363,26 @@
             <div class="chart-axis mono" id="detail-axis"></div>
             <div class="detail-mix-cards" id="detail-mix-cards"></div>
           </article>
-          <div class="side-stack">
+          <div class="side-stack Y">
             <article class="panel opportunity-panel" id="opportunity-panel">
-              <p class="eyebrow">Opportunity</p>
+              <p class="eyebrow S">Opportunity</p>
               <h2 id="opp-title">—</h2>
               <div class="forecast-value">
-                <span class="marker" id="opp-marker">≈</span>
-                <strong class="big-number mono" id="opp-value">—</strong>
+                <span class="marker ax" id="opp-marker">≈</span>
+                <strong class="big-number e mono" id="opp-value">—</strong>
                 <span id="opp-unit">in this window</span>
               </div>
               <p id="opp-detail">—</p>
-              <span class="fix-chip" id="opp-fix"><i></i>—</span>
-              <div class="savings-row opportunity-saved">
+              <span class="fix-chip aM" id="opp-fix"><i></i>—</span>
+              <div class="savings-row aN opportunity-saved bo">
                 <span>Saved versus no cache</span>
                 <strong class="mono" id="opp-saved">—</strong>
               </div>
             </article>
             <article class="panel">
-              <header class="panel-header">
+              <header class="panel-header ab">
                 <div>
-                  <p class="eyebrow">Capacity</p>
+                  <p class="eyebrow S">Capacity</p>
                   <h2 id="entity-limit-title">Limits</h2>
                 </div>
                 <span class="mono" id="entity-limit-plan">—</span>
@@ -389,26 +391,26 @@
             </article>
           </div>
         </div>
-        <article class="panel sessions-panel">
-          <header class="panel-header">
+        <article class="panel sessions-panel aS">
+          <header class="panel-header ab">
             <div>
-              <p class="eyebrow">Attribution</p>
+              <p class="eyebrow S">Attribution</p>
               <h2>Most expensive sessions</h2>
             </div>
             <span id="sessions-foot">—</span>
           </header>
           <div class="sessions-table">
-            <div class="sessions-head"><span>Session</span><span>Project</span><span>Duration</span><span>Tokens</span><span>Cache</span><span>Value</span></div>
+            <div class="sessions-head bp"><span>Session</span><span>Project</span><span>Duration</span><span>Tokens</span><span>Cache</span><span>Value</span></div>
             <div id="sessions-body"></div>
           </div>
         </article>
       </section>
 
       <section id="diagnostics-view" hidden>
-        <button class="back-button" id="diagnostics-back" type="button">← Overview</button>
-        <div class="page-heading">
+        <button class="back-button bi" id="diagnostics-back" type="button">← Overview</button>
+        <div class="page-heading bj">
           <div>
-            <p class="eyebrow">Diagnostics</p>
+            <p class="eyebrow S">Diagnostics</p>
             <h1>Data health</h1>
             <p>Ingest, quota polls, pricing gaps, and provider versus computed variance.</p>
           </div>
@@ -416,17 +418,17 @@
         <div class="diagnostic-grid" id="diagnostic-grid"></div>
         <div id="source-guidance" aria-label="Source status and next actions"></div>
         <article class="panel">
-          <p class="eyebrow">Quotas</p>
+          <p class="eyebrow S">Quotas</p>
           <h2>Quota pollers</h2>
           <div id="quota-polls"></div>
         </article>
         <article class="panel">
-          <p class="eyebrow">Pricing</p>
+          <p class="eyebrow S">Pricing</p>
           <h2>Unpriced models</h2>
           <div id="pricing-gaps"></div>
         </article>
         <article class="panel">
-          <p class="eyebrow">Variance</p>
+          <p class="eyebrow S">Variance</p>
           <h2>Provider vs computed</h2>
           <p id="variance-note">—</p>
         </article>
@@ -442,32 +444,32 @@
         <span class="mono" id="range-label">—</span>
       </footer>
     </main>
-    <dialog id="plan-manager" class="settings-dialog" aria-labelledby="plan-manager-title">
-      <header class="settings-dialog-header"><div><p class="eyebrow">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Subscriptions</h2></div><button id="close-plans" class="ghost-button" type="button">Close</button></header>
+    <dialog id="plan-manager" class="settings-dialog bM" aria-labelledby="plan-manager-title">
+      <header class="settings-dialog-header bN"><div><p class="eyebrow S">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Subscriptions</h2></div><button id="close-plans" class="ghost-button bF" type="button">Close</button></header>
       <section id="plan-list-view">
-        <div class="plan-total-card"><span>Monthly equivalent</span><strong id="plan-monthly-total" class="mono">—</strong></div>
-        <div id="plan-history" class="settings-list"></div>
-        <footer class="settings-dialog-footer"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button" type="button">Add a plan</button></footer>
+        <div class="plan-total-card bO"><span>Monthly equivalent</span><strong id="plan-monthly-total" class="mono">—</strong></div>
+        <div id="plan-history" class="settings-list bP"></div>
+        <footer class="settings-dialog-footer ca"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button cb" type="button">Add a plan</button></footer>
       </section>
       <form id="plan-form" hidden novalidate>
         <div hidden><select id="plan-action"><option value="add">Add</option><option value="schedule">Schedule</option><option value="end">End</option><option value="correct">Correct</option></select><select id="plan-choice"></select></div>
         <ol id="plan-steps" class="plan-steps" aria-label="Plan steps"><li><span>1</span>Tool</li><li><span>2</span>Price</li><li><span>3</span>Dates</li></ol>
-        <div class="plan-wizard-body">
-          <section id="plan-step-1"><h3>Which tool is this plan for?</h3><div id="plan-tool-slot"><div id="plan-tool-fields"><label id="plan-tool-label">Tool<select id="plan-tool" class="sr-only" tabindex="-1" aria-hidden="true"></select></label><div id="plan-tool-cards" class="plan-tool-cards" role="group" aria-label="Tool"></div><label id="plan-name-label">Plan name<input id="plan-name" maxlength="80" autocomplete="off"></label></div></div><p class="settings-helper">OpenCode and ZCode share one Z.AI plan. Two plans can use the same tool.</p></section>
-          <section id="plan-step-2" hidden><h3>What does it cost?</h3><label id="term-choice-label" hidden>Historical term<select id="term-choice"></select></label><details id="plan-correction-fields" hidden><summary>Name and tool</summary></details><label id="plan-amount-label">Price per period<span class="money-input"><span aria-hidden="true">$</span><input id="plan-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal"></span></label><label id="plan-cadence-label">Billed every<select id="plan-cadence" hidden><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label><div class="cadence-control" role="group" aria-label="Billed every"><button type="button" data-cadence="monthly">Month</button><button type="button" data-cadence="quarterly">Quarter</button><button type="button" data-cadence="annual">Year</button></div><div class="plan-live-cards"><div><span id="plan-day-label">Per day</span><strong id="plan-per-day" class="mono">—</strong></div><div><span>Monthly equiv</span><strong id="plan-equiv" class="mono">—</strong></div><div><span>Fixed costs after</span><strong id="plan-after" class="mono">—</strong></div></div><p class="settings-helper">Daily cost is the amount divided by days in the calendar period. Not provider billing.</p></section>
-          <section id="plan-step-3" hidden><h3>When does it apply?</h3><label id="plan-start-label">Effective start<input id="plan-start" type="date"></label><label id="plan-end-label"><span id="plan-end-caption">Last active date (optional)</span><input id="plan-end" type="date"></label><p id="plan-end-note" class="settings-warning" hidden>Inclusive. Attribution stops the following day. This does not cancel the plan with the provider.</p><div id="plan-review" class="plan-review"><strong><i class="tool-swatch"></i><span></span></strong><p></p></div><div id="plan-preview" hidden><div class="correction-totals"><div>Before<strong class="mono" id="plan-before-value"></strong></div><span aria-hidden="true">→</span><div>After<strong class="mono" id="plan-after-value"></strong></div></div><p id="plan-affected"></p><p id="plan-preview-note" class="settings-helper"></p></div><label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label></section>
-          <p id="plan-timezone" class="settings-helper"></p>
+        <div class="plan-wizard-body cc">
+          <section id="plan-step-1"><h3>Which tool is this plan for?</h3><div id="plan-tool-slot"><div id="plan-tool-fields"><label id="plan-tool-label">Tool<select id="plan-tool" class="sr-only bu" tabindex="-1" aria-hidden="true"></select></label><div id="plan-tool-cards" class="plan-tool-cards" role="group" aria-label="Tool"></div><label id="plan-name-label">Plan name<input id="plan-name" maxlength="80" autocomplete="off"></label></div></div><p class="settings-helper cd">OpenCode and ZCode share one Z.AI plan. Two plans can use the same tool.</p></section>
+          <section id="plan-step-2" hidden><h3>What does it cost?</h3><label id="term-choice-label" hidden>Historical term<select id="term-choice"></select></label><details id="plan-correction-fields" hidden><summary>Name and tool</summary></details><label id="plan-amount-label">Price per period<span class="money-input ce"><span aria-hidden="true">$</span><input id="plan-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal"></span></label><label id="plan-cadence-label">Billed every<select id="plan-cadence" hidden><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label><div class="cadence-control cf" role="group" aria-label="Billed every"><button type="button" data-cadence="monthly">Month</button><button type="button" data-cadence="quarterly">Quarter</button><button type="button" data-cadence="annual">Year</button></div><div class="plan-live-cards cg"><div><span id="plan-day-label">Per day</span><strong id="plan-per-day" class="mono">—</strong></div><div><span>Monthly equiv</span><strong id="plan-equiv" class="mono">—</strong></div><div><span>Fixed costs after</span><strong id="plan-after" class="mono">—</strong></div></div><p class="settings-helper cd">Daily cost is the amount divided by days in the calendar period. Not provider billing.</p></section>
+          <section id="plan-step-3" hidden><h3>When does it apply?</h3><label id="plan-start-label">Effective start<input id="plan-start" type="date"></label><label id="plan-end-label"><span id="plan-end-caption">Last active date (optional)</span><input id="plan-end" type="date"></label><p id="plan-end-note" class="settings-warning ch" hidden>Inclusive. Attribution stops the following day. This does not cancel the plan with the provider.</p><div id="plan-review" class="plan-review"><strong><i class="tool-swatch bT"></i><span></span></strong><p></p></div><div id="plan-preview" hidden><div class="correction-totals ci"><div>Before<strong class="mono" id="plan-before-value"></strong></div><span aria-hidden="true">→</span><div>After<strong class="mono" id="plan-after-value"></strong></div></div><p id="plan-affected"></p><p id="plan-preview-note" class="settings-helper cd"></p></div><label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label></section>
+          <p id="plan-timezone" class="settings-helper cd"></p>
         </div>
-        <footer class="settings-dialog-footer"><button id="plan-back" class="ghost-button" type="button">Cancel</button><button id="save-plan" class="primary-button" type="submit">Continue</button></footer>
+        <footer class="settings-dialog-footer ca"><button id="plan-back" class="ghost-button bF" type="button">Cancel</button><button id="save-plan" class="primary-button cb" type="submit">Continue</button></footer>
       </form>
       <p id="plan-message" role="status" aria-live="polite"></p>
     </dialog>
-    <dialog id="harness-manager" class="settings-dialog" aria-labelledby="harness-manager-title">
-      <header class="settings-dialog-header"><div><p class="eyebrow">Sources</p><h2 id="harness-manager-title" tabindex="-1">Connect a harness</h2><p class="harness-intro">Local harness files are read as-is. No credentials are needed. Network integrations are optional and off until you enable them.</p></div><div class="dialog-actions"><button id="rescan-harnesses" class="ghost-button" type="button">Rescan</button><button id="close-harnesses" class="ghost-button" type="button">Close</button></div></header>
+    <dialog id="harness-manager" class="settings-dialog bM" aria-labelledby="harness-manager-title">
+      <header class="settings-dialog-header bN"><div><p class="eyebrow S">Sources</p><h2 id="harness-manager-title" tabindex="-1">Connect a harness</h2><p class="harness-intro cj">Local harness files are read as-is. No credentials are needed. Network integrations are optional and off until you enable them.</p></div><div class="dialog-actions ck"><button id="rescan-harnesses" class="ghost-button bF" type="button">Rescan</button><button id="close-harnesses" class="ghost-button bF" type="button">Close</button></div></header>
       <p id="harness-message" role="status" aria-live="polite" hidden></p>
-      <div id="harness-content"><section class="harness-section"><header><p class="eyebrow">Local harnesses</p><span id="harness-scanned" class="settings-helper"></span></header><div id="harness-rows"></div></section><section class="harness-section"><header><p class="eyebrow">Optional network integrations</p><span class="settings-helper">keys stay in .env · never stored in SQLite</span></header><p id="harness-vault-note" class="settings-helper" hidden>Some keys are managed in Windows Credential Manager. Manage saved connections to replace or disconnect them.</p><div id="integration-rows"></div></section></div>
-      <footer class="settings-dialog-footer"><p><i class="settings-dot good-dot" aria-hidden="true"></i>Nothing leaves this machine unless a key or opt-in above is enabled.</p><a id="harness-docs" class="settings-link" target="_blank" rel="noopener noreferrer">Provider documentation →</a></footer>
-      <div class="harness-extra"><button id="managed-connections" class="ghost-button" type="button">Manage saved connections</button><button id="show-setup-help" class="ghost-button" type="button">Setup help</button></div>
+      <div id="harness-content"><section class="harness-section cl"><header><p class="eyebrow S">Local harnesses</p><span id="harness-scanned" class="settings-helper cd"></span></header><div id="harness-rows"></div></section><section class="harness-section cl"><header><p class="eyebrow S">Optional network integrations</p><span class="settings-helper cd">keys stay in .env · never stored in SQLite</span></header><p id="harness-vault-note" class="settings-helper cd" hidden>Some keys are managed in Windows Credential Manager. Manage saved connections to replace or disconnect them.</p><div id="integration-rows"></div></section></div>
+      <footer class="settings-dialog-footer ca"><p><i class="settings-dot bG good-dot bH" aria-hidden="true"></i>Nothing leaves this machine unless a key or opt-in above is enabled.</p><a id="harness-docs" class="settings-link bL" target="_blank" rel="noopener noreferrer">Provider documentation →</a></footer>
+      <div class="harness-extra cr"><button id="managed-connections" class="ghost-button bF" type="button">Manage saved connections</button><button id="show-setup-help" class="ghost-button bF" type="button">Setup help</button></div>
     </dialog>
 
   </body>

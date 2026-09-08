@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1] / "spend_web"
+ROOT = Path(__file__).resolve().parents[1] / "frontend_src"
 JS = (ROOT / "spend.js").read_text(encoding="utf-8")
 CSS = (ROOT / "spend.css").read_text(encoding="utf-8")
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")

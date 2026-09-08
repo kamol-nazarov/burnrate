@@ -5,8 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_burnrate_navbar_structure_and_data_wiring() -> None:
-    html = (ROOT / "spend_web" / "index.html").read_text(encoding="utf-8")
-    script = (ROOT / "spend_web" / "spend.js").read_text(encoding="utf-8")
+    html = (ROOT / "frontend_src" / "index.html").read_text(encoding="utf-8")
+    script = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
     header = html.split('<header class="burnrate-nav"', 1)[1].split("</header>", 1)[0]
     assert 'class="burnrate-mark"' in header
     assert 'src="/favicon.svg?v=1"' in header
@@ -28,7 +28,7 @@ def test_burnrate_navbar_structure_and_data_wiring() -> None:
 
 
 def test_burnrate_brand_mark_is_static_crisp_and_productized() -> None:
-    css = (ROOT / "spend_web" / "spend.css").read_text(encoding="utf-8")
+    css = (ROOT / "frontend_src" / "spend.css").read_text(encoding="utf-8")
     for token in (
         "@keyframes ping",
         ".burnrate-mark{",
@@ -37,7 +37,7 @@ def test_burnrate_brand_mark_is_static_crisp_and_productized() -> None:
         ".burnrate-tagline{",
         "AI cost intelligence",
     ):
-        assert token in css or token in (ROOT / "spend_web" / "index.html").read_text(encoding="utf-8")
+        assert token in css or token in (ROOT / "frontend_src" / "index.html").read_text(encoding="utf-8")
     favicon = (ROOT / "spend_web" / "favicon.svg").read_text(encoding="utf-8")
     assert 'viewBox="0 0 64 64"' in favicon
     assert "#D9A441" in favicon and "#8AB7FF" in favicon
@@ -48,7 +48,7 @@ def test_burnrate_brand_mark_is_static_crisp_and_productized() -> None:
 
 
 def test_burnrate_navbar_is_scoped_sticky_and_responsive() -> None:
-    css = (ROOT / "spend_web" / "spend.css").read_text(encoding="utf-8")
+    css = (ROOT / "frontend_src" / "spend.css").read_text(encoding="utf-8")
     assert ".burnrate-nav{" in css
     assert "position:sticky;top:0;z-index:30;" in css
     assert "background:rgba(10,12,15,.94)" in css

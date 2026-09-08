@@ -50,7 +50,7 @@ def asset_version(path: Path) -> str:
 
 def render_index(web_root: Path) -> str:
     html = (web_root / "index.html").read_text(encoding="utf-8")
-    for name, marker in (("spend.css", "43"), ("spend.js", "42"), ("request-state.js", "1"), ("product.js", "2"), ("connections.js", "1"), ("favicon.svg", "1")):
+    for name, marker in (("spend.css", "43"), ("spend.js", "42"), ("request-state.js", "1"), ("product.js", "2"), ("product-helpers.js", "1"), ("harness.js", "1"), ("connections.js", "1"), ("favicon.svg", "1")):
         html = html.replace(f"/{name}?v={marker}", f"/{name}?v={asset_version(web_root / name)}")
     return html
 
@@ -311,6 +311,13 @@ def create_app(
     def connections_js(request: Request):
         path = web_root / "connections.js"
         return FileResponse(path, media_type="application/javascript", headers={"Cache-Control": _asset_cache_header(request, path)})
+
+    @app.get("/product-helpers.js")
+    @app.get("/harness.js")
+    def product_support_js(request: Request):
+        path = web_root / request.url.path.removeprefix("/")
+        return FileResponse(path, media_type="application/javascript",
+                            headers={"Cache-Control": _asset_cache_header(request, path)})
 
     @app.get("/product.js")
     def product_js(request: Request):

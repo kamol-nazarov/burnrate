@@ -51,9 +51,9 @@ class FrozenDateTime(datetime):
 
 
 def sources() -> tuple[str, str, str]:
-    html = (ROOT / "spend_web" / "index.html").read_text(encoding="utf-8")
-    css = (ROOT / "spend_web" / "spend.css").read_text(encoding="utf-8")
-    js = (ROOT / "spend_web" / "spend.js").read_text(encoding="utf-8")
+    html = (ROOT / "frontend_src" / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "frontend_src" / "spend.css").read_text(encoding="utf-8")
+    js = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
     return html, css, js
 
 

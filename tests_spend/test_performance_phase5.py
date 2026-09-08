@@ -18,7 +18,7 @@ from tests_spend.test_aggregation import NOW, TZ, add_event, fixture_database
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "spend_web"
-JS = (WEB / "spend.js").read_text(encoding="utf-8")
+JS = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
 CSS = (WEB / "spend.css").read_text(encoding="utf-8")
 
 

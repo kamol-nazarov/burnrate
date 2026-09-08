@@ -21,7 +21,7 @@ from tests_spend.test_frontend_viewports import CHROME, FixtureHandler, _chrome_
 
 
 ROOT = Path(__file__).resolve().parents[1]
-JS = (ROOT / "spend_web" / "spend.js").read_text(encoding="utf-8")
+JS = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
 
 
 def test_snapshot_storage_is_versioned_bounded_and_best_effort() -> None:

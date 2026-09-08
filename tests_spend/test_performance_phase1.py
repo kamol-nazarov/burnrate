@@ -19,7 +19,7 @@ from spend_app.config import Settings
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "spend_web"
 HTML = (WEB / "index.html").read_text(encoding="utf-8")
-JS = (WEB / "spend.js").read_text(encoding="utf-8")
+JS = (ROOT / "frontend_src" / "spend.js").read_text(encoding="utf-8")
 
 
 def _client(tmp_path: Path) -> TestClient:
