@@ -275,3 +275,21 @@ def test_capacity_uses_same_current_observation(monkeypatch):
     rows=_load_quota_rows(db,now=NOW+timedelta(hours=7))
     card=next(c for c in _capacity_from_rows(rows,now=NOW,month_to_date={}) if c['providerKey']=='codex')
     assert card['primaryPct'] is None
+
+
+def test_short_cache_is_scoped_and_does_not_renew_observation(monkeypatch):
+    limits._CACHE.clear()
+    result={'status':'exact','poolId':'codex','scope':'A','observedAt':NOW.isoformat(),
+        'windows':[{'windowMinutes':10080,'usedPct':54,'resetAt':(NOW+timedelta(days=5)).isoformat()}]}
+    reader=Mock(return_value=result)
+    monkeypatch.setattr(q,'_codex_limits',reader)
+    active=['A']
+    monkeypatch.setattr(cq,'current_scope',lambda:active[0])
+    monkeypatch.setattr(Path,'resolve',lambda self,**kwargs:self)
+    for _ in range(3):assert q._codex_quota_collector('db-a')[0].observed_at==NOW.isoformat()
+    assert reader.call_count==1
+    q._codex_quota_collector('db-b')
+    assert reader.call_count==2
+    active[0]='B';q._codex_quota_collector('db-b')
+    assert reader.call_count==3
+    limits._CACHE.clear()

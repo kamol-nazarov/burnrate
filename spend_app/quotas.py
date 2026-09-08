@@ -556,6 +556,12 @@ def _collect(name: str, ttl: int, loader: Callable[[], dict], builder, source: s
     return _apply_throttle(builder(payload, source=source), payload)
 
 
+def _codex_quota_collector(database_path):
+    from spend_app.codex_quota import current_scope
+    key = f"codex_quota_poll:{Path(database_path).resolve()}:{current_scope()}"
+    return _collect(key, 10, _codex_limits, codex_quota_samples, "codex_local_telemetry")
+
+
 def default_quota_collectors(
     database_path: Path | str,
 ) -> dict[str, Callable[[], list[QuotaSample]]]:
@@ -567,7 +573,7 @@ def default_quota_collectors(
             antigravity_quota_samples,
             "antigravity_local_rpc",
         ),
-        "codex": lambda: codex_quota_samples(_codex_limits(), source="codex_local_telemetry"),
+        "codex": lambda: _codex_quota_collector(database_path),
         "claude-code": _claude_quota_collector,
         "cursor": lambda: _collect("cursor_quota_poll", 600, _cursor_limits_uncached, cursor_quota_samples, "cursor_usage_service"),
         "grok": _grok_quota_collector,

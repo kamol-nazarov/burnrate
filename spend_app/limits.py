@@ -1970,13 +1970,13 @@ def collect_limits(database_path: Path | None = None) -> dict:
     return snapshot_limits(database_path)
 
 
-def snapshot_limits(database_path: Path | None = None) -> dict:
+def snapshot_limits(database_path: Path | None = None, *, now: datetime | None = None) -> dict:
     providers = {}
     if database_path is None:
         return {"providers": [], "snapshot": True, "activeAgents": [], "unmeteredTurns": []}
     with connect(database_path) as connection:
         from spend_app.codex_quota import read_rows
-        rows = sorted(read_rows(connection), key=lambda row: (row["polled_at"], row["id"]))
+        rows = sorted(read_rows(connection, now=now), key=lambda row: (row["polled_at"], row["id"]))
     latest = {}
     for row in rows:
         latest[(row["provider_key"], row["limit_key"])] = row
