@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from spend_app.api import ASSET_IMMUTABLE_CACHE, ASSET_REVALIDATE_CACHE, asset_version, create_app
+from spend_app.api import ASSET_IMMUTABLE_CACHE, ASSET_REVALIDATE_CACHE, GZIP_MINIMUM_SIZE, asset_version, create_app
 from spend_app.config import Settings
 
 
@@ -39,10 +39,13 @@ def _client(tmp_path: Path) -> TestClient:
 
 def test_assets_and_json_are_gzip_compressed(tmp_path: Path) -> None:
     client = _client(tmp_path)
-    for path in ("/", "/spend.js", "/request-state.js", "/spend.css", "/api/spend/summary?window=1d&tool=all"):
+    paths = ["/", "/spend.css", "/api/spend/summary?window=1d&tool=all"]
+    paths.extend("/" + file.name for file in sorted(WEB.glob("*.js")))
+    for path in paths:
         response = client.get(path, headers={"Accept-Encoding": "gzip"})
         assert response.status_code == 200, path
-        assert response.headers.get("content-encoding") == "gzip", path
+        expected = "gzip" if len(response.content) >= GZIP_MINIMUM_SIZE else None
+        assert response.headers.get("content-encoding") == expected, path
     raw = client.get("/spend.js", headers={"Accept-Encoding": "identity"})
     assert raw.headers.get("content-encoding") is None
     compressed = client.get("/spend.js", headers={"Accept-Encoding": "gzip"})
