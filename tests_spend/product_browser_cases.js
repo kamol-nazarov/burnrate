@@ -11,7 +11,7 @@
   const saved = () => until(()=>el("plan-message").textContent.startsWith("Saved durably"));
   await until(()=>!document.body.classList.contains("loading"));
   document.querySelector("#chart-hit-targets button")?.click();
-  el("manage-plans").click();
+  el("manage-plans").click();el("tab-plans-list").click();
   await until(()=>el("plan-message").textContent.includes("History loaded"));
   const phase=localStorage.getItem("product-test-phase");
   if (!phase) {
@@ -48,7 +48,7 @@
     body:JSON.stringify({operation:"end",request_id:"concurrent-end-123",plan_id:p.id,expected_version:p.version,end_date:null})});
   submit(); await until(()=>el("plan-message").textContent.includes("Conflict"));
   assert(el("plan-amount").value==="150","conflict erased draft");
-  el("close-plans").click();el("manage-plans").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
+  el("close-plans").click();el("manage-plans").click();el("tab-plans-list").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
   preset("schedule");set("plan-amount","150");submit();set("plan-start","2026-09-15");submit();await saved();
   history();
   assert(el("plan-history").textContent.includes("2026-09-14"),"prior term history lost");

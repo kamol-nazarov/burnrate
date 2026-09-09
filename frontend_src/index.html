@@ -443,8 +443,18 @@
       </footer>
     </main>
     <dialog id="plan-manager" class="settings-dialog" aria-labelledby="plan-manager-title">
-      <header class="settings-dialog-header"><div><p class="eyebrow">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Subscriptions</h2></div><button id="close-plans" class="ghost-button" type="button">Close</button></header>
-      <section id="plan-list-view">
+      <header class="settings-dialog-header">
+        <div><p class="eyebrow">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Plans & Value</h2></div>
+        <div class="dialog-actions">
+          <div class="cadence-control plan-dialog-tabs" role="group" aria-label="Plans view">
+            <button id="tab-plans-value" type="button" class="active" aria-pressed="true">Plans & Value</button>
+            <button id="tab-plans-list" type="button" aria-pressed="false">Manage plans</button>
+          </div>
+          <button id="close-plans" class="ghost-button" type="button">Close</button>
+        </div>
+      </header>
+      <section id="plans-value-view" aria-label="Plans & Value comparison"></section>
+      <section id="plan-list-view" hidden>
         <div class="plan-total-card"><span>Monthly equivalent</span><strong id="plan-monthly-total" class="mono">—</strong></div>
         <div id="plan-history" class="settings-list"></div>
         <footer class="settings-dialog-footer"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button" type="button">Add a plan</button></footer>

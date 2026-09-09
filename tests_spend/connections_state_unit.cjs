@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const {ConnectionFlow} = require('../spend_web/connections.js');
+const {ConnectionFlow} = require('../frontend_src/connections.js');
 let id = 0;
 const flow = new ConnectionFlow(() => String(++id));
 const owner = flow.move('verify');

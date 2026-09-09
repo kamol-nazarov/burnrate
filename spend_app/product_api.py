@@ -14,7 +14,7 @@ from spend_app.db import connect
 from spend_app.plan_service import PlanConflict, PlanError, apply_mutation, list_plans
 
 
-def product_router(settings):
+def product_router(settings, pricing=None):
     router = APIRouter()
     allowed = {"127.0.0.1", "localhost", "::1"}
     allowed.update(
@@ -35,6 +35,30 @@ def product_router(settings):
     def plans():
         with connect(settings.database_path) as connection:
             return {**list_plans(connection, today()), "timezone": settings.timezone}
+
+    @router.get("/api/subscriptions/value")
+    def subscription_value(period: str = "this_month"):
+        if period not in ("this_month", "last_month"):
+            return JSONResponse(
+                {"error": f"Invalid period '{period}'. Use 'this_month' or 'last_month'."},
+                status_code=422,
+            )
+        resolved_pricing = pricing
+        if resolved_pricing is None:
+            from spend_app.pricing import PricingEngine
+
+            resolved_pricing = PricingEngine.load(settings.pricing_path)
+        from spend_app.plans_value_store import fetch_plans_value_report
+
+        with connect(settings.database_path) as connection:
+            report = fetch_plans_value_report(
+                connection=connection,
+                settings=settings,
+                pricing=resolved_pricing,
+                period=period,
+                as_of=datetime.now(UTC),
+            )
+        return JSONResponse(report, headers={"Cache-Control": "no-store"})
 
     @router.post("/api/subscriptions")
     async def mutate(request: Request):

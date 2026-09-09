@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "period": "this_month",
+  "asOf": "2026-09-09T04:00:00Z",
+  "fromUtc": "2026-09-01T04:00:00Z",
+  "toUtc": "2026-09-09T04:00:00Z",
+  "localFrom": "2026-09-01",
+  "localTo": "2026-09-08",
+  "timezone": "America/New_York",
+  "groups": [
+    {
+      "groupId": "tool:codex",
+      "name": "Coding plan",
+      "toolKeys": [
+        "codex"
+      ],
+      "planIds": [
+        1
+      ],
+      "plans": [
+        {
+          "planId": 1,
+          "name": "Coding plan",
+          "toolKey": null,
+          "accruedCostUsd": "80",
+          "cadence": null,
+          "amountUsd": null
+        }
+      ],
+      "activeIntervals": [
+        {
+          "startUtc": "2026-09-01T04:00:00Z",
+          "endUtc": "2026-09-09T04:00:00Z"
+        }
+      ],
+      "configuredCostUsd": "80",
+      "usageValueUsd": "2400",
+      "usageValueStatus": "lower_bound",
+      "usageValueLabel": "\u2265 2400",
+      "usageValueBasis": "known-subtotal",
+      "multiple": 30.0,
+      "multipleBasis": "lower_bound",
+      "multipleReasonCode": null,
+      "multipleReason": "Qualified lower-bound Reference-value multiple: known priced subtotal over complete positive configured group cost",
+      "pricingCoverage": {
+        "status": "partial",
+        "label": "Partial (1 unpriced model(s))",
+        "pricedEvents": 1,
+        "unpricedEvents": 1,
+        "pricedTokens": 1000,
+        "unpricedTokens": 1000,
+        "unpricedModels": [
+          {
+            "modelKey": "unpriced-model",
+            "events": 1,
+            "tokens": 1000
+          }
+        ],
+        "incompleteTelemetryEvents": 0,
+        "excludedApiOnlyEvents": 0,
+        "excludedChargeOnlyEvents": 0,
+        "excludedScopeEvents": 0,
+        "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+      },
+      "collectionEvidence": {
+        "status": "unknown",
+        "complete": false,
+        "label": "No collection evidence for this group",
+        "sources": [],
+        "note": "Collection evidence describes capture freshness and known gaps; it is separate from whether recorded usage was priced."
+      },
+      "attribution": {
+        "basis": "configured_tool_association",
+        "label": "Configured tool association",
+        "note": "A configured tool association is a comparison assumption, not proof of provider account identity. Tool name alone is not account evidence."
+      },
+      "events": 2,
+      "tokens": 2000,
+      "pricedTokens": 1000,
+      "unpricedTokens": 1000,
+      "toolBreakdown": [
+        {
+          "toolKey": "codex",
+          "tokens": 2000
+        }
+      ],
+      "reportedChargesUsd": null,
+      "explanation": {
+        "period": {
+          "activeIntervals": [
+            {
+              "startUtc": "2026-09-01T04:00:00Z",
+              "endUtc": "2026-09-09T04:00:00Z"
+            }
+          ],
+          "note": "Usage is matched to the union of applicable active intervals for this group."
+        },
+        "configuredCost": {
+          "amountUsd": "80",
+          "plans": [
+            {
+              "planId": 1,
+              "name": "Coding plan",
+              "toolKey": null,
+              "accruedCostUsd": "80",
+              "cadence": null,
+              "amountUsd": null
+            }
+          ],
+          "formula": "Coding plan=80 = 80",
+          "note": "Configured cost is calendar-prorated plan expense over the same interval as usage \u2014 not verified cash."
+        },
+        "tools": {
+          "toolKeys": [
+            "codex"
+          ],
+          "associationBasis": "configured_tool_association",
+          "label": "Configured tool association",
+          "note": "A configured tool association is a comparison assumption, not proof of provider account identity. Tool name alone is not account evidence."
+        },
+        "referenceValue": {
+          "amountUsd": "2400",
+          "status": "lower_bound",
+          "basis": "known-subtotal",
+          "pricedEvents": 1,
+          "unpricedEvents": 1,
+          "unpricedModels": [
+            {
+              "modelKey": "unpriced-model",
+              "events": 1,
+              "tokens": 1000
+            }
+          ],
+          "excluded": [],
+          "note": "Reference value uses measured components at effective-dated published rates. Configured expense and provider-reported charges are not added. Observed charges are not fallback reference prices."
+        },
+        "collection": {
+          "status": "unknown",
+          "complete": false,
+          "label": "No collection evidence for this group",
+          "sources": [],
+          "note": "Collection evidence describes capture freshness and known gaps; it is separate from whether recorded usage was priced."
+        },
+        "multiple": {
+          "label": "Reference-value multiple",
+          "formula": "\u2265 2400 / 80 = \u2265 30\u00d7 (qualified lower bound)",
+          "value": 30.0,
+          "basis": "lower_bound",
+          "reasonCode": null,
+          "reason": "Qualified lower-bound Reference-value multiple: known priced subtotal over complete positive configured group cost",
+          "note": "Compares reference consumption at API rates with configured cost \u2014 not ROI, money saved, productivity, or a cancellation verdict."
+        },
+        "limits": {
+          "pricingVsCollection": "Pricing coverage is about recorded rows; collection evidence is about whether history was captured. Healthy polls do not prove historical completeness.",
+          "freshness": "No collection evidence for this group"
+        }
+      }
+    }
+  ],
+  "unassigned": {
+    "usageValueUsd": null,
+    "usageValueStatus": "no_records",
+    "events": 0,
+    "tokens": 0,
+    "pricedTokens": 0,
+    "unpricedTokens": 0,
+    "toolBreakdown": [],
+    "pricingCoverage": {
+      "status": "no_records",
+      "label": "No recorded usage",
+      "pricedEvents": 0,
+      "unpricedEvents": 0,
+      "pricedTokens": 0,
+      "unpricedTokens": 0,
+      "unpricedModels": [],
+      "incompleteTelemetryEvents": 0,
+      "excludedApiOnlyEvents": 0,
+      "excludedChargeOnlyEvents": 0,
+      "excludedScopeEvents": 0,
+      "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+    },
+    "excludedApiOnlyEvents": 0,
+    "excludedChargeOnlyEvents": 0,
+    "excludedScopeEvents": 0,
+    "explanation": {
+      "title": "Unassigned / no configured plan",
+      "note": "Usage without an applicable plan or safe association. No configured cost or Reference-value multiple is invented for this bucket.",
+      "referenceValue": {
+        "amountUsd": null,
+        "status": "no_records",
+        "excluded": []
+      },
+      "pricingCoverage": {
+        "status": "no_records",
+        "label": "No recorded usage",
+        "pricedEvents": 0,
+        "unpricedEvents": 0,
+        "pricedTokens": 0,
+        "unpricedTokens": 0,
+        "unpricedModels": [],
+        "incompleteTelemetryEvents": 0,
+        "excludedApiOnlyEvents": 0,
+        "excludedChargeOnlyEvents": 0,
+        "excludedScopeEvents": 0,
+        "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+      },
+      "tools": []
+    }
+  },
+  "sources": [],
+  "labels": {
+    "multiple": "Reference-value multiple",
+    "usageValue": "Recorded API-equivalent usage value",
+    "configuredCost": "Configured cost accrued"
+  },
+  "notes": [
+    "Reference value excludes configured expense and provider-reported charges.",
+    "Pricing coverage is separate from collection evidence.",
+    "Tool association is a comparison assumption, not account proof."
+  ]
+}

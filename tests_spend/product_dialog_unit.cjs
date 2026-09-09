@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const p = require('../spend_web/product-helpers.js');
+const p = require('../frontend_src/product.js');
 const term = (amount,cadence='monthly',status='active') => ({amount_usd:amount,monthly_equivalent:amount,cadence,status});
 assert.equal(p.dollars(p.decimal('1.005')), '$1.01');
 assert.equal(p.dollars(p.decimal('2.675')), '$2.68');
