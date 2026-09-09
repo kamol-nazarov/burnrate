@@ -322,10 +322,32 @@ const match = (actual, pattern, message) => {
     eq(root.querySelector('.plans-value-usage').textContent, '≥ $2,400.00');
     eq(root.querySelector('.plans-value-multiple').textContent, '≥ 30.00×');
     match(root.textContent, /unpriced-model/);
+    match(root.textContent, /charge|invoice/i, 'known excluded charge must have a readable reason');
     match(root.textContent, /No recorded usage/);
+    match(root.textContent, /redacted provider failure/);
+    match(root.textContent, /Last success: Aug 1, 2026, 8:00 AM/, 'source date uses the configured New York timezone');
+    match(root.textContent, /Freshness: stale/);
+    ok(!/undefined|never expose|Bearer|[A-Z]:\\Users\\|@example\.com/.test(root.textContent), 'only safe available source facts appear');
     ok(!root.textContent.includes('[object Object]'), 'structured explanations must render readable text');
   }
   // --- Pure helpers ---
+  {
+    const document = createDocument();
+    const api = loadApi(document);
+    const root = document.createElement('div');
+    const payload = case1Payload();
+    payload.groups[0].collectionEvidence = {
+      status: 'unknown', label: 'Freshness unavailable',
+      sources: [{source: 'codex_local', status: 'success', lastAttemptAt: null, lastSuccessAt: null, freshness: {state: 'unknown'}, coverage: {private: 'do not display'}}]
+    };
+    payload.groups[0].explanation.referenceValue.excluded = [{detail: 'Invoice charge excluded', raw: 'sk-hidden-secret'}];
+    api.renderPlansValue(root, payload);
+    match(root.textContent, /Last attempt: Unavailable/);
+    match(root.textContent, /Last success: Unavailable/);
+    match(root.textContent, /Freshness: unknown/);
+    match(root.textContent, /Excluded: Invoice charge excluded/);
+    ok(!/1970|Healthy recent|\[object Object\]|do not display|sk-hidden-secret/.test(root.textContent));
+  }
   {
     const document = createDocument();
     const api = loadApi(document);

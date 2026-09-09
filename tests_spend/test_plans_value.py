@@ -18,6 +18,8 @@ from spend_app.plans_value import (
     resolve_event_reference_usd,
 )
 from spend_app.pricing import PricingEngine
+from spend_app.plans_value_store import load_source_health
+from tests_spend.test_plans_value_health_unit import AS_OF, _HealthConnection
 
 UTC = timezone.utc
 NY = ZoneInfo("America/New_York")
@@ -93,7 +95,22 @@ def _unpriced_event(**overrides):
 
 
 def _health(*rows):
-    return list(rows)
+    latest = [
+        {
+            "source": row["source"],
+            "status": row["status"],
+            "started_at": row.get("finished_at", "2026-09-09T03:59:00Z"),
+            "finished_at": row.get("finished_at", "2026-09-09T03:59:00Z"),
+            "events_written": 1,
+            "error": row.get("note"),
+        }
+        for row in rows
+    ]
+    successes = [
+        {"source": row["source"], "last_success_at": row["finished_at"]}
+        for row in latest if row["status"] in {"success", "partial"}
+    ]
+    return load_source_health(_HealthConnection(latest, successes), as_of=AS_OF)
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +123,7 @@ def test_fully_priced_group_ratio_case1_shape():
         _group(),
         [_priced_event()],
         [],
-        _health({"source": "codex_local", "tool_key": "codex", "status": "healthy"}),
+        _health({"source": "codex_local", "status": "success"}),
     )
     assert row["configuredCostUsd"] == "80"
     assert row["usageValueUsd"] == "2400"
@@ -128,7 +145,7 @@ def test_case2_partial_keeps_known_subtotal_and_lower_bound_multiple():
         _group(),
         [_priced_event()],
         [_unpriced_event(input_tokens=1000)],
-        _health({"source": "codex_local", "status": "healthy"}),
+        _health({"source": "codex_local", "status": "success"}),
     )
     assert row["usageValueUsd"] == "2400"
     assert row["usageValueStatus"] == "lower_bound"
@@ -301,7 +318,8 @@ def test_case9_stale_collection_does_not_claim_complete_coverage():
             {
                 "source": "codex_local",
                 "tool_key": "codex",
-                "status": "stale",
+                "status": "success",
+                "finished_at": "2026-09-07T04:00:00Z",
                 "coverage": "partial",
                 "note": "last success 2d ago",
             }
@@ -324,7 +342,7 @@ def test_case9_healthy_poll_still_not_historical_complete():
         _group(),
         [_priced_event()],
         [],
-        _health({"source": "codex_local", "status": "healthy", "ageSeconds": 60}),
+        _health({"source": "codex_local", "status": "success"}),
     )
     assert row["pricingCoverage"]["status"] == "complete"
     assert row["collectionEvidence"]["status"] == "healthy"
@@ -441,7 +459,7 @@ def test_assemble_plans_value_report_envelope():
         NY,
         [group_row],
         unassigned,
-        [{"source": "codex_local", "status": "healthy"}],
+        _health({"source": "codex_local", "status": "success"}),
         datetime(2026, 9, 1, 4, 0, tzinfo=UTC),
         as_of,
     )

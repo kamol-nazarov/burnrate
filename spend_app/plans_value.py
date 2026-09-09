@@ -23,6 +23,8 @@ from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
 from spend_app.pricing import PricingEngine, UnpricedModelError
+from spend_app.plans_value_groups import SUPPORTED_TOOLS, canonical_tool_key
+from spend_app.source_health import sanitize_reason
 from spend_app.value_summary import ValueSummary, ratio_with_coverage
 
 UTC = timezone.utc
@@ -266,75 +268,176 @@ def _plan_payload(plans: Any) -> list[dict]:
     return rows
 
 
-def _collection_evidence(source_health: Any, *, tool_keys: tuple[str, ...] | list[str]) -> dict:
+def _collection_tool_keys(mapping: Mapping[str, Any]) -> tuple[str, ...]:
+    values = mapping.get("toolKeys")
+    if isinstance(values, str):
+        values = (values,)
+    output: list[str] = []
+    for value in values or ():
+        key = str(value or "").strip().lower()
+        if key in SUPPORTED_TOOLS and key not in output:
+            output.append(key)
+    return tuple(output)
+
+
+def _collection_source_id(value: Any) -> str:
+    import re
+
+    text = str(value or "").strip().lower()
+    if re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", text):
+        return text
+    return "unattributed"
+
+
+def _collection_source_label(value: Any, source: str) -> str:
+    import re
+
+    text = str(value or "").strip()
+    if not text or len(text) > 80 or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._()/+\-]{0,79}", text):
+        return source.replace("_", " ").title()
+    return text
+
+
+def _collection_safe_text(value: Any) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    text = sanitize_reason(value)
+    # ``sanitize_reason`` handles credential-shaped tokens and line breaks.
+    # These additional replacements keep old/synthetic rows from exposing
+    # personal locations or account identifiers through this API.
+    import re
+
+    text = re.sub(r"(?i)[A-Z]:\\[^\s;]+", "[path omitted]", text)
+    text = re.sub(r"(?i)/(?:Users|home|var|etc|tmp)/[^\s;]+", "[path omitted]", text)
+    text = re.sub(r"(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[redacted]", text)
+    if any(marker in text.lower() for marker in ("prompt", "raw response", "authorization", "bearer", "api key")):
+        return "The latest source attempt reported a problem; other sources continue independently."
+    return " ".join(text.split())[:240] or None
+
+
+def _collection_freshness(mapping: Mapping[str, Any]) -> dict:
+    value = mapping.get("freshness")
+    if isinstance(value, Mapping):
+        state = str(value.get("state") or "unknown").lower()
+        age = value.get("ageSeconds")
+        return {
+            "state": state,
+            "ageSeconds": age,
+            "asOf": value.get("asOf"),
+        }
+    return {"state": "unknown", "ageSeconds": None, "asOf": None}
+
+
+def _collection_evidence(
+    source_health: Any,
+    *,
+    tool_keys: tuple[str, ...] | list[str],
+    as_of: datetime | None = None,
+) -> dict:
+    """Project only relevant source lanes into one group's evidence.
+
+    The loader's ``toolKeys``/``relevant`` fields are authoritative.  A row
+    with an empty association is treated as a global issue and is never
+    attached to every plan group.
+    """
+    wanted = {canonical_tool_key(str(key).strip().lower()) for key in tool_keys if key}
     sources: list[dict] = []
     statuses: list[str] = []
     for row in source_health or ():
         mapping = row if isinstance(row, Mapping) else _as_mapping(row)
-        source = mapping.get("source") or mapping.get("name")
-        tool = mapping.get("tool_key") or mapping.get("toolKey")
-        if tool_keys and tool and tool not in tool_keys and source:
-            # Keep sources that match by tool, or unscoped health rows.
-            pass
-        status = str(
-            mapping.get("status")
-            or mapping.get("health")
-            or mapping.get("collectionStatus")
-            or "unknown"
-        ).lower()
-        statuses.append(status)
-        sources.append(
-            {
-                "source": source,
-                "toolKey": tool,
-                "status": status,
-                "lastSuccessAt": mapping.get("lastSuccessAt")
-                or mapping.get("last_success_at")
-                or mapping.get("last_success"),
-                "ageSeconds": mapping.get("ageSeconds")
-                if mapping.get("ageSeconds") is not None
-                else mapping.get("age_seconds"),
-                "coverage": mapping.get("coverage")
-                or mapping.get("historicalCoverage")
-                or mapping.get("historical_coverage"),
-                "note": mapping.get("note") or mapping.get("reason"),
-            }
+        if mapping.get("relevant") is False:
+            continue
+        source = _collection_source_id(mapping.get("source"))
+        row_tools = _collection_tool_keys(mapping)
+        if not row_tools or not wanted:
+            continue
+        row_canonical = {canonical_tool_key(key) for key in row_tools}
+        if not wanted.intersection(row_canonical):
+            continue
+
+        status = str(mapping.get("status") or "unknown").lower()
+        configured = str(mapping.get("configuredState") or "unknown").lower()
+        freshness = _collection_freshness(mapping)
+        last_attempt = (
+            mapping.get("lastAttemptAt")
         )
+        last_success = mapping.get("lastSuccessAt")
+        reason = _collection_safe_text(mapping.get("reason"))
+        association = mapping.get("associationKey")
+        if association not in {canonical_tool_key(key) for key in row_tools}:
+            association = None
+        if association is None and row_tools:
+            canonical = {canonical_tool_key(key) for key in row_tools}
+            association = next(iter(canonical)) if len(canonical) == 1 else None
+        projected = {
+            "source": source,
+            "sourceLabel": _collection_source_label(mapping.get("sourceLabel"), source),
+            "toolKeys": list(row_tools),
+            "associationKey": association,
+            "configuredState": configured,
+            "status": status,
+            "lastAttemptAt": last_attempt,
+            "lastSuccessAt": last_success,
+            "freshness": freshness,
+            "coverage": mapping.get("coverage") or "unknown",
+            "reason": reason,
+            "eventsWritten": mapping.get("eventsWritten") or 0,
+        }
+        sources.append(projected)
+
+    # Optional/unconfigured lanes sharing a tool must not make an otherwise
+    # healthy configured lane look failed.  Keep them visible when they are
+    # the only evidence for a group so "missing" and "disabled" remain
+    # distinct states.
+    if any(row["configuredState"] == "configured" for row in sources):
+        sources = [
+            row
+            for row in sources
+            if row["configuredState"] not in {"missing", "disabled", "unknown"}
+        ]
+    statuses = [row["status"] for row in sources]
 
     if not sources:
         overall = "unknown"
         label = "No collection evidence for this group"
-        complete = False
+    elif any(state == "disabled" for state in (row["configuredState"] for row in sources)):
+        overall = "disabled"
+        label = "Collection source disabled"
+    elif any(state == "missing" for state in (row["configuredState"] for row in sources)):
+        overall = "missing"
+        label = "Collection source not configured"
     elif any(status in {"failed", "error"} for status in statuses):
         overall = "failed"
         label = "Collection failed for at least one source"
-        complete = False
-    elif any(status in {"stale"} for status in statuses):
-        overall = "stale"
-        label = "Stale collection evidence"
-        complete = False
     elif any(status in {"partial", "incomplete"} for status in statuses):
         overall = "partial"
         label = "Partial collection evidence"
-        complete = False
-    elif all(status in {"healthy", "ok", "success"} for status in statuses):
+    elif any(row["freshness"]["state"] == "stale" for row in sources):
+        overall = "stale"
+        label = "Stale collection evidence"
+    elif any(status == "never" for status in statuses):
+        overall = "never"
+        label = "No collection observed yet"
+    elif all(
+        (status == "success" or (status == "skipped" and row["reason"] == "Collection deferred to the established cadence."))
+        and row["freshness"]["state"] == "recent"
+        for status, row in zip(statuses, sources)
+    ):
         overall = "healthy"
         label = "Healthy recent collection"
-        # Fresh polls do not prove historical completeness.
-        complete = False
     else:
         overall = "unknown"
         label = "Collection evidence incomplete"
-        complete = False
 
     return {
         "status": overall,
-        "complete": complete,
+        "complete": False,
         "label": label,
         "sources": sources,
         "note": (
-            "Collection evidence describes capture freshness and known gaps; "
-            "it is separate from whether recorded usage was priced."
+            "Collection evidence describes the current poll and source freshness; "
+            "it does not prove complete historical capture for this period, "
+            "including Last month. It is separate from whether recorded usage was priced."
         ),
     }
 
@@ -644,6 +747,7 @@ def assemble_group_valuation(
     source_health: list[dict] | None,
     *,
     pricing: PricingEngine | None = None,
+    as_of: datetime | None = None,
 ) -> dict:
     """Build one plan/group comparison row with explanation data."""
     group_map = group if isinstance(group, Mapping) else _as_mapping(group)
@@ -680,7 +784,7 @@ def assemble_group_valuation(
         summary=summary,
         excluded_scope=accumulated["excluded_scope"],
     )
-    collection = _collection_evidence(source_health, tool_keys=tool_keys)
+    collection = _collection_evidence(source_health, tool_keys=tool_keys, as_of=as_of)
     coverage = _pricing_coverage_payload(
         summary=summary,
         usage_status=usage_status,

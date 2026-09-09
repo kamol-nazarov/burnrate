@@ -141,6 +141,23 @@ Fully priced recorded rows with stale or partial collection **do not** claim
 complete historical coverage. Unknown models do not hide other priced rows.
 Pricing coverage never invents dollars for gaps in collection.
 
+Collection evidence is scoped to relevant configured or contributing sources for
+the group's tool association, including shared OpenCode/ZCode sources. Unrelated
+failures do not change that group's cost, value, multiple, or collection status.
+Unattributed source issues remain separate.
+
+The report keeps the latest attempt separate from the last successful import.
+Freshness is calculated at the request's captured `asOf`; absent dates cannot
+establish recent health. Disabled, missing, never-observed, stale, partial, and
+failed collection are distinct. For **Last month**, collection status is a current
+snapshot, not proof that the previous month's history was completely captured.
+“Why this number?” shows relevant source dates and safe reasons alongside known
+record exclusions; an excluded invoice charge is not an unpriced-token gap.
+
+Row and footer **Check connection** actions open existing connection help while
+keeping the parent view and plan draft intact. Closing help restores focus to the
+clicked button, or to the active dialog heading if that button is no longer usable.
+
 ## “Why this number?”
 
 Each comparison row can expand a component breakdown. Typical contents:

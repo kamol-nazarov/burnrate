@@ -34,13 +34,7 @@
     return st === "none" ? "No recorded usage" : "Unavailable";
   };
 
-  const collectionLabel = g => {
-    const ev = g?.collectionEvidence || {};
-    if (ev.label) return String(ev.label);
-    const st = ev.status || "unknown", s = ev.freshnessSeconds ?? ev.freshness_seconds;
-    const r = s == null ? null : s < 60 ? "just now" : s < 3600 ? Math.floor(s/60)+"m ago" : s < 86400 ? Math.floor(s/3600)+"h ago" : Math.floor(s/86400)+"d ago";
-    return st === "healthy" ? (r ? `Healthy (${r})` : "Healthy") : st === "stale" ? "Stale" : st === "partial" ? "Partial collection" : st === "failed" ? "Collection failed" : "Unknown";
-  };
+  const collectionLabel = g => g?.collectionEvidence?.label || "Collection status unavailable";
 
   const attributionLabel = g => {
     const a = g?.attribution || {};
@@ -60,13 +54,25 @@
 
   const explanationSections = (g, p) => {
     const ex = g?.explanation || {}, ref = ex.referenceValue || {};
-    const join = (...values) => values.flat().filter(v => v != null && v !== "").map(sanitizeExplanationText).join(". ");
+    const join = (...values) => values.flat().filter(v => (typeof v === "string" && v) || typeof v === "number").map(sanitizeExplanationText).join(". ");
+    const date = value => {
+      const parsed = new Date(value || "");
+      if (!Number.isFinite(parsed.getTime())) return "Unavailable";
+      return new Intl.DateTimeFormat("en-US", {dateStyle:"medium",timeStyle:"short",timeZone:p?.timezone || "UTC"}).format(parsed);
+    };
+    const collection = g?.collectionEvidence || {};
+    const sources = (collection.sources || []).slice(0,12).map(s => join(
+      s.sourceLabel || s.source, s.status, s.configuredState,
+      `Last attempt: ${date(s.lastAttemptAt)}`, `Last success: ${date(s.lastSuccessAt)}`,
+      `Freshness: ${s.freshness?.state || "unknown"}`, s.reason, s.coverage
+    ));
+    const exclusions = (ref.excluded || []).slice(0,8).map(item => `Excluded: ${typeof item?.detail === "string" ? item.detail : "Reason unavailable"}`);
     return [
       ["Period", join(periodCaption(p), (ex.period?.activeIntervals || []).map(i => `${i.startUtc} – ${i.endUtc}`), ex.period?.note)],
       ["Configured cost", join(includedPlans(g), ex.configuredCost?.formula, ex.configuredCost?.note)],
       ["Tools & association", join(toolBadge(g), ex.tools?.label, ex.tools?.note)],
-      ["Reference value", join(ref.note, `${ref.pricedEvents ?? 0} priced events; ${ref.unpricedEvents ?? 0} unpriced events`, (ref.unpricedModels || []).map(m => typeof m === "string" ? m : `${m.modelKey}: ${m.tokens} tokens`), ref.excluded)],
-      ["Collection limits", join(collectionLabel(g), ex.limits?.pricingVsCollection)],
+      ["Reference value", join(ref.note, `${ref.pricedEvents ?? "Unavailable"} priced events; ${ref.unpricedEvents ?? "Unavailable"} unpriced events`, (ref.unpricedModels || []).map(m => typeof m === "string" ? m : `${m.modelKey || "Unknown model"}: ${m.tokens ?? "Unavailable"} tokens`), exclusions)],
+      ["Collection limits", join(collectionLabel(g), sources, collection.note, ex.limits?.pricingVsCollection)],
       ["Reference-value multiple", join(ex.multiple?.formula || multipleLabel(g), ex.multiple?.note)]
     ];
   };
@@ -128,7 +134,7 @@
       renderWhy(g, p),
       h("div", {className: "plans-value-row-actions"},
         btn("settings-link", `Manage plans for ${name}`, () => ctx.openPlanManager?.(g), "Manage plans"),
-        btn("ghost-button", `Check connection for ${name}`, () => ctx.openHarnesses?.(g), "Check connection")
+        btn("ghost-button", `Check connection for ${name}`, event => ctx.openHarnesses?.(g, event.currentTarget), "Check connection")
       )
     );
   }
@@ -171,7 +177,7 @@
     }
     const footer = h("div", {className: "plans-value-footer"},
       btn("settings-link", "Open plan manager", () => ctx.openPlanManager?.(), "Manage plans"),
-      btn("ghost-button", "Open connection diagnostics", () => ctx.openHarnesses?.(), "Check connection")
+      btn("ghost-button", "Open connection diagnostics", event => ctx.openHarnesses?.(null, event.currentTarget), "Check connection")
     );
     cnt.replaceChildren(h("section", {className: "plans-value", "aria-label": "Plans and Value"}, head, body, footer));
   }

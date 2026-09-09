@@ -47,9 +47,9 @@ function buildPlanMutation(op,values,p,t,preview,confirmed){const b={operation:o
   const {decimal,dollars,daysInclusive,currentTotal,priceCards,sourceTool,sourceTone,harnessCount,wizardSteps,buildPlanMutation}=window.ProductLogic;
   const el = id => document.getElementById(id);
   function restoreOpener(button,fallback) {
-    const ownerDialog=button?.closest("dialog");
-    if(button?.isConnected && !button.closest("[hidden]") && (!ownerDialog || ownerDialog.open))button.focus();
-    else el(fallback).focus();
+    const ownerDialog=button?.closest?.("dialog"),active=[...document.querySelectorAll("dialog[open]")].at(-1);
+    if(button?.isConnected && typeof button.focus === "function" && !button.closest?.("[hidden]") && (!ownerDialog || ownerDialog.open) && (!active || ownerDialog===active))button.focus();
+    else (active?.querySelector("[tabindex='-1']") || active || el(fallback)).focus();
   }
   const setup = el("setup-guidance");
   const preference = "burnrate:setup:v1";
@@ -172,7 +172,7 @@ function buildPlanMutation(op,values,p,t,preview,confirmed){const b={operation:o
     const pv=el("plans-value-view");if(pv)pv.hidden=false;el("plan-list-view").hidden=true;form.hidden=true;
     for(const [t,s] of [["tab-plans-value",true],["tab-plans-list",false]]){const b=el(t);if(b){b.classList.toggle("active",s);b.setAttribute("aria-pressed",String(s));}}
     el("plan-manager-title").textContent="Plans & Value";el("plan-manager-title").focus();
-    if(!plansValueCtrl&&window.createPlansValueController&&pv){plansValueCtrl=window.createPlansValueController(pv,{timezone:data.timezone,openPlanManager:showList,openHarnesses});plansValueCtrl.load("this_month");}
+    if(!plansValueCtrl&&window.createPlansValueController&&pv){plansValueCtrl=window.createPlansValueController(pv,{timezone:data.timezone,openPlanManager:showList,openHarnesses:(_group,button)=>openHarnesses(button)});plansValueCtrl.load("this_month");}
     else if(plansValueCtrl){plansValueCtrl.reopen();plansValueCtrl.load();}
   }
 

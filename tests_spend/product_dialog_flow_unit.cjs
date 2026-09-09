@@ -22,10 +22,10 @@ class Element {
     if(selector==='button' && this.id==='plan-tool-cards')return [...this.items.values()];
     return [];
   }
-  replaceChildren(...children) { this.options=children; if(!children.some(child=>child.value===this.value))this.value=children[0]?.value || ''; }
-  append() {}
+  replaceChildren(...children) { const detach=node=>{if(typeof node==='object'){node.isConnected=false;for(const child of node.children || [])detach(child);}};for(const child of this.children || [])detach(child);this.children=[];this.append(...children);this.options=children; if(!children.some(child=>child.value===this.value))this.value=children[0]?.value || ''; }
+  append(...children) { this.children ||= []; for(const child of children){if(typeof child==='object')child.parent=this;this.children.push(child);} }
   before() {}
-  closest() { return null; }
+  closest(selector) { for(let node=this;node;node=node.parent){if(selector==='dialog' && ['plan-manager','harness-manager'].includes(node.id))return node;if(selector==='[hidden]' && node.hidden)return node;}return null; }
 }
 const nodes=new Map();
 const html=fs.readFileSync(require.resolve('../spend_web/index.html'),'utf8');
@@ -46,6 +46,11 @@ for(const match of newStyles.matchAll(/var\((--[\w-]+)/g))assert.ok(palette.has(
 assert.doesNotMatch(newStyles,/#[\da-f]{3,8}\b|rgba?\(/i);
 const document={body:new Element(),createTextNode:text=>text,activeElement:null,getElementById(id){assert.ok(ids.includes(id),`Missing markup for ${id}`);if(!nodes.has(id))nodes.set(id,new Element(id));return nodes.get(id);},createElement(){return new Element();}};
 const el=id=>document.getElementById(id);
+document.querySelectorAll=selector=>selector==='dialog[open]' ? [el('plan-manager'),el('harness-manager')].filter(node=>node.open) : [];
+el('plan-manager').nodes.set("[tabindex='-1']",el('plan-manager-title'));
+el('harness-manager').nodes.set("[tabindex='-1']",el('harness-manager-title'));
+for(const id of ['plans-value-view','plan-manager-title','tab-plans-value','tab-plans-list','plan-form'])el(id).parent=el('plan-manager');
+const findButton=(root,label)=>{if(typeof root!=='object')return null;if(root.attrs['aria-label']===label)return root;for(const child of root.children || []){const found=findButton(child,label);if(found)return found;}return null;};
 const requests=[];
 const window={colorFor:()=> 'var(--accent)',refreshCapacitySourceHints(){},openHarnessUsage:tool=>{window.viewed=tool;},BurnrateConnections:{open(){window.managedOpened=true;}},open(){}};
 let sequence=0;
@@ -67,6 +72,33 @@ const planData=amount=>({today:'2026-09-07',timezone:'UTC',tools:['codex','openc
   assert.equal(el('plan-list-view').hidden,true);
   const valueRequest=latest('/api/subscriptions/value?period=this_month');
   assert.ok(valueRequest,'opening the dialog must request comparison data');
+  const report=JSON.parse(fs.readFileSync(require.resolve('./fixtures/plans_value_response.json'),'utf8'));
+  reply(valueRequest,report);await flush();
+  const rowConnection=findButton(el('plans-value-view'),'Check connection for Coding plan');
+  assert.ok(rowConnection,'real comparison row rendered');
+  rowConnection.focus();rowConnection.click();
+  assert.equal(el('harness-manager').open,true);
+  assert.equal(el('plan-manager').open,true,'child help keeps the parent open');
+  el('close-harnesses').click();
+  assert.equal(document.activeElement,rowConnection,'row help returns focus to the actual opener');
+  el('plan-name').value='Draft stays intact';
+  const footerConnection=findButton(el('plans-value-view'),'Open connection diagnostics');
+  footerConnection.focus();footerConnection.dispatch('click'); // Native keyboard button activation produces click.
+  el('harness-manager').dispatch('cancel');el('harness-manager').close();
+  assert.equal(document.activeElement,footerConnection,'keyboard footer activation and Escape restore focus');
+  assert.equal(el('plan-name').value,'Draft stays intact');
+  rowConnection.focus();rowConnection.click();rowConnection.isConnected=false;
+  el('close-harnesses').click();
+  assert.equal(document.activeElement,el('plan-manager-title'),'disconnected row returns to the parent heading');
+  rowConnection.isConnected=true;rowConnection.focus();rowConnection.click();rowConnection.parent.hidden=true;
+  el('close-harnesses').click();
+  assert.equal(document.activeElement,el('plan-manager-title'),'hidden row returns to the parent heading');
+  rowConnection.parent.hidden=false;rowConnection.focus();rowConnection.dispatch('click');
+  el('plan-manager').close();el('nav-plans').click();
+  el('close-harnesses').click();
+  assert.equal(el('plan-manager').open,true,'reopened parent remains open');
+  assert.equal(document.activeElement,el('plan-manager-title'),'stale opener cannot take focus after parent reopen');
+  assert.ok(requests.every(r=>['/api/onboarding','/api/subscriptions','/api/subscriptions/value?period=this_month'].includes(r.url) && !r.options.method),'connection help only reads existing metadata');
   el('tab-plans-list').click();
   assert.equal(el('plans-value-view').hidden,true);
   assert.equal(el('plan-list-view').hidden,false);

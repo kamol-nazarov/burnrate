@@ -11,6 +11,12 @@ This project is licensed under Apache-2.0.
 
 ## [0.3.0-beta.4] - 2026-09-09
 
+- Scope collection evidence to relevant sources, preserve prior-success dates
+  alongside failed attempts, and distinguish current freshness from historical
+  capture. Explain safe source reasons and structured record exclusions.
+- Fix row-level connection-help focus restoration, including hidden or replaced
+  openers and parent-dialog reopen races, without discarding plan drafts.
+
 - Add Plans & Value beside subscription management: calendar-prorated configured
   cost, recorded API-equivalent usage, qualified reference multiples, shared-tool
   grouping, unassigned usage, and separate pricing and collection evidence.

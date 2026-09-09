@@ -39,7 +39,8 @@ async function main(){
   outputs['dialogs.js']='window.initializeProductDialogs=()=>{'+['connections.js','plans-value.js','product.js'].map(name=>aliasAttributes(sources[name])).join('\n;\n')+'\n};';
   outputs['product.js']='window.initializeProductDialogs();';
   for(const name of ['spend.js','request-state.js'])outputs[name]=aliasAttributes(sources[name]);
-  for(const name of Object.keys(outputs).filter(name=>name.endsWith('.js'))){const result=await terser.minify(outputs[name],{compress:{passes:3},mangle:true,keep_fnames:name==='spend.js',format:{comments:false}});outputs[name]=result.code+'\n';}
+  // Dialogs run only in the browser; their CommonJS branches belong to source unit tests.
+  for(const name of Object.keys(outputs).filter(name=>name.endsWith('.js'))){const result=await terser.minify(outputs[name],{compress:{passes:3,global_defs:name==='dialogs.js'?{module:undefined}:{}},mangle:true,keep_fnames:name==='spend.js',format:{comments:false}});outputs[name]=result.code+'\n';}
   outputs['index.html']=aliasAttributes(sources['index.html']).replace('    <script src="/connections.js?v=1" defer></script>','    <script src="/dialogs.js?v=1" defer></script>');
   for(const name of ['connections.js','product-helpers.js','harness.js'])fs.rmSync(path.join(root,'spend_web',name),{force:true});
   for(const [name,code] of Object.entries(outputs))fs.writeFileSync(path.join(root,'spend_web',name),code);
