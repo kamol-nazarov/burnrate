@@ -119,5 +119,5 @@ function returnOverview(home = false) {
     state.summary = {...state.summary, status:"stale", snapshot:true};
     renderPreservingScroll(true, renderOverview);
   }
-  else loadSummary(true);
+  else return loadSummary(true);
 }

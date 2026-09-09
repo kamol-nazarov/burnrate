@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const root=path.resolve(__dirname,'..');
 const tools=require('node:module').createRequire(path.resolve(root,process.argv[2]||'scripts/asset-tools','package.json'));
 const CleanCSS=tools('clean-css'),terser=tools('terser'),acorn=tools('acorn');
-const sources=Object.fromEntries(['index.html','spend.css','spend.js','request-state.js','product.js','connections.js','plans-value.js'].map(name=>[name,fs.readFileSync(path.join(root,'frontend_src',name),'utf8').replace(/\r\n/g,'\n')]));
+const sources=Object.fromEntries(['index.html','spend.css','spend.js','request-state.js','product.js','connections.js','plans-value.js','attention.js'].map(name=>[name,fs.readFileSync(path.join(root,'frontend_src',name),'utf8').replace(/\r\n/g,'\n')]));
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 function walk(node,visit){if(!node||typeof node!=='object')return;visit(node);for(const value of Object.values(node)){if(Array.isArray(value))value.forEach(child=>walk(child,visit));else if(value&&typeof value==='object')walk(value,visit);}}
 // Alias only immutable literal classes. Keep original classes in the DOM;
@@ -36,11 +36,14 @@ async function main(){
   outputs['spend.css']=optimized.styles+'\n';
   // One optional-dialog bundle shares compression across the plan, value and
   // connection views. Keep the ordered product entry point separate from it.
-  outputs['dialogs.js']='window.initializeProductDialogs=()=>{'+['connections.js','plans-value.js','product.js'].map(name=>aliasAttributes(sources[name])).join('\n;\n')+'\n};';
+  outputs['dialogs.js']='window.initializeProductDialogs=()=>{'+['connections.js','plans-value.js','attention.js','product.js'].map(name=>aliasAttributes(sources[name])).join('\n;\n')+'\n};';
   outputs['product.js']='window.initializeProductDialogs();';
-  for(const name of ['spend.js','request-state.js'])outputs[name]=aliasAttributes(sources[name]);
+  // Compile dashboard/request ownership together so internal identifiers can be
+  // shortened. Preserve the existing cross-script and browser-contract bindings.
+  outputs['spend.js']='window.bootSpend(()=>{'+aliasAttributes(sources['request-state.js'])+'\n'+aliasAttributes(sources['spend.js'])+'\nObject.assign(window,{state,colorFor,loadEntity,BurnrateDOM:{n:nodeFrom,t:setText,e:setEmpty,r:reconcileChildren}});});';
+  outputs['request-state.js']='window.bootSpend=initialize=>initialize();';
   // Dialogs run only in the browser; their CommonJS branches belong to source unit tests.
-  for(const name of Object.keys(outputs).filter(name=>name.endsWith('.js'))){const result=await terser.minify(outputs[name],{compress:{passes:3,global_defs:name==='dialogs.js'?{module:undefined}:{}},mangle:true,keep_fnames:name==='spend.js',format:{comments:false}});outputs[name]=result.code+'\n';}
+  for(const name of Object.keys(outputs).filter(name=>name.endsWith('.js'))){const result=await terser.minify(outputs[name],{compress:{passes:3,global_defs:name==='dialogs.js'?{module:undefined}:{}},mangle:true,format:{comments:false}});outputs[name]=result.code.replace(/;$/,'');}
   outputs['index.html']=aliasAttributes(sources['index.html']).replace('    <script src="/connections.js?v=1" defer></script>','    <script src="/dialogs.js?v=1" defer></script>');
   for(const name of ['connections.js','product-helpers.js','harness.js'])fs.rmSync(path.join(root,'spend_web',name),{force:true});
   for(const [name,code] of Object.entries(outputs))fs.writeFileSync(path.join(root,'spend_web',name),code);

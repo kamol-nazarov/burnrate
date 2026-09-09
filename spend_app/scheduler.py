@@ -197,4 +197,6 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
         next_run_time=datetime.now(UTC) + timedelta(seconds=1),
         **poller_opts,
     )
+    from spend_app.attention_store import register
+    register(scheduler, settings, pricing)
     return scheduler

@@ -20,12 +20,13 @@ class Element {
     if(selector==='[data-cadence]') return ['monthly','quarterly','annual'].map(value=>{const node=this.querySelector('cadence'+value);node.dataset.cadence=value;return node;});
     if(selector==='[data-plan-op]') return ['schedule','end','correct'].map(value=>{const node=this.querySelector('op'+value);node.dataset.planOp=value;return node;});
     if(selector==='button' && this.id==='plan-tool-cards')return [...this.items.values()];
+    if(selector==='button'){const found=[];const visit=n=>{if(n?.tagName==='BUTTON')found.push(n);for(const c of n?.children||[])visit(c);};for(const c of this.children||[])visit(c);return found;}
     return [];
   }
   replaceChildren(...children) { const detach=node=>{if(typeof node==='object'){node.isConnected=false;for(const child of node.children || [])detach(child);}};for(const child of this.children || [])detach(child);this.children=[];this.append(...children);this.options=children; if(!children.some(child=>child.value===this.value))this.value=children[0]?.value || ''; }
   append(...children) { this.children ||= []; for(const child of children){if(typeof child==='object')child.parent=this;this.children.push(child);} }
   before() {}
-  closest(selector) { for(let node=this;node;node=node.parent){if(selector==='dialog' && ['plan-manager','harness-manager'].includes(node.id))return node;if(selector==='[hidden]' && node.hidden)return node;}return null; }
+  closest(selector) { for(let node=this;node;node=node.parent){if(selector==='dialog' && ['plan-manager','harness-manager','attention-panel'].includes(node.id))return node;if(selector==='[hidden]' && node.hidden)return node;}return null; }
 }
 const nodes=new Map();
 const html=fs.readFileSync(require.resolve('../spend_web/index.html'),'utf8');
@@ -44,21 +45,25 @@ const newStyles=fs.readFileSync(require.resolve('../frontend_src/spend.css'),'ut
 const palette=new Set(['--surface','--soft','--raised','--border','--border-strong','--hair','--text','--secondary','--muted','--dim','--accent','--green','--amber','--danger','--warn-bg','--warn-border','--good-bg','--good-border','--font-mono','--font-sans','--danger-bg','--danger-border','--dialog-shadow']);
 for(const match of newStyles.matchAll(/var\((--[\w-]+)/g))assert.ok(palette.has(match[1]),`Undeclared palette use: ${match[1]}`);
 assert.doesNotMatch(newStyles,/#[\da-f]{3,8}\b|rgba?\(/i);
-const document={body:new Element(),createTextNode:text=>text,activeElement:null,getElementById(id){assert.ok(ids.includes(id),`Missing markup for ${id}`);if(!nodes.has(id))nodes.set(id,new Element(id));return nodes.get(id);},createElement(){return new Element();}};
+const document={body:new Element(),createTextNode:text=>text,activeElement:null,getElementById(id){assert.ok(ids.includes(id),`Missing markup for ${id}`);if(!nodes.has(id))nodes.set(id,new Element(id));return nodes.get(id);},createElement(tag='div'){const n=new Element();n.tagName=tag.toUpperCase();return n;}};
 const el=id=>document.getElementById(id);
-document.querySelectorAll=selector=>selector==='dialog[open]' ? [el('plan-manager'),el('harness-manager')].filter(node=>node.open) : [];
+document.querySelectorAll=selector=>selector==='dialog[open]' ? [el('plan-manager'),el('harness-manager'),el('attention-panel')].filter(node=>node.open) : [];
 el('plan-manager').nodes.set("[tabindex='-1']",el('plan-manager-title'));
 el('harness-manager').nodes.set("[tabindex='-1']",el('harness-manager-title'));
 for(const id of ['plans-value-view','plan-manager-title','tab-plans-value','tab-plans-list','plan-form'])el(id).parent=el('plan-manager');
+for(const id of ids.filter(id=>id.startsWith('attention-')&&id!=='attention-panel'))el(id).parent=el('attention-panel');
+for(const selector of ["[tabindex='-1']",'[tabindex="-1"]'])el('attention-panel').nodes.set(selector,el('attention-title'));
+for(const key of ['quota','source','pricing','lower','higher'])el('attention-'+key).type=['lower','higher'].includes(key)?'number':'checkbox';
 const findButton=(root,label)=>{if(typeof root!=='object')return null;if(root.attrs['aria-label']===label)return root;for(const child of root.children || []){const found=findButton(child,label);if(found)return found;}return null;};
 const requests=[];
 const window={colorFor:()=> 'var(--accent)',refreshCapacitySourceHints(){},openHarnessUsage:tool=>{window.viewed=tool;},BurnrateConnections:{open(){window.managedOpened=true;}},open(){}};
 let sequence=0;
-const context={window,document,console,Date,Intl,BigInt,AbortController,Option:function(label,value){this.text=label;this.value=String(value);},crypto:{randomUUID:()=>`request-${++sequence}`},localStorage:{setItem(){},getItem(){return null;}},navigator:{clipboard:{writeText:async()=>{}}},
+const context={window,document,console,Date,Intl,BigInt,AbortController,Option:function(label,value){this.text=label;this.value=String(value);},crypto:{randomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,"0")}`},localStorage:{setItem(){},getItem(){return null;}},navigator:{clipboard:{writeText:async()=>{}}},
   fetch:(url,options={})=>new Promise(resolve=>requests.push({url,options,resolve})),
   nodeFrom:()=>new Element(),setText:(node,text)=>{node.textContent=text;},setEmpty:(node,html)=>{node.items.clear();node.textContent=html;},
   reconcileChildren:(root,rows,key,create,update)=>{const next=new Map();rows.forEach((row,index)=>{const id=key(row,index);const node=root.items.get(id)||create();update(node,row,index);next.set(id,node);});root.items=next;}};
 vm.createContext(context);
+window.BurnrateDOM={n:context.nodeFrom,t:context.setText,e:context.setEmpty,r:context.reconcileChildren};
 for(const file of ['dialogs.js','product.js'])vm.runInContext(fs.readFileSync(require.resolve('../spend_web/'+file),'utf8'),context);
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const reply=(request,data,ok=true,status=200)=>request.resolve({ok,status,json:async()=>data});
@@ -98,7 +103,7 @@ const planData=amount=>({today:'2026-09-07',timezone:'UTC',tools:['codex','openc
   el('close-harnesses').click();
   assert.equal(el('plan-manager').open,true,'reopened parent remains open');
   assert.equal(document.activeElement,el('plan-manager-title'),'stale opener cannot take focus after parent reopen');
-  assert.ok(requests.every(r=>['/api/onboarding','/api/subscriptions','/api/subscriptions/value?period=this_month'].includes(r.url) && !r.options.method),'connection help only reads existing metadata');
+  assert.ok(requests.every(r=>['/api/onboarding','/api/subscriptions','/api/subscriptions/value?period=this_month','/api/attention?detail=false'].includes(r.url) && (!r.options.method||r.options.method==='GET')),'connection help only reads existing metadata');
   el('tab-plans-list').click();
   assert.equal(el('plans-value-view').hidden,true);
   assert.equal(el('plan-list-view').hidden,false);
@@ -156,5 +161,49 @@ const planData=amount=>({today:'2026-09-07',timezone:'UTC',tools:['codex','openc
   el('close-harnesses').click();assert.equal(document.activeElement,el('capacity-connect'));
   el('nav-connect').click();reply(latest('/api/onboarding'),{sources:[],integrations:[]});await flush();assert.match(el('harness-rows').textContent,/No local source metadata/);
   el('nav-connect').isConnected=false;el('close-harnesses').click();assert.equal(document.activeElement,el('nav-connect'));el('nav-connect').isConnected=true;
-  console.log('Product dialog fake-DOM flow tests passed');
+  const attention=JSON.parse(fs.readFileSync(require.resolve('./fixtures/attention_response.json'),'utf8'));
+  reply(latest('/api/attention?detail=false'),attention);await flush();
+  el('nav-attention').click();const obsolete=latest('/api/attention');
+  el('attention-close').click();el('nav-attention').click();const reopened=latest('/api/attention');
+  reply(obsolete,{...attention,revision:999,badgeCount:99});await flush();
+  reply(reopened,attention);await flush();
+  assert.equal(el('nav-attention').textContent,'Attention 1','obsolete response cannot replace badge');
+  const text=n=>[n.textContent||'',...(n.children||[]).map(c=>typeof c==='string'?c:text(c))].join(' ');
+  const control=label=>el('attention-list').querySelectorAll('button').find(n=>n.textContent===label);
+  assert.match(text(el('attention-list')),/Acknowledged/);assert.match(text(el('attention-list')),/Snooze until/);
+  const help=control('View connection status');assert.ok(help);help.focus();help.dispatch('click');
+  assert.equal(el('harness-manager').open,true);assert.equal(el('attention-panel').open,true);
+  el('close-harnesses').click();assert.equal(document.activeElement,help,'real attention opener returns from real connection handler');
+  help.focus();help.click();help.isConnected=false;el('close-harnesses').click();
+  assert.equal(document.activeElement,el('attention-title'),'disconnected attention opener stays in the active panel');
+  const ack=control('Acknowledge');ack.click();const firstAck=latest('/api/attention','POST');
+  reply(firstAck,{error:'Temporary write failure'},false,503);await flush();
+  assert.equal(el('nav-attention').textContent,'Attention 1');assert.match(el('attention-message').textContent,/Changes kept/);
+  ack.click();const secondAck=latest('/api/attention','POST');assert.equal(secondAck.options.body,firstAck.options.body,'uncertain write keeps its retry identity');
+  const updated={...attention,revision:attention.revision+1,badgeCount:0,badgeLabel:'Attention 0',current:attention.current.map(item=>item.family==='source'?{...item,acknowledged:true,acknowledgedAt:attention.asOf,needsAttention:false,controls:item.controls.filter(c=>c.operation!=='acknowledge')}:item)};
+  reply(secondAck,updated);await flush();assert.equal(el('nav-attention').textContent,'Attention 0');
+  el('attention-lower').value='85';el('attention-lower').dispatch('input');el('attention-history').click();
+  reply(latest('/api/attention'),updated);await flush();
+  assert.match(text(el('attention-list')),/later usable import/);assert.equal(el('attention-lower').value,'85','tab refresh preserves preference draft');
+  el('attention-preferences').dispatch('submit');const pref=latest('/api/attention','POST');
+  assert.equal(JSON.parse(pref.options.body).preferences.lower,85);reply(pref,{error:'Invalid thresholds'},false,422);await flush();
+  assert.equal(el('attention-lower').value,'85');assert.match(el('attention-message').textContent,/Changes kept/);
+  document.hidden=true;const count=requests.length;window.BurnrateAttention.refresh(true);assert.equal(requests.length,count);document.hidden=false;
+  el('attention-current').click();const late=latest('/api/attention');el('attention-close').click();
+  reply(late,{...updated,revision:1000,badgeCount:100});await flush();assert.equal(el('nav-attention').textContent,'Attention 0');
+  assert.equal(document.activeElement,el('nav-attention'));
+  el('nav-attention').click();const hostile=structuredClone(updated);
+  hostile.revision+=1;hostile.current[0].title='<img src=x onerror=evil()>';hostile.current[0].actionType='constructor';
+  reply(latest('/api/attention'),hostile);await flush();
+  assert.ok(text(el('attention-list')).includes('<img src=x onerror=evil()>'),'hostile text stays literal');
+  assert.ok(!el('attention-list').querySelectorAll('button').some(n=>n.textContent===hostile.current[0].actionLabel),'unknown action type cannot invoke a prototype method');
+  el('nav-attention').hidden=true;el('attention-close').click();assert.equal(document.activeElement,el('home-button'));el('nav-attention').hidden=false;
+  el('nav-attention').click();reply(latest('/api/attention'),{...updated,revision:updated.revision+2,current:[],history:[],badgeCount:0,evaluation:{...updated.evaluation,status:'error',label:'Evaluation error. Last success:'}});await flush();
+  assert.match(el('attention-status').textContent,/Evaluation error/);assert.match(text(el('attention-list')),/Evidence unavailable/);
+  el('attention-history').click();reply(latest('/api/attention'),{...updated,revision:updated.revision+3,current:[],history:[],badgeCount:0});await flush();
+  assert.match(text(el('attention-list')),/No closed episodes/);
+  el('attention-close').click();el('nav-attention').click();reply(latest('/api/attention'),{error:'Unavailable'},false,503);await flush();
+  assert.equal(el('nav-attention').textContent,'Attention ?');assert.match(el('attention-status').textContent,/Attention unavailable/);
+  el('attention-close').click();
+  console.log('Product and Attention real-handler fake-DOM flow tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

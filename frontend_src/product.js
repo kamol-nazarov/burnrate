@@ -44,6 +44,7 @@ function buildPlanMutation(op,values,p,t,preview,confirmed){const b={operation:o
 // Optional product dialogs own their requests independently of dashboard polling.
 (() => {
   if (typeof document === "undefined") return;
+  const {n:nodeFrom,t:setText,e:setEmpty,r:reconcileChildren}=window.BurnrateDOM;
   const {decimal,dollars,daysInclusive,currentTotal,priceCards,sourceTool,sourceTone,harnessCount,wizardSteps,buildPlanMutation}=window.ProductLogic;
   const el = id => document.getElementById(id);
   function restoreOpener(button,fallback) {
@@ -145,6 +146,11 @@ function buildPlanMutation(op,values,p,t,preview,confirmed){const b={operation:o
   }
   function openHarnesses(button=document.activeElement){harnessOpener=button;harnessRestore=true;if(!harnessDialog.open)harnessDialog.showModal();el("harness-manager-title").focus();refreshHarnesses();}
   window.openHarnessManager=openHarnesses;
+  if(window.startAttention)window.BurnrateAttention=window.startAttention({
+    connections:(_item,button)=>openHarnesses(button),
+    capacity:()=>window.openAttentionView?.('capacity'),
+    pricing:item=>window.openAttentionView?.('pricing',item.evidence.model)
+  });
   ["nav-connect","capacity-connect"].forEach(id=>el(id).addEventListener("click",showSetup));
   el("rescan-harnesses").addEventListener("click",refreshHarnesses);el("close-harnesses").addEventListener("click",()=>harnessDialog.close());
   harnessDialog.addEventListener("close",()=>{if(harnessDialog.open)return;++harnessGeneration;harnessController?.abort();harnessDialog.setAttribute("aria-busy","false");if(harnessRestore)restoreOpener(harnessOpener,"nav-connect");});

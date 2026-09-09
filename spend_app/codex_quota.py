@@ -88,9 +88,9 @@ def save_metadata(connection, sample, polled_at):
                        (KEY, json.dumps(value)))
 
 
-def read_rows(connection, *, now=None):
+def read_rows(connection, *, now=None, rows=None):
     """Mask unproven/expired Codex rows at read time, including pre-fix rows."""
-    rows = [dict(row) for row in connection.execute("SELECT * FROM quotas")]
+    rows = [dict(row) for row in (connection.execute("SELECT * FROM quotas") if rows is None else rows)]
     if not any(row['provider_key'] == 'codex' for row in rows):
         return rows
     from spend_app.connections import KEY as CONNECTIONS_KEY

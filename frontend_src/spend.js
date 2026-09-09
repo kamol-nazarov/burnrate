@@ -1888,10 +1888,20 @@ async function loadDiagnostics(background = false) {
 }
 function refreshCurrent() {
   if (document.hidden || pendingViews[state.view]) return;
+  window.BurnrateAttention?.refresh();
   if (state.view === "overview") loadSummary(true);
   else if (state.view === "detail" && state.entity) loadEntity(state.entity.kind, state.entity.key, true);
   else if (state.view === "diagnostics") loadDiagnostics(true);
 }
+
+window.openAttentionView = async (type, model) => {
+  const task = type === "capacity" ? returnOverview() : loadDiagnostics(), owned = state.request;
+  await task;
+  if (owned !== state.request) return;
+  const root = $(type === "capacity" ? "capacity-body" : "pricing-gaps");
+  const target = [...root.querySelectorAll("strong")].find(node=>node.textContent===model) || root;
+  target.tabIndex = -1; target.focus(); target.scrollIntoView({block:"center"});
+};
 
 function minTargetSize() {
   // A12: heat cells are separate from the 44px check (spacing exception).

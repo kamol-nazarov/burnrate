@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "revision": 5,
+  "asOf": "2026-09-10T12:00:20Z",
+  "timezone": "America/New_York",
+  "badgeCount": 1,
+  "evaluation": {
+    "status": "ok",
+    "lastAttemptAt": "2026-09-10T12:00:20Z",
+    "evaluatedAt": "2026-09-10T12:00:20Z",
+    "failedRules": [],
+    "pricingComplete": true,
+    "eligibility": {
+      "quota": {
+        "enabled": true,
+        "eligible": 1,
+        "observedSubjects": 1
+      },
+      "source": {
+        "enabled": true,
+        "eligible": 1,
+        "observedSubjects": 10
+      },
+      "pricing": {
+        "enabled": true,
+        "eligible": 1,
+        "observedSubjects": 1
+      }
+    },
+    "lagSeconds": 0,
+    "label": "Evaluation ok. Some evidence is unavailable or ineligible. Last success:"
+  },
+  "badgeLabel": "Attention 1",
+  "preferences": {
+    "quota": true,
+    "source": true,
+    "pricing": true,
+    "lower": 80,
+    "higher": 95
+  },
+  "current": [
+    {
+      "id": "23e4ac7dcdb6a29b33a30ad2bdbea64a",
+      "key": "3cb4a3cf0811147b3dc225f5cce109cb",
+      "family": "pricing",
+      "scope": "5568767304647de2009a90f29a10da27",
+      "firstDetectedAt": "2026-09-10T12:00:00Z",
+      "acknowledgedAt": null,
+      "acknowledgedTier": 0,
+      "snoozedUntil": "2026-09-10T13:00:00Z",
+      "reachedTier": 1,
+      "title": "vendor:missing pricing",
+      "observedAt": "2026-09-10T12:00:00Z",
+      "usableUntil": "2026-09-10T12:10:20Z",
+      "evidence": {
+        "model": "vendor:missing",
+        "rateDomain": "vendor",
+        "sources": [
+          "codex_local"
+        ],
+        "records": 1,
+        "tokens": 1100,
+        "from": "2026-09-01T12:00:00Z",
+        "to": "2026-09-01T12:00:00Z",
+        "countsComplete": true,
+        "pricingRevision": "2e38e77b22c314a449e91fafed92a43826ac6aa403ae6a8acb6cf58239fbaf5d"
+      },
+      "actionType": "pricing",
+      "status": "active",
+      "eligibility": "eligible",
+      "severity": 1,
+      "closedAt": null,
+      "reasonCode": "missing_rate",
+      "expiresAt": null,
+      "acknowledged": false,
+      "snoozed": true,
+      "needsAttention": false,
+      "reason": "Recorded usage has no applicable event-time rate.",
+      "summary": "vendor:missing \u00b7 1 records \u00b7 1100 measured tokens",
+      "timestamps": [
+        {
+          "label": "Evidence",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "First detected",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "Snooze until",
+          "at": "2026-09-10T13:00:00Z"
+        },
+        {
+          "label": "Event range start",
+          "at": "2026-09-01T12:00:00Z"
+        },
+        {
+          "label": "Event range end",
+          "at": "2026-09-01T12:00:00Z"
+        }
+      ],
+      "stateLabel": "active \u00b7 Warning",
+      "controls": [
+        {
+          "operation": "acknowledge",
+          "label": "Acknowledge"
+        },
+        {
+          "operation": "snooze",
+          "hours": 1,
+          "label": "Snooze 1 hour"
+        },
+        {
+          "operation": "snooze",
+          "hours": 24,
+          "label": "Snooze 24 hours"
+        },
+        {
+          "operation": "unsnooze",
+          "label": "Unsnooze"
+        }
+      ],
+      "actionLabel": "View pricing diagnostics"
+    },
+    {
+      "id": "9ba977fb1788312edbec3a47517f0b2a",
+      "key": "f4d84dc3aa44fe15f1586a65714f33de",
+      "family": "quota",
+      "scope": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "firstDetectedAt": "2026-09-10T12:00:00Z",
+      "acknowledgedAt": "2026-09-10T12:00:00Z",
+      "acknowledgedTier": 1,
+      "snoozedUntil": null,
+      "reachedTier": 1,
+      "title": "codex weekly quota",
+      "observedAt": "2026-09-10T12:00:00Z",
+      "usableUntil": "2026-09-10T18:00:00Z",
+      "evidence": {
+        "usedPercent": 82,
+        "pool": "codex",
+        "provider": "codex",
+        "window": "weekly"
+      },
+      "actionType": "capacity",
+      "status": "active",
+      "eligibility": "eligible",
+      "severity": 1,
+      "closedAt": null,
+      "reasonCode": "quota_high",
+      "expiresAt": "2026-09-17T12:00:00Z",
+      "acknowledged": true,
+      "snoozed": false,
+      "needsAttention": false,
+      "reason": "Currently at or above the configured quota threshold.",
+      "summary": "82% used \u00b7 codex \u00b7 weekly",
+      "timestamps": [
+        {
+          "label": "Evidence",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "First detected",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "Window reset",
+          "at": "2026-09-17T12:00:00Z"
+        },
+        {
+          "label": "Acknowledged",
+          "at": "2026-09-10T12:00:00Z"
+        }
+      ],
+      "stateLabel": "active \u00b7 Warning",
+      "controls": [
+        {
+          "operation": "snooze",
+          "hours": 1,
+          "label": "Snooze 1 hour"
+        },
+        {
+          "operation": "snooze",
+          "hours": 24,
+          "label": "Snooze 24 hours"
+        }
+      ],
+      "actionLabel": "View capacity"
+    },
+    {
+      "id": "ef81ae58a7700978d7dd719aa7479069",
+      "key": "b6b7604734a1291f6d17f04b38107c18",
+      "family": "source",
+      "scope": "legacy",
+      "firstDetectedAt": "2026-09-10T12:00:20Z",
+      "acknowledgedAt": null,
+      "acknowledgedTier": 0,
+      "snoozedUntil": null,
+      "reachedTier": 1,
+      "title": "Cursor local collection",
+      "observedAt": "2026-09-10T12:00:20Z",
+      "usableUntil": "2026-09-10T12:03:20Z",
+      "evidence": {
+        "source": "cursor_local",
+        "lastSuccessAt": null,
+        "detail": "redacted cursor failure"
+      },
+      "actionType": "connections",
+      "status": "active",
+      "eligibility": "eligible",
+      "severity": 1,
+      "closedAt": null,
+      "reasonCode": "source_failed",
+      "expiresAt": null,
+      "acknowledged": false,
+      "snoozed": false,
+      "needsAttention": true,
+      "reason": "A monitored usage source reported a terminal failure.",
+      "summary": "redacted cursor failure",
+      "timestamps": [
+        {
+          "label": "Evidence",
+          "at": "2026-09-10T12:00:20Z"
+        },
+        {
+          "label": "First detected",
+          "at": "2026-09-10T12:00:20Z"
+        }
+      ],
+      "stateLabel": "active \u00b7 Warning",
+      "controls": [
+        {
+          "operation": "acknowledge",
+          "label": "Acknowledge"
+        },
+        {
+          "operation": "snooze",
+          "hours": 1,
+          "label": "Snooze 1 hour"
+        },
+        {
+          "operation": "snooze",
+          "hours": 24,
+          "label": "Snooze 24 hours"
+        }
+      ],
+      "actionLabel": "View connection status"
+    }
+  ],
+  "history": [
+    {
+      "id": "576e2a9c997ac60b1639eb9492a34327",
+      "key": "b6b7604734a1291f6d17f04b38107c18",
+      "family": "source",
+      "scope": "legacy",
+      "firstDetectedAt": "2026-09-10T12:00:00Z",
+      "acknowledgedAt": null,
+      "acknowledgedTier": 0,
+      "snoozedUntil": null,
+      "reachedTier": 1,
+      "title": "Cursor local collection",
+      "observedAt": "2026-09-10T12:00:00Z",
+      "usableUntil": "2026-09-10T12:03:00Z",
+      "evidence": {
+        "source": "cursor_local",
+        "lastSuccessAt": null,
+        "detail": "redacted cursor failure"
+      },
+      "actionType": "connections",
+      "status": "closed",
+      "eligibility": "eligible",
+      "severity": 1,
+      "closedAt": "2026-09-10T12:00:10Z",
+      "reasonCode": "recovered",
+      "expiresAt": null,
+      "resolutionObservedAt": "2026-09-10T12:00:10Z",
+      "summary": "redacted cursor failure",
+      "timestamps": [
+        {
+          "label": "Evidence",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "First detected",
+          "at": "2026-09-10T12:00:00Z"
+        },
+        {
+          "label": "Recovery evidence",
+          "at": "2026-09-10T12:00:10Z"
+        },
+        {
+          "label": "Closed",
+          "at": "2026-09-10T12:00:10Z"
+        }
+      ],
+      "stateLabel": "closed \u00b7 Warning",
+      "controls": [],
+      "actionLabel": "View diagnostics",
+      "reason": "A later usable import established recovery for the same binding."
+    }
+  ]
+}

@@ -9,6 +9,13 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+- Add in-app Action Center v1 for proven quota thresholds, monitored-source
+  failures and missing applicable model pricing. Persist acknowledgment, elapsed
+  snooze, stable episodes, replay watermarks, compact preferences and bounded history.
+- Show evaluator lag, ineligible evidence and distinct closure outcomes. Reuse
+  existing diagnostics/actions; no external notifications, provider permission
+  changes, price edits or automatic fixes. This feature candidate is not deployed.
+
 ## [0.3.0-beta.4] - 2026-09-09
 
 - Scope collection evidence to relevant sources, preserve prior-success dates
