@@ -177,6 +177,17 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
+      - name: Dialog unit and fake-DOM contracts
+        run: |
+          node tests_spend/connections_state_unit.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests_spend/product_dialog_unit.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests_spend/product_dialog_flow_unit.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests_spend/test_plans_value_ui.cjs
+          exit $LASTEXITCODE
+
       - name: Frontend contract tests
         run: |
           python -m pytest -q `

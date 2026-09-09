@@ -1,11 +1,25 @@
 """Pure committed-asset checks: no application, database, browser or provider."""
 import gzip
+import ast
 import hashlib
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "spend_web"
+
+
+def test_packaged_asset_inventory_matches_generated_files():
+    cli = ast.parse((ROOT / "spend_app" / "cli.py").read_text(encoding="utf-8"))
+    assets = next(
+        ast.literal_eval(node.value)
+        for node in cli.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_WEB_ASSETS" for target in node.targets)
+    )
+    manifest = json.loads((WEB / "assets.json").read_text(encoding="utf-8"))
+    assert set(assets) == set(manifest["outputs"]) | {"favicon.svg"}
+    assert all((WEB / name).is_file() for name in assets)
 
 
 def test_sources_and_shipped_outputs_match_recorded_generation():

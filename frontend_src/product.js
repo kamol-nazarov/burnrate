@@ -32,23 +32,11 @@
     return {daily:dollars(divide(value,periodDays(today,cadence))),monthly:dollars(monthly),after:dollars(monthly && !unknownTotal ? add(total || [0n,1n],monthly) : null)};
   }
   const wizardSteps = operation => operation === "add" ? [1,2,3] : operation === "end" ? [3] : [2,3];
-  function buildPlanMutation(op,values,p,t,preview,confirmed) {
-    const body={operation:op};
-    if(op!=="add")Object.assign(body,{plan_id:p.id,expected_version:p.version});
-    if(op==="schedule")Object.assign(body,{effective_date:values.start_date,values:{amount_usd:values.amount_usd,cadence:values.cadence}});
-    else if(op==="end")body.end_date=values.end_date;
-    else body.values=values;
-    if(op==="correct"){
-      body.term_id=t?.id;
-      if(preview && confirmed)Object.assign(body,{confirmed:true,preview_token:preview.preview_token});
-      else body.preview=true;
-    }
-    return body;
-  }
+function buildPlanMutation(op,values,p,t,preview,confirmed){const b={operation:op};if(op!=="add")Object.assign(b,{plan_id:p.id,expected_version:p.version});if(op==="schedule")Object.assign(b,{effective_date:values.start_date,values:{amount_usd:values.amount_usd,cadence:values.cadence}});else if(op==="end")b.end_date=values.end_date;else b.values=values;if(op==="correct"){b.term_id=t?.id;if(preview&&confirmed)Object.assign(b,{confirmed:true,preview_token:preview.preview_token});else b.preview=true;}return b;}
   const sourceTool = source => ({claude_local:"claude-code",openai_admin:"codex",anthropic_admin:"claude-code",cursor_usage_service:"cursor",cursor_csv:"cursor",cursor_admin:"cursor"}[source] || source.replace(/_local$/,""));
   const capacitySourceKey = source => sourceTool(source) === "zcode" ? "opencode" : sourceTool(source);
   const sourceTone = state => ["healthy","partial"].includes(state) ? "good" : ["detected_without_history","stale"].includes(state) ? "warning" : state === "failed" ? "danger" : "quiet";
-  function harnessCount(sources) { const count=sources.filter(s=>["healthy","partial"].includes(s.state)).length; return {count,label:count ? `${count} harnesses` : "No harnesses",tone:count ? "good" : sources.some(s=>s.state === "detected_without_history") ? "warning" : "quiet"}; }
+  const harnessCount = sources => { const count=sources.filter(s=>["healthy","partial"].includes(s.state)).length; return {count,label:count ? `${count} harnesses` : "No harnesses",tone:count ? "good" : sources.some(s=>s.state === "detected_without_history") ? "warning" : "quiet"}; };
   const helpers={decimal,dollars,daysInclusive,periodDays,currentTotal,priceCards,sourceTool,capacitySourceKey,sourceTone,harnessCount,wizardSteps,buildPlanMutation};
   if (typeof module !== "undefined") module.exports=helpers;
   if (typeof window !== "undefined") window.ProductLogic=helpers;
@@ -59,9 +47,9 @@
   const {decimal,dollars,daysInclusive,currentTotal,priceCards,sourceTool,sourceTone,harnessCount,wizardSteps,buildPlanMutation}=window.ProductLogic;
   const el = id => document.getElementById(id);
   function restoreOpener(button,fallback) {
-    const ownerDialog=button?.closest("dialog");
-    if(button?.isConnected && !button.closest("[hidden]") && (!ownerDialog || ownerDialog.open))button.focus();
-    else el(fallback).focus();
+    const ownerDialog=button?.closest?.("dialog"),active=[...document.querySelectorAll("dialog[open]")].at(-1);
+    if(button?.isConnected && typeof button.focus === "function" && !button.closest?.("[hidden]") && (!ownerDialog || ownerDialog.open) && (!active || ownerDialog===active))button.focus();
+    else (active?.querySelector("[tabindex='-1']") || active || el(fallback)).focus();
   }
   const setup = el("setup-guidance");
   const preference = "burnrate:setup:v1";
@@ -97,19 +85,19 @@
     acceptSources(sources);
     if (harnessDialog.open && harnessMetadataReady && harnessDialog.getAttribute("aria-busy") !== "true") renderHarnesses({...setupData,sources});
     const root = el("source-guidance");
-    reconcileChildren(root, payload.sources || setupData?.sources || [], source => source.source,
+    reconcileChildren(root, sources, s => s.source,
       () => nodeFrom('<section class="panel"><h3></h3><p></p><p></p><p></p><p></p><p></p><p></p><a>Integration documentation</a></section>'),
-      (card, source) => {
-      setText(card.querySelector("h3"), source.source + " · " + source.state.replaceAll("_"," "));
-      const texts = [
-        "Latest attempt: " + (source.lastAttempt || "none") + " · Last success: " + (source.lastSuccess || "none"),
-        "Measurements: " + (source.measurements.join(", ") || "none observed") + (source.freshnessSeconds == null ? "" : " · Last success " + Math.round(source.freshnessSeconds) + "s ago"),
-        source.reason || "", source.nextAction,
-        source.pricingMissing.length ? "Dollar value unavailable for: " + source.pricingMissing.join(", ") : "",
-        source.experimental ? "Experimental integration; other sources continue independently." : ""
+      (card, s) => {
+      setText(card.querySelector("h3"), s.source + " · " + s.state.replaceAll("_"," "));
+      const t = [
+        "Latest attempt: " + (s.lastAttempt || "none") + " · Last success: " + (s.lastSuccess || "none"),
+        "Measurements: " + (s.measurements.join(", ") || "none observed") + (s.freshnessSeconds == null ? "" : " · Last success " + Math.round(s.freshnessSeconds) + "s ago"),
+        s.reason || "", s.nextAction,
+        s.pricingMissing.length ? "Dollar value unavailable for: " + s.pricingMissing.join(", ") : "",
+        s.experimental ? "Experimental integration; other sources continue independently." : ""
       ];
-      card.querySelectorAll("p").forEach((p,index) => { setText(p,texts[index]); p.hidden=!texts[index]; });
-      card.querySelector("a").href = source.documentation;
+      card.querySelectorAll("p").forEach((p,i) => { setText(p,t[i]); p.hidden=!t[i]; });
+      card.querySelector("a").href = s.documentation;
     });
   };
 
@@ -179,7 +167,21 @@
     el("plan-confirm-label").hidden = true; el("plan-confirm").checked = false;
   }
 
-  function showList(){el("plan-list-view").hidden=false;form.hidden=true;el("plan-list-view").querySelector("footer").before(el("plan-message"));el("plan-manager-title").focus();}
+  let plansValueCtrl = null;
+  function showPlansValue() {
+    const pv=el("plans-value-view");if(pv)pv.hidden=false;el("plan-list-view").hidden=true;form.hidden=true;
+    for(const [t,s] of [["tab-plans-value",true],["tab-plans-list",false]]){const b=el(t);if(b){b.classList.toggle("active",s);b.setAttribute("aria-pressed",String(s));}}
+    el("plan-manager-title").textContent="Plans & Value";el("plan-manager-title").focus();
+    if(!plansValueCtrl&&window.createPlansValueController&&pv){plansValueCtrl=window.createPlansValueController(pv,{timezone:data.timezone,openPlanManager:showList,openHarnesses:(_group,button)=>openHarnesses(button)});plansValueCtrl.load("this_month");}
+    else if(plansValueCtrl){plansValueCtrl.reopen();plansValueCtrl.load();}
+  }
+
+  function showList(){
+    plansValueCtrl?.close();
+    const pv=el("plans-value-view");if(pv)pv.hidden=true;el("plan-list-view").hidden=false;form.hidden=true;
+    for(const [t,s] of [["tab-plans-value",false],["tab-plans-list",true]]){const b=el(t);if(b){b.classList.toggle("active",s);b.setAttribute("aria-pressed",String(s));}}
+    el("plan-manager-title").textContent="Subscriptions";el("plan-list-view").querySelector("footer").before(el("plan-message"));el("plan-manager-title").focus();
+  }
   function updateWizard(){
     form.querySelector("footer").before(el("plan-message"));
     const op=el("plan-action").value,cadence=el("plan-cadence").value,amount=el("plan-amount").value;
@@ -215,6 +217,7 @@
   }
   function startWizard(op="add",id="",termId=""){
     if(pending)return;
+    showList();
     el("plan-action").value=op;if(id!=="")el("plan-choice").value=String(id);
     const terms=plan()?.terms || [];el("term-choice").replaceChildren(...terms.map(t=>new Option(t.start_date+" · "+t.cadence,t.id)));el("term-choice").value=String(termId || terms.at(-1)?.id || "");
     if(op==="add"){el("plan-name").value="";el("plan-amount").value="";el("plan-start").value=data.today || "";el("plan-end").value="";el("plan-cadence").value="monthly";}
@@ -231,14 +234,14 @@
       const edit=node.querySelector(".plan-row-main button"),actions=node.querySelector(".plan-row-actions"),history=node.querySelector(".term-history");
       actions.hidden=!expanded.has(p.id);history.hidden=!expanded.has(p.id)||!histories.has(p.id);setText(edit,expanded.has(p.id)?"Close":"Edit");edit.setAttribute("aria-expanded",String(expanded.has(p.id)));
       actions.id="plan-actions-"+p.id;edit.setAttribute("aria-controls",actions.id);edit.setAttribute("aria-label",(expanded.has(p.id)?"Close actions for ":"Edit ")+latest.name+" · plan "+p.id);
-      edit.onclick=()=>{if(expanded.has(p.id))expanded.delete(p.id);else expanded.add(p.id);renderPlans();};
-      actions.querySelectorAll("[data-plan-op]").forEach(button=>{button.onclick=()=>startWizard(button.dataset.planOp,p.id);});
-      const historyButton=actions.querySelector("[data-history]");historyButton.setAttribute("aria-expanded",String(histories.has(p.id)));historyButton.onclick=()=>{if(histories.has(p.id))histories.delete(p.id);else histories.add(p.id);renderPlans();};
-      reconcileChildren(node.querySelector(".term-bar"),p.terms,t=>t.id,()=>document.createElement("span"),(segment,t)=>{segment.style.background=color(t.tool_key);segment.style.flexGrow=String(daysInclusive(t.start_date,t.end_date || p.end_date || data.today));segment.dataset.active=String(t.status==="active");segment.title=`${t.start_date} → ${t.end_date || p.end_date || "ongoing"}`;});
+      edit.onclick=()=>{expanded.has(p.id)?expanded.delete(p.id):expanded.add(p.id);renderPlans();};
+      actions.querySelectorAll("[data-plan-op]").forEach(b=>{b.onclick=()=>startWizard(b.dataset.planOp,p.id);});
+      const hBtn=actions.querySelector("[data-history]");hBtn.setAttribute("aria-expanded",String(histories.has(p.id)));hBtn.onclick=()=>{histories.has(p.id)?histories.delete(p.id):histories.add(p.id);renderPlans();};
+      reconcileChildren(node.querySelector(".term-bar"),p.terms,t=>t.id,()=>document.createElement("span"),(seg,t)=>{seg.style.background=color(t.tool_key);seg.style.flexGrow=String(daysInclusive(t.start_date,t.end_date || p.end_date || data.today));seg.dataset.active=String(t.status==="active");seg.title=`${t.start_date} → ${t.end_date || p.end_date || "ongoing"}`;});
       reconcileChildren(history,p.terms,t=>t.id,()=>nodeFrom('<div class="term-history-row"><i class="settings-dot"></i><span></span><strong class="mono"></strong><button type="button" class="settings-link row-secondary">Correct</button></div>'),(row,t)=>{row.dataset.tone=t.status==="active"?"good":"quiet";setText(row.querySelector("span"),`${t.start_date} → ${t.end_date || p.end_date || "ongoing"}`);setText(row.querySelector("strong"),dollars(decimal(t.amount_usd))+"/"+{monthly:"mo",quarterly:"qtr",annual:"yr"}[t.cadence]);row.querySelector("button").onclick=()=>startWizard("correct",p.id,t.id);});
     });
     if(!data.plans.length)setEmpty(el("plan-history"),'<p class="settings-helper">No configured plans. Adding one is optional.</p>');
-    reconcileChildren(el("plan-tool-cards"),data.tools || [],t=>t,()=>nodeFrom('<button type="button"><i class="tool-swatch"></i><span></span></button>'),(button,t)=>{button.dataset.tool=t;button.querySelector("i").style.background=color(t);setText(button.querySelector("span"),displayTool(t));button.onclick=()=>{el("plan-tool").value=t;resetPreview();updateWizard();};});
+    reconcileChildren(el("plan-tool-cards"),data.tools || [],t=>t,()=>nodeFrom('<button type="button"><i class="tool-swatch"></i><span></span></button>'),(b,t)=>{b.dataset.tool=t;b.querySelector("i").style.background=color(t);setText(b.querySelector("span"),displayTool(t));b.onclick=()=>{el("plan-tool").value=t;resetPreview();updateWizard();};});
   }
   async function readPlans(preserve = true) {
     const owned = ++generation;
@@ -269,10 +272,12 @@
     }
   }
 
-  function openPlans(button=document.activeElement){opener=button;if(!dialog.open)dialog.showModal();showList();readPlans();}
+  function openPlans(button=document.activeElement){opener=button;if(!dialog.open)dialog.showModal();showPlansValue();readPlans();}
   window.BurnratePlans={open:openPlans};
   ["nav-plans","manage-plans","setup-plans"].forEach(id=>el(id).addEventListener("click",event=>openPlans(event.currentTarget)));
-  function invalidatePlanDialog(){++generation;controller?.abort();writeOwner=null;pending=false;el("save-plan").disabled=false;dialog.setAttribute("aria-busy","false");}
+  el("tab-plans-value")?.addEventListener("click",showPlansValue);
+  el("tab-plans-list")?.addEventListener("click",showList);
+  function invalidatePlanDialog(){++generation;controller?.abort();writeOwner=null;pending=false;el("save-plan").disabled=false;dialog.setAttribute("aria-busy","false");plansValueCtrl?.close();}
   el("close-plans").addEventListener("click",()=>{invalidatePlanDialog();dialog.close();});
   dialog.addEventListener("cancel",invalidatePlanDialog);
   dialog.addEventListener("close",()=>{if(dialog.open)return;invalidatePlanDialog();restoreOpener(opener,"nav-plans");});
@@ -297,8 +302,7 @@
     const key = JSON.stringify(body);
     if (key !== retryKey) { retryKey = key; requestId = crypto.randomUUID(); }
     body.request_id = requestId;
-    const owned = ++generation;
-    const owner = {};
+    const owned = ++generation, owner = {};
     writeOwner = owner;
     controller?.abort(); controller = new AbortController(); pending = true;
     el("save-plan").disabled = true; dialog.setAttribute("aria-busy","true"); message("Saving…");

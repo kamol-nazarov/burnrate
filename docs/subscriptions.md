@@ -5,6 +5,21 @@ costs panel stays expanded. The dialog opens to a list of every plan, with an
 active-term monthly-equivalent total, prices, dates and proportional term bars.
 Adding plans is optional and requires no provider credentials.
 
+## Plans & Value
+
+Configured terms are the expense side of the
+[Plans & Value](plans-value.md) comparison report. That view accrues the same
+calendar-prorated costs over **This month** (month-to-date through `asOf`) or
+**Last month** (the full previous calendar month) in `settings.timezone`, then
+places them beside API-equivalent reference usage for the identical interval.
+
+Use subscription management to add, schedule, correct, or end plans. Use Plans
+& Value only to read the comparison: reference-value multiples, pricing
+coverage, and collection evidence. Editing a plan refreshes the report; ending
+a plan here still does not cancel the provider subscription. See
+[Plans & Value](plans-value.md) for period math, OpenCode/ZCode grouping, and
+what the multiple does and does not mean.
+
 **Add a plan** walks through **Tool → Price → Dates**. Choose a tool and name,
 enter its price and Month/Quarter/Year cadence, then review its dates before
 saving. The price step shows cents-rounded daily and monthly equivalents and

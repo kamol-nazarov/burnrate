@@ -9,6 +9,23 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.4] - 2026-09-09
+
+- Scope collection evidence to relevant sources, preserve prior-success dates
+  alongside failed attempts, and distinguish current freshness from historical
+  capture. Explain safe source reasons and structured record exclusions.
+- Fix row-level connection-help focus restoration, including hidden or replaced
+  openers and parent-dialog reopen races, without discarding plan drafts.
+
+- Add Plans & Value beside subscription management: calendar-prorated configured
+  cost, recorded API-equivalent usage, qualified reference multiples, shared-tool
+  grouping, unassigned usage, and separate pricing and collection evidence.
+- Explain active intervals, cost formulas, missing prices and attribution limits;
+  discard stale period responses and refresh comparisons after plan changes.
+- Bundle optional dialogs together to retain the existing total asset budgets.
+  Tool association is an assumption, not provider-account identity; actual charges
+  are never added to reference value. This is a beta prerelease.
+
 ## [0.3.0-beta.3] - 2026-09-08
 
 - Keep model-specific Codex quota pools separate from the main weekly capacity

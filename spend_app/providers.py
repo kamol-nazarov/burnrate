@@ -217,6 +217,10 @@ class ProviderSpec:
     skip_if: SkipFn | None = None
     connection: ConnectionSpec | None = None
     capability_exactness: Mapping[str, str] | None = None
+    # Canonical telemetry association(s) for read-only reporting.  This is
+    # metadata for source health and Plans & Value; it does not identify an
+    # account and is never used by collectors or dispatch.
+    tool_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         caps = frozenset(self.capabilities)
@@ -232,6 +236,8 @@ class ProviderSpec:
         if bad:
             raise ValueError(f"{self.key}: invalid capability exactness {bad}")
         object.__setattr__(self, "capabilities", caps)
+        keys = tuple(dict.fromkeys(str(key).strip().lower() for key in self.tool_keys if str(key).strip()))
+        object.__setattr__(self, "tool_keys", keys)
 
     def exactness_for(self, capability: str) -> str:
         if capability not in CAPABILITIES:
@@ -267,6 +273,7 @@ def _spec(
     stability: str,
     exactness: str,
     enabled_by_default: bool,
+    tool_keys: Iterable[str] = (),
     ingest: IngestFn | None = None,
     kind: str | None = None,
     scheduler_alias: str | None = None,
@@ -282,6 +289,7 @@ def _spec(
         stability=stability,
         exactness=exactness,
         enabled_by_default=enabled_by_default,
+        tool_keys=tuple(tool_keys),
         ingest=ingest,
         kind=kind,
         scheduler_alias=scheduler_alias,
@@ -302,6 +310,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="exact",
         enabled_by_default=True,
+        tool_keys=("codex",),
         ingest=ingest_codex_local,
         kind="local",
         scheduler_alias="ingest_codex_local",
@@ -314,6 +323,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="exact",
         enabled_by_default=True,
+        tool_keys=("claude-code",),
         ingest=ingest_claude_local,
         kind="local",
         scheduler_alias="ingest_claude_local",
@@ -326,6 +336,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="partial",
         enabled_by_default=False,
+        tool_keys=("grok", "openrouter"),
         ingest=ingest_traycer_local,
         kind="local",
         scheduler_alias="ingest_traycer_local",
@@ -338,6 +349,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="derived",
         enabled_by_default=False,
+        tool_keys=("cursor",),
         ingest=ingest_cursor_local,
         kind="local",
         scheduler_alias="ingest_cursor_local",
@@ -350,6 +362,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="derived",
         enabled_by_default=False,
+        tool_keys=("cursor",),
         ingest=ingest_cursor_usage,
         kind="local",
         scheduler_alias="ingest_cursor_usage",
@@ -364,6 +377,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="partial",
         enabled_by_default=True,
+        tool_keys=("opencode",),
         ingest=ingest_opencode_local,
         kind="local",
         scheduler_alias="ingest_opencode_local",
@@ -377,6 +391,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="derived",
         enabled_by_default=True,
+        tool_keys=("opencode",),
         ingest=ingest_zcode_local,
         kind="local",
         scheduler_alias="ingest_zcode_local",
@@ -390,6 +405,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="derived",
         enabled_by_default=False,
+        tool_keys=("grok",),
         ingest=ingest_grok_local,
         kind="local",
         scheduler_alias="ingest_grok_local",
@@ -403,6 +419,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="derived",
         enabled_by_default=False,
+        tool_keys=("antigravity",),
         ingest=ingest_antigravity_local,
         kind="local",
         scheduler_alias="ingest_antigravity_local",
@@ -416,6 +433,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="exact",
         enabled_by_default=True,
+        tool_keys=("codex",),
         ingest=ingest_openai_admin,
         kind="admin",
         scheduler_alias="ingest_openai_admin",
@@ -428,6 +446,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="exact",
         enabled_by_default=True,
+        tool_keys=("claude-code",),
         ingest=ingest_anthropic_admin,
         kind="admin",
         scheduler_alias="ingest_anthropic_admin",
@@ -440,6 +459,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="derived",
         enabled_by_default=True,
+        tool_keys=("cursor",),
         ingest=ingest_cursor_admin,
         kind="admin",
         scheduler_alias="ingest_cursor_admin",
@@ -453,6 +473,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="derived",
         enabled_by_default=False,
+        tool_keys=("cursor",),
         ingest=ingest_cursor_csv,
         kind="manual",
         scheduler_alias="ingest_cursor_csv",
@@ -465,6 +486,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="official",
         exactness="exact",
         enabled_by_default=True,
+        tool_keys=(),
     ),
     _spec(
         "xai",
@@ -473,6 +495,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         stability="experimental",
         exactness="unavailable",
         enabled_by_default=False,
+        tool_keys=("xai",),
     ),
 )
 

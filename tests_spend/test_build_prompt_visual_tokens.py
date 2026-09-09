@@ -85,9 +85,9 @@ def test_activity_and_poll_timings_match_the_attached_file() -> None:
     assert "index * 260" in js
     assert "const EASE_RATE = 0.13;" in js
     assert "const POLL_MS = 15000;" in js
-    assert "growIn 600ms cubic-bezier(.2,.7,.25,1)" in css.replace(" ", "").replace("var(--ease)", ".2,.7,.25,1") or (
-        "growIn 600ms" in css and "--ease:.2,.7,.25,1" in css.replace(" ", "")
-    )
+    easing = re.search(r"--ease:([^;]+);", css).group(1).strip()
+    resolved_css = css.replace("var(--ease)", easing).replace(" ", "")
+    assert "growIn600mscubic-bezier(.2,.7,.25,1)" in resolved_css
     assert "scaleY" in css
     assert "transform-origin:bottom" in css.replace(" ", "")
 

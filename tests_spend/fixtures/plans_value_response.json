@@ -1,0 +1,588 @@
+{
+  "schemaVersion": 1,
+  "period": "this_month",
+  "asOf": "2026-09-09T04:00:00Z",
+  "fromUtc": "2026-09-01T04:00:00Z",
+  "toUtc": "2026-09-09T04:00:00Z",
+  "localFrom": "2026-09-01",
+  "localTo": "2026-09-08",
+  "timezone": "America/New_York",
+  "groups": [
+    {
+      "groupId": "tool:codex",
+      "name": "Coding plan",
+      "toolKeys": [
+        "codex"
+      ],
+      "planIds": [
+        1
+      ],
+      "plans": [
+        {
+          "planId": 1,
+          "name": "Coding plan",
+          "toolKey": null,
+          "accruedCostUsd": "80",
+          "cadence": null,
+          "amountUsd": null
+        }
+      ],
+      "activeIntervals": [
+        {
+          "startUtc": "2026-09-01T04:00:00Z",
+          "endUtc": "2026-09-09T04:00:00Z"
+        }
+      ],
+      "configuredCostUsd": "80",
+      "usageValueUsd": "2400",
+      "usageValueStatus": "lower_bound",
+      "usageValueLabel": "\u2265 2400",
+      "usageValueBasis": "known-subtotal",
+      "multiple": 30.0,
+      "multipleBasis": "lower_bound",
+      "multipleReasonCode": null,
+      "multipleReason": "Qualified lower-bound Reference-value multiple: known priced subtotal over complete positive configured group cost",
+      "pricingCoverage": {
+        "status": "partial",
+        "label": "Partial (1 unpriced model(s))",
+        "pricedEvents": 1,
+        "unpricedEvents": 1,
+        "pricedTokens": 1000,
+        "unpricedTokens": 1000,
+        "unpricedModels": [
+          {
+            "modelKey": "unpriced-model",
+            "events": 1,
+            "tokens": 1000
+          }
+        ],
+        "incompleteTelemetryEvents": 0,
+        "excludedApiOnlyEvents": 0,
+        "excludedChargeOnlyEvents": 1,
+        "excludedScopeEvents": 0,
+        "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+      },
+      "collectionEvidence": {
+        "status": "failed",
+        "complete": false,
+        "label": "Collection failed for at least one source",
+        "sources": [
+          {
+            "source": "codex_local",
+            "sourceLabel": "Codex",
+            "toolKeys": [
+              "codex"
+            ],
+            "associationKey": "codex",
+            "configuredState": "configured",
+            "status": "failed",
+            "lastAttemptAt": "2026-09-09T03:59:00Z",
+            "lastSuccessAt": "2026-08-01T12:00:00Z",
+            "freshness": {
+              "state": "stale",
+              "ageSeconds": 3340800.0,
+              "asOf": "2026-09-09T04:00:00Z"
+            },
+            "coverage": "No successful current capture; historical capture is unverified.",
+            "reason": "redacted provider failure",
+            "eventsWritten": 0
+          }
+        ],
+        "note": "Collection evidence describes the current poll and source freshness; it does not prove complete historical capture for this period, including Last month. It is separate from whether recorded usage was priced."
+      },
+      "attribution": {
+        "basis": "configured_tool_association",
+        "label": "Configured tool association",
+        "note": "A configured tool association is a comparison assumption, not proof of provider account identity. Tool name alone is not account evidence."
+      },
+      "events": 3,
+      "tokens": 3000,
+      "pricedTokens": 1000,
+      "unpricedTokens": 1000,
+      "toolBreakdown": [
+        {
+          "toolKey": "codex",
+          "tokens": 3000
+        }
+      ],
+      "reportedChargesUsd": "25",
+      "explanation": {
+        "period": {
+          "activeIntervals": [
+            {
+              "startUtc": "2026-09-01T04:00:00Z",
+              "endUtc": "2026-09-09T04:00:00Z"
+            }
+          ],
+          "note": "Usage is matched to the union of applicable active intervals for this group."
+        },
+        "configuredCost": {
+          "amountUsd": "80",
+          "plans": [
+            {
+              "planId": 1,
+              "name": "Coding plan",
+              "toolKey": null,
+              "accruedCostUsd": "80",
+              "cadence": null,
+              "amountUsd": null
+            }
+          ],
+          "formula": "Coding plan=80 = 80",
+          "note": "Configured cost is calendar-prorated plan expense over the same interval as usage \u2014 not verified cash."
+        },
+        "tools": {
+          "toolKeys": [
+            "codex"
+          ],
+          "associationBasis": "configured_tool_association",
+          "label": "Configured tool association",
+          "note": "A configured tool association is a comparison assumption, not proof of provider account identity. Tool name alone is not account evidence."
+        },
+        "referenceValue": {
+          "amountUsd": "2400",
+          "status": "lower_bound",
+          "basis": "known-subtotal",
+          "pricedEvents": 1,
+          "unpricedEvents": 1,
+          "unpricedModels": [
+            {
+              "modelKey": "unpriced-model",
+              "events": 1,
+              "tokens": 1000
+            }
+          ],
+          "excluded": [
+            {
+              "reasonCode": "charge_only",
+              "detail": "Provider-reported charge without measured reference components",
+              "source": "codex_local",
+              "toolKey": "codex",
+              "modelKey": "example"
+            }
+          ],
+          "note": "Reference value uses measured components at effective-dated published rates. Configured expense and provider-reported charges are not added. Observed charges are not fallback reference prices."
+        },
+        "collection": {
+          "status": "failed",
+          "complete": false,
+          "label": "Collection failed for at least one source",
+          "sources": [
+            {
+              "source": "codex_local",
+              "sourceLabel": "Codex",
+              "toolKeys": [
+                "codex"
+              ],
+              "associationKey": "codex",
+              "configuredState": "configured",
+              "status": "failed",
+              "lastAttemptAt": "2026-09-09T03:59:00Z",
+              "lastSuccessAt": "2026-08-01T12:00:00Z",
+              "freshness": {
+                "state": "stale",
+                "ageSeconds": 3340800.0,
+                "asOf": "2026-09-09T04:00:00Z"
+              },
+              "coverage": "No successful current capture; historical capture is unverified.",
+              "reason": "redacted provider failure",
+              "eventsWritten": 0
+            }
+          ],
+          "note": "Collection evidence describes the current poll and source freshness; it does not prove complete historical capture for this period, including Last month. It is separate from whether recorded usage was priced."
+        },
+        "multiple": {
+          "label": "Reference-value multiple",
+          "formula": "\u2265 2400 / 80 = \u2265 30\u00d7 (qualified lower bound)",
+          "value": 30.0,
+          "basis": "lower_bound",
+          "reasonCode": null,
+          "reason": "Qualified lower-bound Reference-value multiple: known priced subtotal over complete positive configured group cost",
+          "note": "Compares reference consumption at API rates with configured cost \u2014 not ROI, money saved, productivity, or a cancellation verdict."
+        },
+        "limits": {
+          "pricingVsCollection": "Pricing coverage is about recorded rows; collection evidence is about whether history was captured. Healthy polls do not prove historical completeness.",
+          "freshness": "Collection failed for at least one source"
+        }
+      }
+    }
+  ],
+  "unassigned": {
+    "usageValueUsd": null,
+    "usageValueStatus": "no_records",
+    "events": 0,
+    "tokens": 0,
+    "pricedTokens": 0,
+    "unpricedTokens": 0,
+    "toolBreakdown": [],
+    "pricingCoverage": {
+      "status": "no_records",
+      "label": "No recorded usage",
+      "pricedEvents": 0,
+      "unpricedEvents": 0,
+      "pricedTokens": 0,
+      "unpricedTokens": 0,
+      "unpricedModels": [],
+      "incompleteTelemetryEvents": 0,
+      "excludedApiOnlyEvents": 0,
+      "excludedChargeOnlyEvents": 0,
+      "excludedScopeEvents": 0,
+      "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+    },
+    "excludedApiOnlyEvents": 0,
+    "excludedChargeOnlyEvents": 0,
+    "excludedScopeEvents": 0,
+    "explanation": {
+      "title": "Unassigned / no configured plan",
+      "note": "Usage without an applicable plan or safe association. No configured cost or Reference-value multiple is invented for this bucket.",
+      "referenceValue": {
+        "amountUsd": null,
+        "status": "no_records",
+        "excluded": []
+      },
+      "pricingCoverage": {
+        "status": "no_records",
+        "label": "No recorded usage",
+        "pricedEvents": 0,
+        "unpricedEvents": 0,
+        "pricedTokens": 0,
+        "unpricedTokens": 0,
+        "unpricedModels": [],
+        "incompleteTelemetryEvents": 0,
+        "excludedApiOnlyEvents": 0,
+        "excludedChargeOnlyEvents": 0,
+        "excludedScopeEvents": 0,
+        "note": "Pricing coverage describes RECORDED usage only; it does not claim complete account or device capture."
+      },
+      "tools": []
+    }
+  },
+  "sources": [
+    {
+      "source": "anthropic_admin",
+      "sourceLabel": "Anthropic Admin",
+      "toolKeys": [
+        "claude-code"
+      ],
+      "associationKey": "claude-code",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "antigravity_local",
+      "sourceLabel": "Antigravity populated cache",
+      "toolKeys": [
+        "antigravity"
+      ],
+      "associationKey": "antigravity",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "claude_local",
+      "sourceLabel": "Claude Code",
+      "toolKeys": [
+        "claude-code"
+      ],
+      "associationKey": "claude-code",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "codex_local",
+      "sourceLabel": "Codex",
+      "toolKeys": [
+        "codex"
+      ],
+      "associationKey": "codex",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "failed",
+      "lastAttemptAt": "2026-09-09T03:59:00Z",
+      "lastSuccessAt": "2026-08-01T12:00:00Z",
+      "freshness": {
+        "state": "stale",
+        "ageSeconds": 3340800.0,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No successful current capture; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": "redacted provider failure"
+    },
+    {
+      "source": "cursor_admin",
+      "sourceLabel": "Cursor Admin",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "cursor_csv",
+      "sourceLabel": "Cursor CSV",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "cursor_local",
+      "sourceLabel": "Cursor local",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "cursor_usage_service",
+      "sourceLabel": "Cursor Usage Service",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "grok_local",
+      "sourceLabel": "Grok Build",
+      "toolKeys": [
+        "grok"
+      ],
+      "associationKey": "grok",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "openai_admin",
+      "sourceLabel": "OpenAI Admin",
+      "toolKeys": [
+        "codex"
+      ],
+      "associationKey": "codex",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "opencode_local",
+      "sourceLabel": "OpenCode",
+      "toolKeys": [
+        "opencode",
+        "zcode"
+      ],
+      "associationKey": "opencode",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is partial; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "openrouter",
+      "sourceLabel": "OpenRouter balance",
+      "toolKeys": [],
+      "associationKey": null,
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is unavailable; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "traycer_local",
+      "sourceLabel": "Traycer",
+      "toolKeys": [
+        "grok",
+        "openrouter"
+      ],
+      "associationKey": null,
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is partial; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "xai",
+      "sourceLabel": "Xai",
+      "toolKeys": [
+        "xai"
+      ],
+      "associationKey": "xai",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is unavailable; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "zcode_local",
+      "sourceLabel": "ZCode",
+      "toolKeys": [
+        "opencode",
+        "zcode"
+      ],
+      "associationKey": "opencode",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    }
+  ],
+  "labels": {
+    "multiple": "Reference-value multiple",
+    "usageValue": "Recorded API-equivalent usage value",
+    "configuredCost": "Configured cost accrued"
+  },
+  "notes": [
+    "Reference value excludes configured expense and provider-reported charges.",
+    "Pricing coverage is separate from collection evidence.",
+    "Tool association is a comparison assumption, not account proof."
+  ]
+}

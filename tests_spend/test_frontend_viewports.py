@@ -54,10 +54,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
         if path == "/request-state.js":
             self._send((WEB / "request-state.js").read_bytes(), "application/javascript; charset=utf-8")
             return
-        if path == "/connections.js":
-            self._send((WEB / "connections.js").read_bytes(), "application/javascript; charset=utf-8")
-            return
-        if path in {"/product-helpers.js", "/harness.js"}:
+        if path == "/dialogs.js":
             self._send((WEB / path.removeprefix("/")).read_bytes(), "application/javascript; charset=utf-8")
             return
         if path == "/product.js":

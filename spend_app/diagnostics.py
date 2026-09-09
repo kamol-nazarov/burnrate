@@ -103,6 +103,11 @@ def safe_reason(raw, source=""):
     return "The latest source attempt reported a problem; other sources continue independently."
 
 
+def collection_stale_after(source):
+    """Existing ingest-health freshness threshold, shared by read-only reports."""
+    return 3600 if source in SETTINGS else 180
+
+
 def source_reports(connection, now, detected=None, settings=None):
     detected = detected or {}
     bindings = {}
@@ -146,7 +151,7 @@ def source_reports(connection, now, detected=None, settings=None):
             state = "detected_without_history"
         elif not latest:
             state = "not_checked"
-        elif age is None or age > (3600 if source in SETTINGS else 180):
+        elif age is None or age > collection_stale_after(source):
             state = "stale"
         else:
             state = "healthy"
