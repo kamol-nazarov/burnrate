@@ -24,7 +24,7 @@ This project is licensed under Apache-2.0.
   discard stale period responses and refresh comparisons after plan changes.
 - Bundle optional dialogs together to retain the existing total asset budgets.
   Tool association is an assumption, not provider-account identity; actual charges
-  are never added to reference value. This candidate is not a deployed release.
+  are never added to reference value. This is a beta prerelease.
 
 ## [0.3.0-beta.3] - 2026-09-08
 

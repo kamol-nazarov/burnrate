@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from spend_app.api import create_app
 from spend_app.config import (
     ACTIVITY_POLL_SECONDS,
     ADMIN_INGEST_INTERVAL_MINUTES,
@@ -19,6 +18,26 @@ from spend_app.scheduler import create_scheduler
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def isolated_scheduler_sources(monkeypatch, tmp_path):
+    """Replace source boundaries before constructing provider arguments."""
+    from spend_app import providers
+
+    home = tmp_path / "source-home"
+    home.mkdir()
+    for key in ("HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "CODEX_HOME",
+                "CLAUDE_CONFIG_DIR", "GROK_HOME", "XDG_DATA_HOME"):
+        monkeypatch.setenv(key, str(home))
+    monkeypatch.setattr(providers, "_home", lambda: home)
+    # Computing Traycer kwargs must never inspect the operator's Grok log.
+    monkeypatch.setattr(providers, "grok_coverage_start", lambda *_args: None)
+
+    def no_background_start(*_args, **_kwargs):
+        raise AssertionError("Scheduler fixtures must not start background workers")
+
+    monkeypatch.setattr("apscheduler.schedulers.background.BackgroundScheduler.start", no_background_start)
 
 LOCAL_INGEST_JOB_IDS = ("local-ingest",)
 INGEST_JOB_IDS = (*LOCAL_INGEST_JOB_IDS, "provider-admin")
@@ -76,6 +95,9 @@ def test_cursor_usage_service_is_skipped_when_admin_key_is_set(tmp_path: Path) -
     end = datetime(2026, 8, 31, tzinfo=UTC)
     admin_with = [spec.key for spec, _kwargs in iter_admin_ingest(with_key, pricing, start=start, end=end)]
     assert "cursor_admin" in admin_with
+    jobs = dict((spec.key, kwargs) for spec, kwargs in iter_local_ingest(without_key, pricing))
+    assert jobs["traycer_local"]["grok_covered_from"] is None
+    assert str(tmp_path / "source-home") in jobs["traycer_local"]["database_glob"]
 
 
 def test_local_ingest_is_near_real_time_and_admin_jobs_stay_rate_limited(tmp_path: Path) -> None:
@@ -319,6 +341,8 @@ def test_scheduled_poller_jobs_pass_database_path(tmp_path: Path, monkeypatch) -
 
 
 def test_disabled_scheduler_does_not_call_pollers(tmp_path: Path, monkeypatch) -> None:
+    from spend_app.api import create_app
+
     calls: list[str] = []
 
     def fake_quotas(**_kwargs):
