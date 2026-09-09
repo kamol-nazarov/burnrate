@@ -31,7 +31,11 @@ class ProductHandler(FixtureHandler):
                 (ROOT / "tests_spend/product_browser_cases.js").read_bytes(),
                 "application/javascript",
             )
-        elif path in {"/api/subscriptions", "/api/onboarding", "/api/subscriptions/value"}:
+        elif path in {
+            "/api/subscriptions",
+            "/api/onboarding",
+            "/api/subscriptions/value",
+        }:
             response = self.server.client.get(self.path)
             self._send(response.content, "application/json", response.status_code)
         else:

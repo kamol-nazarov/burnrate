@@ -40,7 +40,9 @@ def product_router(settings, pricing=None):
     def subscription_value(period: str = "this_month"):
         if period not in ("this_month", "last_month"):
             return JSONResponse(
-                {"error": f"Invalid period '{period}'. Use 'this_month' or 'last_month'."},
+                {
+                    "error": f"Invalid period '{period}'. Use 'this_month' or 'last_month'."
+                },
                 status_code=422,
             )
         resolved_pricing = pricing
