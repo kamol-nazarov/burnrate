@@ -299,15 +299,9 @@ def _source_label(source: str) -> str:
 
 
 def _safe_source_key(value: Any) -> str:
-    """Keep registry ids and bounded identifiers; drop paths/emails."""
-    import re
-
+    """Only registered source identities are public reporting metadata."""
     source = str(value or "").strip().lower()
-    if not source:
-        return "unattributed"
     if REGISTRY.get(source) is not None:
-        return source
-    if re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", source):
         return source
     return "unattributed"
 

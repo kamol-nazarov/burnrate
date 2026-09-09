@@ -365,3 +365,10 @@ def test_redacted_prefix_does_not_allow_arbitrary_response_text():
     source = next(row for row in rows if row["source"] == "codex_local")
     assert "confidential" not in source["reason"]
     assert "conversation" not in source["reason"]
+
+
+def test_unknown_source_identifiers_cannot_export_secret_shaped_text():
+    rows = _health_rows(_HealthConnection(
+        [{"source": "sk-private-source-token", "status": "failed", "error": "unknown source"}],
+    ))
+    assert "sk-private-source-token" not in json.dumps(rows)
