@@ -7,6 +7,10 @@ The badge counts distinct actionable, unacknowledged, unsnoozed items backed by
 usable evidence. Evaluation failure or lag is visible; zero is not a claim of
 complete source coverage.
 
+A failed reader marks that rule's evidence as awaiting; independently usable
+evidence from other rules can still need attention. A lost evaluator or persistence
+failure suppresses the badge until evaluation is usable again.
+
 There are exactly three rules. All start enabled; this grants no provider access
 and enables no external notifications.
 

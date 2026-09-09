@@ -205,6 +205,9 @@ def snapshot(state, now, timezone, *, detail=True):
     if evaluation["status"] == "ok" and (lag is None or lag > 90):
         evaluation["status"] = "stale"
     evaluation["lagSeconds"] = lag
+    attempted = stamp(evaluation.get('lastAttemptAt'))
+    failed_rules = evaluation.get('failedRules', [])
+    evaluation_lost = attempted is None or (now-attempted).total_seconds()>90 or evaluation.get('reasonCode')=='persistence_failed' or evaluation['status']!='ok' and not failed_rules
     limited = any(row['enabled'] and (not row['observedSubjects'] or row['eligible']<row['observedSubjects']) for row in evaluation.get('eligibility',{}).values())
     evaluation['label'] = f"Evaluation {evaluation['status']}. " + ('Some evidence is unavailable or ineligible. ' if limited else '') + ('Pricing scan pending. ' if not evaluation.get('pricingComplete') else '') + 'Last success:'
     items = []
@@ -212,7 +215,7 @@ def snapshot(state, now, timezone, *, detail=True):
         item = copy.deepcopy(original)
         until, expiry = stamp(item.get("usableUntil")), stamp(item.get("expiresAt"))
         observed = stamp(item.get("observedAt"))
-        if evaluation["status"] != "ok" or observed is None or observed > now or until is None or until <= now or expiry and expiry <= now:
+        if evaluation_lost or item['family'] in failed_rules or observed is None or observed > now or until is None or until <= now or expiry and expiry <= now:
             item.update(status="awaiting", reasonCode="awaiting_evidence")
         item["acknowledged"] = bool(item["acknowledgedAt"] and item["acknowledgedTier"] >= item["severity"])
         snoozed = stamp(item.get("snoozedUntil"))
@@ -229,7 +232,7 @@ def snapshot(state, now, timezone, *, detail=True):
         items.append(item)
     out = {"schemaVersion": 1, "revision": state["revision"], "asOf": iso(now), "timezone": timezone,
            "badgeCount": sum(x["needsAttention"] for x in items), "evaluation": evaluation}
-    out['badgeLabel'] = f"Attention {out['badgeCount']}" if evaluation['status']=='ok' else 'Attention !'
+    out['badgeLabel'] = f"Attention {out['badgeCount']}" if evaluation['status']=='ok' else f"Attention {out['badgeCount']} !" if out['badgeCount'] else 'Attention !'
     if detail:
         out.update(preferences=copy.deepcopy(state["preferences"]), current=sorted(items, key=lambda x: (-x["severity"], x["firstDetectedAt"], x["id"])),
                    history=[{**h, **presentation(h), "controls":[], "actionLabel":"View diagnostics", "reason": REASONS.get(h["reasonCode"], h["reasonCode"])} for h in state["history"]])

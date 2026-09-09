@@ -158,6 +158,13 @@ def test_user_mutation_cannot_hide_evaluator_failure():
     response,_=action(service,'acknowledge',only(service))
     assert response['evaluation']['status']=='error' and response['badgeLabel']=='Attention !'
 
+def test_one_failed_rule_does_not_suppress_independently_usable_evidence():
+    repo,clock,_,service=world();set_quota(repo,82);repo.gaps=[gap()];service.evaluate()
+    repo.fail_reads.add('FROM unpriced_usage_events');clock[0]+=timedelta(seconds=1);service.evaluate()
+    snapshot=service.read()
+    assert snapshot['evaluation']['status']=='error' and snapshot['badgeCount']==1
+    assert only(service)['needsAttention'] and only(service,'pricing')['status']=='awaiting'
+
 def test_binding_revision_and_disabled_are_not_recovery():
     repo,clock,_,service=world()
     b={"enabled":True,"revision":1,"state":"needs_attention","lastVerification":"2026-09-10T11:00:00Z"}
