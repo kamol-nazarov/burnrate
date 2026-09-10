@@ -12,7 +12,6 @@ because exceptions were swallowed.
 from __future__ import annotations
 
 import json
-import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,13 +19,7 @@ from typing import Iterator
 
 from spend_app.db import connect, initialize
 from spend_app.ingest import IngestRun
-
-_CREDENTIAL_SHAPED = re.compile(
-    r"(?i)(bearer\s+)\S+|(basic\s+)\S+|(sk-[a-z0-9_-]{8,})|(x-api-key\s*[:=]\s*)\S+|"
-    r"(eyJ[A-Za-z0-9_-]{10,}\.)|(gh[pousr]_[A-Za-z0-9]{20,})|([A-Fa-f0-9]{32,})"
-)
-_MAX_REASON = 240
-
+from spend_app.source_evidence import sanitize_reason as sanitize_reason
 
 @dataclass
 class RecordOutcome:
@@ -79,14 +72,6 @@ class SourceHealth:
         if self.reasons:
             text += f" — first: {self.reasons[0]}"
         return text
-
-
-def sanitize_reason(value: object) -> str:
-    """One-line, secret-free, class-free reason safe for DB/log/API."""
-    text = str(value if value is not None else "").replace("\n", " ").replace("\r", " ")
-    text = _CREDENTIAL_SHAPED.sub("[redacted]", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text[:_MAX_REASON]
 
 
 def quarantine(reason: object, location: str | None = None) -> RecordOutcome:

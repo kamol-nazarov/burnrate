@@ -5,6 +5,7 @@ import socket
 import sqlite3
 import subprocess
 import ctypes
+import builtins
 from contextlib import ExitStack, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -155,3 +156,36 @@ def test_guards_fail_instead_of_returning_empty_evidence():
 def test_existing_loader_contracts_under_strict_boundaries(case):
     with isolated():
         case()
+
+
+def test_pure_module_import_and_legacy_sanitizer_surface():
+    from spend_app import source_evidence
+
+    # Read only this tracked module; execute its fresh import body with external
+    # access denied and imports restricted to the sole standard-library dependency.
+    source = Path(source_evidence.__file__).read_text()
+    real_import = builtins.__import__
+
+    def only_re(name, *args, **kwargs):
+        assert name == "re", f"unexpected pure-layer dependency: {name}"
+        return real_import(name, *args, **kwargs)
+
+    with isolated(), patch("builtins.__import__", only_re):
+        namespace = {"__name__": "source_evidence_isolated"}
+        exec(compile(source, "source_evidence.py", "exec"), namespace)
+        assert namespace["sanitize_reason"]("Basic synthetic-token\nproblem") == "[redacted] problem"
+        assert namespace["source_reason_text"]("at /tmp/synthetic/file") == "at [path omitted]"
+    assert source_health.sanitize_reason is source_evidence.sanitize_reason
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("adaptive cadence", "Collection deferred to the established cadence."),
+    ("2 quarantined record(s) with synthetic context", "2 quarantined record(s)"),
+    ("pricing gap", "Some model pricing is unavailable; measured usage remains available."),
+    ("permission denied", "Access to local usage metadata was denied."),
+    ("redacted provider failure", "redacted provider failure"),
+    ("raw response /tmp/synthetic/private", "The latest source attempt reported a problem; other sources continue independently."),
+])
+def test_loader_retains_its_reason_vocabulary(raw, expected):
+    with isolated():
+        assert plans_value_store._safe_health_reason(raw, "codex_local") == expected
