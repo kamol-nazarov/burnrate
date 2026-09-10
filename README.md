@@ -13,7 +13,7 @@ The default product is one process: FastAPI + SQLite + a browser dashboard bound
 - **Empty credentials are valid.** Local ingest needs no API keys.
 - **Missing data stays missing.** Unavailable is rendered `—`, never `$0`.
 
-Version: `0.3.0-beta.5` (unreleased candidate). See the [candidate changelog](CHANGELOG.md). Latest published beta: [beta.4 release notes](RELEASE-0.3.0-beta.4.md).
+Version: `0.3.0-beta.4`. Current beta: [release notes](RELEASE-0.3.0-beta.4.md).
 
 For frontend development, edit the readable files in `frontend_src/`. Run
 `npm ci --prefix scripts/asset-tools --ignore-scripts --no-audit --no-fund`, then

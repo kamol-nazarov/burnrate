@@ -121,6 +121,11 @@ remain in source tests, and all production modules count toward unchanged budget
 
 ## Verification limits
 
+Action Center consumes the existing `load_source_health` boundary. Its reason
+handling reuses the shared pure `source_evidence` helper through that loader;
+incident eligibility and recovery remain Action Center decisions. The feature
+is unreleased and retains beta.4 product/package version metadata.
+
 Unit tests use guarded imports, fake query rows, transactions, clocks, scheduler
 registration and DOM/HTTP boundaries. A shared fixture is produced through the
 production loader/reducer/store projection and used by the actual renderer tests.
