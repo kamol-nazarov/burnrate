@@ -124,7 +124,7 @@ remain in source tests, and all production modules count toward unchanged budget
 Action Center consumes the existing `load_source_health` boundary. Its reason
 handling reuses the shared pure `source_evidence` helper through that loader;
 incident eligibility and recovery remain Action Center decisions. The feature
-is unreleased and retains beta.4 product/package version metadata.
+ships in beta.5 with no database schema migration.
 
 Unit tests use guarded imports, fake query rows, transactions, clocks, scheduler
 registration and DOM/HTTP boundaries. A shared fixture is produced through the

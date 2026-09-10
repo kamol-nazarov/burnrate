@@ -40,8 +40,9 @@ async function main(){
   outputs['product.js']='window.initializeProductDialogs();';
   // Compile dashboard/request ownership together so internal identifiers can be
   // shortened. Preserve the existing cross-script and browser-contract bindings.
-  outputs['spend.js']='window.bootSpend(()=>{'+aliasAttributes(sources['request-state.js'])+'\n'+aliasAttributes(sources['spend.js'])+'\nObject.assign(window,{state,colorFor,loadEntity,BurnrateDOM:{n:nodeFrom,t:setText,e:setEmpty,r:reconcileChildren}});});';
-  outputs['request-state.js']='window.bootSpend=initialize=>initialize();';
+  outputs['spend.js']='(()=>{'+aliasAttributes(sources['request-state.js'])+'\n'+aliasAttributes(sources['spend.js'])+'\nObject.assign(window,{state,colorFor,loadEntity,BurnrateDOM:{n:nodeFrom,t:setText,e:setEmpty,r:reconcileChildren}});})();';
+  // Retain the served compatibility path; dashboard startup is self-contained.
+  outputs['request-state.js']='void 0;';
   // Dialogs run only in the browser; their CommonJS branches belong to source unit tests.
   for(const name of Object.keys(outputs).filter(name=>name.endsWith('.js'))){const result=await terser.minify(outputs[name],{compress:{passes:3,global_defs:name==='dialogs.js'?{module:undefined}:{}},mangle:true,format:{comments:false}});outputs[name]=result.code.replace(/;$/,'');}
   outputs['index.html']=aliasAttributes(sources['index.html']).replace('    <script src="/connections.js?v=1" defer></script>','    <script src="/dialogs.js?v=1" defer></script>');

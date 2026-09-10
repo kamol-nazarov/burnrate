@@ -9,6 +9,8 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.5] - 2026-09-10
+
 - Add in-app Action Center v1 for proven quota thresholds, monitored-source
   failures and missing applicable model pricing. Persist acknowledgment, elapsed
   snooze, stable episodes, replay watermarks, compact preferences and bounded history.

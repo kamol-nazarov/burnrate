@@ -1,1 +1,0 @@
-window.bootSpend=o=>o()

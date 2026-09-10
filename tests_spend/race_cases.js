@@ -1,6 +1,8 @@
 // Exercise production functions, event handlers, renderers, CSS and real DOM.
 (async () => {
   const assert = (ok, message) => { if (!ok) throw new Error(message); };
+  assert(raceStartupErrors.length === 0, "Startup errors: " + raceStartupErrors.join("; "));
+  assert(typeof state !== "undefined", "Dashboard state missing after deferred scripts");
   const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
   const requests = path => raceRequests.filter(r => new URL(r.url, location.href).pathname.endsWith(path));
   const last = path => requests(path).at(-1);
@@ -78,7 +80,9 @@
     }
   } else {
     await seed();
-    if (RACE_CASE.startsWith("resume_")) {
+    if (RACE_CASE === "standalone_startup") {
+      overview("1d");
+    } else if (RACE_CASE.startsWith("resume_")) {
       tick();
       const old = last("summary");
       if (RACE_CASE.includes("detail")) { loadEntity("model", "model-a"); await settle(last("entity")); }
