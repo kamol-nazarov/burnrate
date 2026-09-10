@@ -27,7 +27,7 @@ from spend_app.plans_value_groups import (
 )
 from spend_app.plans_value_periods import resolve_period_bounds
 from spend_app.providers import REGISTRY
-from spend_app.source_health import sanitize_reason
+from spend_app.source_evidence import sanitize_reason, source_reason_text
 from spend_app.timeutil import epoch_micros, from_epoch_micros, iso_utc, parse_utc
 
 # API-only admin lanes are org-scoped charges/usage — never subscription value.
@@ -231,13 +231,7 @@ def _safe_health_reason(raw: Any, source: str) -> str | None:
     # report must defend against older rows and synthetic fixtures too.
     import re
 
-    text = re.sub(r"(?i)[A-Z]:\\[^\s;]+", "[path omitted]", normalized)
-    text = re.sub(r"(?i)/(?:Users|home|var|etc|tmp)/[^\s;]+", "[path omitted]", text)
-    text = re.sub(r"(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[redacted]", text)
-    lowered_text = text.lower()
-    if any(marker in lowered_text for marker in ("prompt", "raw response", "authorization", "bearer", "api key")):
-        return "The latest source attempt reported a problem; other sources continue independently."
-    text = " ".join(text.split()).strip()
+    text = source_reason_text(normalized)
     if re.fullmatch(r"redacted (?:provider|cursor|codex|source) failure", text.lower()):
         return text
     if text.lower() == "adaptive cadence":
