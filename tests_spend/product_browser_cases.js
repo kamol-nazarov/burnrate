@@ -9,6 +9,10 @@
   const change = (id,value) => { el(id).value=value;el(id).dispatchEvent(new Event("change",{bubbles:true})); };
   const submit = () => el("plan-form").requestSubmit();
   const saved = () => until(()=>el("plan-message").textContent.startsWith("Saved durably"));
+  const closePlans = () => new Promise(resolve => {
+    el("plan-manager").addEventListener("close", resolve, {once:true});
+    el("close-plans").click();
+  });
   await until(()=>!document.body.classList.contains("loading"));
   document.querySelector("#chart-hit-targets button")?.click();
   el("manage-plans").click();el("tab-plans-list").click();
@@ -48,7 +52,7 @@
     body:JSON.stringify({operation:"end",request_id:"concurrent-end-123",plan_id:p.id,expected_version:p.version,end_date:null})});
   submit(); await until(()=>el("plan-message").textContent.includes("Conflict"));
   assert(el("plan-amount").value==="150","conflict erased draft");
-  el("close-plans").click();el("manage-plans").click();el("tab-plans-list").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
+  await closePlans();el("manage-plans").click();el("tab-plans-list").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
   preset("schedule");set("plan-amount","150");submit();set("plan-start","2026-09-15");submit();await saved();
   history();
   assert(el("plan-history").textContent.includes("2026-09-14"),"prior term history lost");
@@ -62,7 +66,7 @@
   assert(el("plan-history").textContent.includes("→ 2026-09-20"),"end date missing");
   assert(el("plan-manager").textContent.includes("does not cancel"),"provider cancellation disclosure missing");
   assert(el("plan-manager").scrollWidth<=el("plan-manager").clientWidth+1,"dialog horizontally overflows");
-  el("close-plans").click();await until(()=>!el("plan-manager").open);
+  await closePlans();await until(()=>!el("plan-manager").open);
   await until(()=>document.activeElement.id==="manage-plans");
   el("product-result").textContent=JSON.stringify({pass:true});
 })().catch(error=>{document.getElementById("product-result").textContent=JSON.stringify({pass:false,error:error.stack});});
