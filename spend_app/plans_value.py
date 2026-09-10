@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 
 from spend_app.pricing import PricingEngine, UnpricedModelError
 from spend_app.plans_value_groups import SUPPORTED_TOOLS, canonical_tool_key
-from spend_app.source_health import sanitize_reason
+from spend_app.source_evidence import source_reason_text
 from spend_app.value_summary import ValueSummary, ratio_with_coverage
 
 UTC = timezone.utc
@@ -299,20 +299,8 @@ def _collection_source_label(value: Any, source: str) -> str:
 
 
 def _collection_safe_text(value: Any) -> str | None:
-    if value is None or not str(value).strip():
-        return None
-    text = sanitize_reason(value)
-    # ``sanitize_reason`` handles credential-shaped tokens and line breaks.
-    # These additional replacements keep old/synthetic rows from exposing
-    # personal locations or account identifiers through this API.
-    import re
-
-    text = re.sub(r"(?i)[A-Z]:\\[^\s;]+", "[path omitted]", text)
-    text = re.sub(r"(?i)/(?:Users|home|var|etc|tmp)/[^\s;]+", "[path omitted]", text)
-    text = re.sub(r"(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[redacted]", text)
-    if any(marker in text.lower() for marker in ("prompt", "raw response", "authorization", "bearer", "api key")):
-        return "The latest source attempt reported a problem; other sources continue independently."
-    return " ".join(text.split())[:240] or None
+    """Keep the report projection seam while sharing metadata redaction."""
+    return source_reason_text(value)
 
 
 def _collection_freshness(mapping: Mapping[str, Any]) -> dict:

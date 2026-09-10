@@ -1,0 +1,605 @@
+{
+  "health": [
+    {
+      "source": "anthropic_admin",
+      "sourceLabel": "Anthropic Admin",
+      "toolKeys": [
+        "claude-code"
+      ],
+      "associationKey": "claude-code",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "antigravity_local",
+      "sourceLabel": "Antigravity populated cache",
+      "toolKeys": [
+        "antigravity"
+      ],
+      "associationKey": "antigravity",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "claude_local",
+      "sourceLabel": "Claude Code",
+      "toolKeys": [
+        "claude-code"
+      ],
+      "associationKey": "claude-code",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "codex_local",
+      "sourceLabel": "Codex",
+      "toolKeys": [
+        "codex"
+      ],
+      "associationKey": "codex",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "success",
+      "lastAttemptAt": "2026-09-09T04:00:00Z",
+      "lastSuccessAt": "2026-09-09T04:00:00Z",
+      "freshness": {
+        "state": "recent",
+        "ageSeconds": 0.0,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "Current attempt only; historical capture is unverified.",
+      "eventsWritten": 2,
+      "reason": null
+    },
+    {
+      "source": "cursor_admin",
+      "sourceLabel": "Cursor Admin",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "cursor_csv",
+      "sourceLabel": "Cursor CSV",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "cursor_local",
+      "sourceLabel": "Cursor local",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "failed",
+      "lastAttemptAt": "2026-09-09T04:00:00Z",
+      "lastSuccessAt": "2026-09-08T04:00:00Z",
+      "freshness": {
+        "state": "stale",
+        "ageSeconds": 86400.0,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No successful current capture; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": "Access to local usage metadata was denied."
+    },
+    {
+      "source": "cursor_usage_service",
+      "sourceLabel": "Cursor Usage Service",
+      "toolKeys": [
+        "cursor"
+      ],
+      "associationKey": "cursor",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "skipped",
+      "lastAttemptAt": "2026-09-09T04:00:00Z",
+      "lastSuccessAt": "2026-09-09T03:59:00Z",
+      "freshness": {
+        "state": "recent",
+        "ageSeconds": 60.0,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No successful current capture; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": "Collection deferred to the established cadence."
+    },
+    {
+      "source": "grok_local",
+      "sourceLabel": "Grok Build",
+      "toolKeys": [
+        "grok"
+      ],
+      "associationKey": "grok",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "partial",
+      "lastAttemptAt": "2026-09-09T04:00:00Z",
+      "lastSuccessAt": "2026-09-09T04:00:00Z",
+      "freshness": {
+        "state": "recent",
+        "ageSeconds": 0.0,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "Current attempt was partial; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 1,
+      "reason": "Some model pricing is unavailable; measured usage remains available."
+    },
+    {
+      "source": "openai_admin",
+      "sourceLabel": "OpenAI Admin",
+      "toolKeys": [
+        "codex"
+      ],
+      "associationKey": "codex",
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "opencode_local",
+      "sourceLabel": "OpenCode",
+      "toolKeys": [
+        "opencode",
+        "zcode"
+      ],
+      "associationKey": "opencode",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is partial; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "openrouter",
+      "sourceLabel": "OpenRouter balance",
+      "toolKeys": [],
+      "associationKey": null,
+      "relevant": false,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is unavailable; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "traycer_local",
+      "sourceLabel": "Traycer",
+      "toolKeys": [
+        "grok",
+        "openrouter"
+      ],
+      "associationKey": null,
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is partial; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "xai",
+      "sourceLabel": "Xai",
+      "toolKeys": [
+        "xai"
+      ],
+      "associationKey": "xai",
+      "relevant": true,
+      "configuredState": "unknown",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is unavailable; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    },
+    {
+      "source": "zcode_local",
+      "sourceLabel": "ZCode",
+      "toolKeys": [
+        "opencode",
+        "zcode"
+      ],
+      "associationKey": "opencode",
+      "relevant": true,
+      "configuredState": "configured",
+      "status": "never",
+      "lastAttemptAt": null,
+      "lastSuccessAt": null,
+      "freshness": {
+        "state": "unknown",
+        "ageSeconds": null,
+        "asOf": "2026-09-09T04:00:00Z"
+      },
+      "coverage": "No collection attempt observed; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+      "eventsWritten": 0,
+      "reason": null
+    }
+  ],
+  "diagnostics": [
+    {
+      "source": "anthropic_admin",
+      "path": null,
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "antigravity_local",
+      "path": "~/AppData/Roaming/Antigravity",
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": true,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "claude_local",
+      "path": "~/.claude/projects",
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "codex_local",
+      "path": "~/.codex/sessions",
+      "state": "healthy",
+      "lastAttempt": "2026-09-09T04:00:00Z",
+      "lastSuccess": "2026-09-09T04:00:00Z",
+      "freshnessSeconds": 0,
+      "measurements": [
+        "input/output tokens",
+        "cache components"
+      ],
+      "reason": null,
+      "nextAction": "No action needed for usage. Quota availability and pricing are reported separately.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "cursor_admin",
+      "path": null,
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "cursor_csv",
+      "path": null,
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "cursor_local",
+      "path": "~/.cursor/projects",
+      "state": "failed",
+      "lastAttempt": "2026-09-09T04:00:00Z",
+      "lastSuccess": "2026-09-08T04:00:00Z",
+      "freshnessSeconds": 86400.0,
+      "measurements": [],
+      "reason": "Access to local usage metadata was denied.",
+      "nextAction": "Run BURNRATE as the user who owns the usage store and grant that user read access.",
+      "pricingMissing": [],
+      "experimental": true,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "cursor_usage_service",
+      "path": null,
+      "state": "configuration_missing",
+      "lastAttempt": "2026-09-09T04:00:00Z",
+      "lastSuccess": "2026-09-09T03:59:00Z",
+      "freshnessSeconds": 60.0,
+      "measurements": [],
+      "reason": "The latest source attempt reported a problem; other sources continue independently.",
+      "nextAction": "If you want this optional integration, configure its documented opt-in setting. No credential is required for the dashboard.",
+      "pricingMissing": [],
+      "experimental": true,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "grok_local",
+      "path": "~/.grok/logs",
+      "state": "partial",
+      "lastAttempt": "2026-09-09T04:00:00Z",
+      "lastSuccess": "2026-09-09T04:00:00Z",
+      "freshnessSeconds": 0,
+      "measurements": [
+        "partial token totals"
+      ],
+      "reason": "Some model pricing is unavailable; measured usage remains available.",
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [
+        "synthetic-model"
+      ],
+      "experimental": true,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "openai_admin",
+      "path": null,
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "opencode_local",
+      "path": "~/.local/share/opencode/opencode.db",
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "openrouter",
+      "path": null,
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "traycer_local",
+      "path": "~/.traycer/host",
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": true,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    },
+    {
+      "source": "zcode_local",
+      "path": "~/.zcode/cli/db/db.sqlite",
+      "state": "not_checked",
+      "lastAttempt": null,
+      "lastSuccess": null,
+      "freshnessSeconds": null,
+      "measurements": [],
+      "reason": null,
+      "nextAction": "Complete a supported turn and recheck.",
+      "pricingMissing": [],
+      "experimental": false,
+      "documentation": "https://github.com/kamol-nazarov/burnrate/blob/main/docs/providers.md"
+    }
+  ],
+  "codex": {
+    "status": "healthy",
+    "complete": false,
+    "label": "Healthy recent collection",
+    "sources": [
+      {
+        "source": "codex_local",
+        "sourceLabel": "Codex",
+        "toolKeys": [
+          "codex"
+        ],
+        "associationKey": "codex",
+        "configuredState": "configured",
+        "status": "success",
+        "lastAttemptAt": "2026-09-09T04:00:00Z",
+        "lastSuccessAt": "2026-09-09T04:00:00Z",
+        "freshness": {
+          "state": "recent",
+          "ageSeconds": 0.0,
+          "asOf": "2026-09-09T04:00:00Z"
+        },
+        "coverage": "Current attempt only; historical capture is unverified.",
+        "reason": null,
+        "eventsWritten": 2
+      }
+    ],
+    "note": "Collection evidence describes the current poll and source freshness; it does not prove complete historical capture for this period, including Last month. It is separate from whether recorded usage was priced."
+  },
+  "cursor": {
+    "status": "failed",
+    "complete": false,
+    "label": "Collection failed for at least one source",
+    "sources": [
+      {
+        "source": "cursor_local",
+        "sourceLabel": "Cursor local",
+        "toolKeys": [
+          "cursor"
+        ],
+        "associationKey": "cursor",
+        "configuredState": "configured",
+        "status": "failed",
+        "lastAttemptAt": "2026-09-09T04:00:00Z",
+        "lastSuccessAt": "2026-09-08T04:00:00Z",
+        "freshness": {
+          "state": "stale",
+          "ageSeconds": 86400.0,
+          "asOf": "2026-09-09T04:00:00Z"
+        },
+        "coverage": "No successful current capture; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+        "reason": "Access to local usage metadata was denied.",
+        "eventsWritten": 0
+      },
+      {
+        "source": "cursor_usage_service",
+        "sourceLabel": "Cursor Usage Service",
+        "toolKeys": [
+          "cursor"
+        ],
+        "associationKey": "cursor",
+        "configuredState": "configured",
+        "status": "skipped",
+        "lastAttemptAt": "2026-09-09T04:00:00Z",
+        "lastSuccessAt": "2026-09-09T03:59:00Z",
+        "freshness": {
+          "state": "recent",
+          "ageSeconds": 60.0,
+          "asOf": "2026-09-09T04:00:00Z"
+        },
+        "coverage": "No successful current capture; historical capture is unverified. Source usage capability is derived; pricing limitations are separate from collection failure.",
+        "reason": "Collection deferred to the established cadence.",
+        "eventsWritten": 0
+      }
+    ],
+    "note": "Collection evidence describes the current poll and source freshness; it does not prove complete historical capture for this period, including Last month. It is separate from whether recorded usage was priced."
+  },
+  "queryCounts": [
+    3,
+    57
+  ]
+}

@@ -250,7 +250,12 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-`python -m pytest` from the repository root collects only this suite. Tests are hermetic: no live provider credentials, no home-directory harness installs, no Downloads fixtures, no network except `127.0.0.1`.
+`python -m pytest` collects `tests_spend`, which includes temporary SQLite,
+application-startup and browser tests as well as pure units. A temporary database
+or blocked external HTTP does not by itself isolate filesystem, scheduler or
+credential access. For the source-evidence maintenance slice, the focused command
+is `python -m pytest -q tests_spend/test_source_evidence_unit.py`; it uses synthetic
+rows and guards external boundaries before importing the application modules.
 
 Optional localhost bench (dev only): `scripts/Bench-Burnrate.ps1` against `http://127.0.0.1:17331`. It prints p50/p95 without a committed baseline file. Do not point it at a tailnet hostname.
 
