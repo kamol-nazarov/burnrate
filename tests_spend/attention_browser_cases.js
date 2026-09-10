@@ -5,8 +5,14 @@
   const cards=()=>[...el('attention-list').querySelectorAll('article')];
   const quota=()=>cards().find(card=>card.textContent.includes('% used'));
   const click=(card,label)=>{const button=[...card.querySelectorAll('button')].find(b=>b.textContent===label);assert(button,'Missing '+label);button.click();};
+  const open=()=>{
+    const opener=el('nav-attention');
+    assert(document.querySelectorAll('#nav-attention').length===1,'Attention opener must be unique');
+    assert(!opener.disabled && opener.getClientRects().length && !opener.closest('[hidden], [inert]'),'Attention opener is unavailable');
+    opener.focus();assert(document.activeElement===opener,'Attention opener must receive focus');opener.click();
+  };
   await until(()=>window.BurnrateAttention && !document.body.classList.contains('loading'));
-  el('nav-attention').click();
+  open();
   await until(()=>cards().length===3);
   assert(el('attention-panel').open,'Native dialog must open');
   assert(el('attention-status').textContent.includes('Evaluation ok'),'Evaluation state missing');
@@ -23,7 +29,7 @@
   el('attention-close').click();
   await until(()=>!el('attention-panel').open && document.activeElement===el('nav-attention'));
   assert(!el('attention-panel').open && document.activeElement===el('nav-attention'),'Opener focus must restore');
-  el('nav-attention').click();await until(()=>cards().length===3);
+  open();await until(()=>cards().length===3);
   click(quota(),'View capacity');
   await until(()=>!el('attention-panel').open);
   assert(document.getElementById('capacity-body'),'Existing capacity target missing');
