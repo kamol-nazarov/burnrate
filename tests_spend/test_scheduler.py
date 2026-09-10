@@ -44,6 +44,7 @@ INGEST_JOB_IDS = (*LOCAL_INGEST_JOB_IDS, "provider-admin")
 QUOTA_JOB_ID = "quota-poll"
 ACTIVITY_JOB_ID = "activity"
 SCHEDULER_JOB_IDS = (
+    "attention",
     "local-ingest",
     "provider-admin",
     "subscriptions",

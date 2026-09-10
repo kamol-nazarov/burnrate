@@ -17,7 +17,7 @@ CASES = [
     "ownership", "ownership_fail", "ranges", "range_failure", "detail_back", "detail_back_home",
     "late_detail_ok", "late_detail_fail", "late_diagnostics_ok", "late_diagnostics_fail",
     "health_ok", "health_fail", "health_across_ticks", "poll_summary", "poll_detail", "poll_diagnostics",
-    "entity_identity", "cancel", "cache_reuse", "mismatched_response", "abort_transport",
+    "entity_identity", "cancel", "cache_reuse", "mismatched_response", "abort_transport", "standalone_startup",
     "snapshot_valid", "snapshot_expired", "snapshot_mismatch", "snapshot_stored_expired",
 ]
 
@@ -45,6 +45,9 @@ class RaceHandler(FixtureHandler):
         elif path.startswith("/api/"):
             raise AssertionError("All API traffic must use controlled deferred responses")
         elif path.lstrip("/") in self.server.assets:
+            if path == "/request-state.js" and self.server.case == "standalone_startup":
+                self._send(b"/* compatibility script intentionally empty */", "application/javascript")
+                return
             self._send(self.server.assets[path.lstrip("/")], "text/css" if path.endswith(".css") else "application/javascript")
         else:
             super().do_GET()

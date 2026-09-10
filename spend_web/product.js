@@ -1,1 +1,1 @@
-window.initializeProductDialogs();
+window.initializeProductDialogs()

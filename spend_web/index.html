@@ -58,6 +58,7 @@
           <div class="nav-settings bx" aria-label="Dashboard settings">
             <button id="nav-connect" class="ghost-button" type="button"><i class="settings-dot bF" aria-hidden="true"></i><span>Harnesses</span></button>
             <button id="nav-plans" class="ghost-button" type="button"><span class="mono" id="nav-plans-total">—</span>/mo plans</button>
+            <button id="nav-attention" class="ghost-button" type="button">Attention —</button>
           </div>
           <!-- Announces state transitions (live/stale/error and the failing
                source), never each poll's timestamp. -->
@@ -480,5 +481,21 @@
       <div class="harness-extra cn"><button id="managed-connections" class="ghost-button" type="button">Manage saved connections</button><button id="show-setup-help" class="ghost-button" type="button">Setup help</button></div>
     </dialog>
 
+    <dialog id="attention-panel" class="settings-dialog bJ" aria-labelledby="attention-title">
+      <header class="settings-dialog-header bK"><h2 id="attention-title" tabindex="-1">Attention</h2><button id="attention-close" class="ghost-button" type="button">Close</button></header>
+      <section class="harness-section ch">
+        <div class="cadence-control" role="group" aria-label="Attention views"><button id="attention-current" type="button">Current</button><button id="attention-history" type="button">History</button></div>
+        <p id="attention-status" class="settings-helper ca"></p><p id="attention-message" class="settings-helper ca" role="status"></p>
+        <div id="attention-list" class="settings-list bM"></div>
+        <details><summary>Preferences</summary><form id="attention-preferences">
+          <label class="settings-row"><input id="attention-quota" type="checkbox" checked>Quota thresholds</label>
+          <label class="settings-row"><input id="attention-source" type="checkbox" checked>Source failures</label>
+          <label class="settings-row"><input id="attention-pricing" type="checkbox" checked>Missing pricing</label>
+          <label class="settings-row">Lower threshold (%)<input id="attention-lower" type="number" min="1" max="100" step="1" value="80" required></label>
+          <label class="settings-row">Higher threshold (%)<input id="attention-higher" type="number" min="1" max="100" step="1" value="95" required></label>
+          <button class="ghost-button" type="submit">Save preferences</button>
+        </form></details>
+      </section>
+    </dialog>
   </body>
 </html>

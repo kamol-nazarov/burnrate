@@ -9,6 +9,14 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.5] - 2026-09-10
+
+- Add in-app Action Center v1 for proven quota thresholds, monitored-source
+  failures and missing applicable model pricing. Persist acknowledgment, elapsed
+  snooze, stable episodes, replay watermarks, compact preferences and bounded history.
+- Show evaluator lag, ineligible evidence and distinct closure outcomes. Reuse
+  existing diagnostics/actions; no external notifications, provider permission
+  changes, price edits or automatic fixes. This feature candidate is not deployed.
 - Share pure source-reason redaction between ingestion compatibility and the
   Plans & Value loader/report projections, preserving their distinct status and
   wording policies. Remove temporary period-helper fallbacks now that the helper

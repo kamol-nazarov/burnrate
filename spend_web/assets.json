@@ -1,20 +1,21 @@
 {
   "sources": {
-    "index.html": "8cd1167f2fc1a89a6c38b17713ecc8787a6bdeb7d9c86f906e0ccec4aafd1593",
+    "index.html": "24482f494d38c1ccbdf4df11892c0be52d2279d23c613d4219acd564a4b26ada",
     "spend.css": "e66c540353a31f82ea53d3bd659e65374f3d230ce4a36edbb0005c55063e3edc",
-    "spend.js": "c93effd256322256d941b3873ffd98e82be277323261da23da664ea44aacc519",
-    "request-state.js": "d2bd1e24951137d844824417bb362ef017de8d5c4fb830a0d169119073a63f77",
-    "product.js": "9435b21655e641bf2bdf8c729b62de4d41484be7daa1c45889d91cc235413655",
+    "spend.js": "f8303c5a0427c0e8600987880a621db023543141485bb70c27ebbd91a842681c",
+    "request-state.js": "16e25a46cd82da526e22415af33dd9bd8ee34dc32661ccf67338b7472ebc4fba",
+    "product.js": "dad830b67b2e4f688ec60925ec4ae8cf61500a327dbdcde547f74c042c5c2a99",
     "connections.js": "54552bbd978e2ac397363f3be92b4e26e85ed834aa42ecbda9a002f7c54c8cd4",
-    "plans-value.js": "9636a00735b5b6c485209414646edac692ef1963b032d2354cd5f19c2d6af287"
+    "plans-value.js": "b34f1ce78fff9e14b36c38ec64e5ee0496874455edddae2c397aa887694b2b9e",
+    "attention.js": "141d4b21e17d553c15fce89856f409449d31d8c2ff306d26724612589d20d5f1"
   },
   "outputs": {
     "spend.css": "ec01d28eb369f595f34914212d41e7d4e8f11a49ff2bc49163a98da6f236b00b",
-    "dialogs.js": "13d3909264a0c7c7d403548e26c02256f294b678cf031c966ea93375b2736756",
-    "product.js": "34d1eebadd4ee30b39b7aa1cd68649340a621ecf3b4bde62b42963f4ff2317ad",
-    "spend.js": "5b3160decb1494c290e23c3ac80df4c869928c7e6d00d5c989d8c3b7d45c1b26",
-    "request-state.js": "91ee20af3b2d100cd15fab50d1ecf71ae93f3c5f48cabd3da8d5ad05b028ba42",
-    "index.html": "c4561f68f6cff54dc9c44b62b01df98d6128883174d7a5077a7d1ce849463978"
+    "dialogs.js": "2e139cf410d28c9994766ff2dd8d03e801bb2da4e50f37ec168e2e6cff6cc439",
+    "product.js": "3b20c24c1c51767d1b5236bc183e50b14f0ec6ee6a9eb6d5a74808ac2921f60c",
+    "spend.js": "3063710f0de16628f070dafe8727e9278b8cfd0d947f38e550a0774eca651eea",
+    "request-state.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "index.html": "b58161699dc53680c95a0f1145a701dba4527533abb0272e747dfbcdd78204fa"
   },
   "aliases": {
     "kpi-value": "c",

@@ -241,16 +241,17 @@
     return ctrl;
   }
 
-  const api = {
+  if (typeof module !== "undefined" && module.exports) {
+   const api = {
     renderPlansValue, createPlansValueController, renderContent, renderLoading, renderError,
     formatUsd, formatMultiple, formatShortDate, periodCaption, esc, multipleLabel, usageLabel, costLabel, coverageLabel, collectionLabel, attributionLabel,
     sanitizeExplanationText, PERIODS
   };
-  if (typeof module !== "undefined" && module.exports) module.exports = api;
+   module.exports = api;
+   if (typeof window !== "undefined") window.PlansValue = window.plansValueApi = api;
+  }
   if (typeof window !== "undefined") {
     window.renderPlansValue = renderPlansValue;
     window.createPlansValueController = createPlansValueController;
-    window.PlansValue = api;
-    window.plansValueApi = api;
   }
 })();

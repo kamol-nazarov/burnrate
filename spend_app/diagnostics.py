@@ -96,6 +96,10 @@ def safe_reason(raw, source=""):
         )
     if "permission" in text or "access denied" in text or "permissionerror" in text:
         return "Access to local usage metadata was denied."
+    if "schema" in text:
+        return "The source schema is incompatible with the supported format."
+    if "authentication" in text or "unauthorized" in text or "401" in text:
+        return "Source authentication failed."
     if "429" in text or "throttl" in text:
         return "The provider limited usage-status requests. Wait for the existing retry cadence."
     if "unpriced" in text or "pricing" in text:

@@ -9,9 +9,23 @@
   const change = (id,value) => { el(id).value=value;el(id).dispatchEvent(new Event("change",{bubbles:true})); };
   const submit = () => el("plan-form").requestSubmit();
   const saved = () => until(()=>el("plan-message").textContent.startsWith("Saved durably"));
+  const openPlans = () => {
+    const opener=el("manage-plans");
+    assert(document.querySelectorAll('#manage-plans').length===1,"Manage opener must be unique");
+    assert(!el("plan-manager").open && !opener.disabled && opener.getClientRects().length && !opener.closest('[hidden], [inert]'),"Manage opener is unavailable");
+    // Programmatic click does not perform the focus step of user activation.
+    opener.focus();assert(document.activeElement===opener,"Manage opener must receive focus");opener.click();
+  };
+  const closePlans = async () => {
+    el("close-plans").click();
+    // The native close event may be queued beyond a virtual-time DOM capture.
+    // Require the user-visible postconditions, not delivery of that queued event.
+    await until(()=>!el("plan-manager").open);
+    await until(()=>document.activeElement===el("manage-plans"));
+  };
   await until(()=>!document.body.classList.contains("loading"));
   document.querySelector("#chart-hit-targets button")?.click();
-  el("manage-plans").click();el("tab-plans-list").click();
+  openPlans();el("tab-plans-list").click();
   await until(()=>el("plan-message").textContent.includes("History loaded"));
   const phase=localStorage.getItem("product-test-phase");
   if (!phase) {
@@ -48,7 +62,7 @@
     body:JSON.stringify({operation:"end",request_id:"concurrent-end-123",plan_id:p.id,expected_version:p.version,end_date:null})});
   submit(); await until(()=>el("plan-message").textContent.includes("Conflict"));
   assert(el("plan-amount").value==="150","conflict erased draft");
-  el("close-plans").click();el("manage-plans").click();el("tab-plans-list").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
+  await closePlans();openPlans();el("tab-plans-list").click();await until(()=>el("plan-message").textContent.includes("History loaded") && el("plan-manager").getAttribute("aria-busy")!=="true");
   preset("schedule");set("plan-amount","150");submit();set("plan-start","2026-09-15");submit();await saved();
   history();
   assert(el("plan-history").textContent.includes("2026-09-14"),"prior term history lost");
@@ -62,7 +76,7 @@
   assert(el("plan-history").textContent.includes("→ 2026-09-20"),"end date missing");
   assert(el("plan-manager").textContent.includes("does not cancel"),"provider cancellation disclosure missing");
   assert(el("plan-manager").scrollWidth<=el("plan-manager").clientWidth+1,"dialog horizontally overflows");
-  el("close-plans").click();await until(()=>!el("plan-manager").open);
+  await closePlans();await until(()=>!el("plan-manager").open);
   await until(()=>document.activeElement.id==="manage-plans");
   el("product-result").textContent=JSON.stringify({pass:true});
 })().catch(error=>{document.getElementById("product-result").textContent=JSON.stringify({pass:false,error:error.stack});});

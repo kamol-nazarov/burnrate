@@ -144,6 +144,8 @@ def create_app(
     app.include_router(connection_router(settings))
     from spend_app.product_api import product_router
     app.include_router(product_router(settings, pricing=pricing))
+    from spend_app.attention_api import attention_router
+    app.include_router(attention_router(settings, pricing))
     app.state._resource_stack = resource_stack
     # Compress HTML, CSS, JS and JSON for clients that accept it (143 KB of
     # static assets otherwise travel uncompressed over the tailnet).

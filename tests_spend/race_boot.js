@@ -2,6 +2,8 @@
 window.raceRequests = [];
 window.raceTicks = [];
 window.raceUnhandled = [];
+window.raceStartupErrors = [];
+window.addEventListener("error", event => raceStartupErrors.push(String(event.message || "script load failed")));
 window.addEventListener("unhandledrejection", event => {
   raceUnhandled.push(String(event.reason));
   event.preventDefault();

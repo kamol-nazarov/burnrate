@@ -1,0 +1,37 @@
+(async () => {
+  const el=id=>document.getElementById(id);
+  const assert=(ok,why)=>{if(!ok)throw new Error(why);};
+  const until=async check=>{for(let i=0;i<400;i++){if(check())return;await new Promise(r=>setTimeout(r,25));}throw new Error('Attention state did not settle');};
+  const cards=()=>[...el('attention-list').querySelectorAll('article')];
+  const quota=()=>cards().find(card=>card.textContent.includes('% used'));
+  const click=(card,label)=>{const button=[...card.querySelectorAll('button')].find(b=>b.textContent===label);assert(button,'Missing '+label);button.click();};
+  const open=()=>{
+    const opener=el('nav-attention');
+    assert(document.querySelectorAll('#nav-attention').length===1,'Attention opener must be unique');
+    assert(!opener.disabled && opener.getClientRects().length && !opener.closest('[hidden], [inert]'),'Attention opener is unavailable');
+    opener.focus();assert(document.activeElement===opener,'Attention opener must receive focus');opener.click();
+  };
+  await until(()=>window.BurnrateAttention && !document.body.classList.contains('loading'));
+  open();
+  await until(()=>cards().length===3);
+  assert(el('attention-panel').open,'Native dialog must open');
+  assert(el('attention-status').textContent.includes('Evaluation ok'),'Evaluation state missing');
+  assert(cards().some(card=>card.textContent.includes('missing') && card.textContent.includes('measured tokens')),'Pricing evidence missing');
+  click(quota(),'Acknowledge');
+  await until(()=>el('attention-message').textContent==='Saved' && ![...quota().querySelectorAll('button')].some(b=>b.textContent==='Acknowledge'));
+  click(quota(),'Snooze 1 hour');
+  await until(()=>[...quota().querySelectorAll('button')].some(b=>b.textContent==='Unsnooze'));
+  click(quota(),'Unsnooze');
+  await until(()=>![...quota().querySelectorAll('button')].some(b=>b.textContent==='Unsnooze'));
+  el('attention-history').click();
+  await until(()=>el('attention-list').textContent.includes('No closed'));
+  el('attention-current').click();await until(()=>cards().length===3);
+  el('attention-close').click();
+  await until(()=>!el('attention-panel').open && document.activeElement===el('nav-attention'));
+  assert(!el('attention-panel').open && document.activeElement===el('nav-attention'),'Opener focus must restore');
+  open();await until(()=>cards().length===3);
+  click(quota(),'View capacity');
+  await until(()=>!el('attention-panel').open);
+  assert(document.getElementById('capacity-body'),'Existing capacity target missing');
+  el('attention-result').textContent=JSON.stringify({pass:true});
+})().catch(error=>{document.getElementById('attention-result').textContent=JSON.stringify({pass:false,error:String(error.stack||error)});});
