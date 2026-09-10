@@ -21,6 +21,7 @@
   await until(()=>el('attention-list').textContent.includes('No closed'));
   el('attention-current').click();await until(()=>cards().length===3);
   el('attention-close').click();
+  await until(()=>!el('attention-panel').open && document.activeElement===el('nav-attention'));
   assert(!el('attention-panel').open && document.activeElement===el('nav-attention'),'Opener focus must restore');
   el('nav-attention').click();await until(()=>cards().length===3);
   click(quota(),'View capacity');
