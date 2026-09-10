@@ -9,6 +9,11 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+- Share pure source-reason redaction between ingestion compatibility and the
+  Plans & Value loader/report projections, preserving their distinct status and
+  wording policies. Remove temporary period-helper fallbacks now that the helper
+  ships in the required package; clarify the full suite's test boundaries.
+
 ## [0.3.0-beta.4] - 2026-09-09
 
 - Scope collection evidence to relevant sources, preserve prior-success dates

@@ -21,6 +21,7 @@ from spend_app.db import connect, initialize
 from spend_app.ingest import IngestRun
 from spend_app.source_evidence import sanitize_reason as sanitize_reason
 
+
 @dataclass
 class RecordOutcome:
     status: str  # "ok" | "quarantined" | "skipped"

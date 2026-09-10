@@ -8,13 +8,10 @@ at most once against the UNION of active intervals.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
-
-from spend_app.subscriptions import daily_cost
-from spend_app.timeutil import local_day, overlap_seconds
 
 UTC = timezone.utc
 ZERO = Decimal(0)
@@ -130,18 +127,9 @@ def term_window_utc(
     start_date: date, end_date: date | None, zone: ZoneInfo
 ) -> tuple[datetime, datetime | None]:
     """Inclusive local dates -> half-open UTC ``[start, end)`` (end may be open)."""
-    try:
-        from spend_app.plans_value_periods import term_effective_window
+    from spend_app.plans_value_periods import term_effective_window
 
-        return term_effective_window(start_date, end_date, zone)
-    except ImportError:
-        start = datetime.combine(start_date, time.min, tzinfo=zone).astimezone(UTC)
-        if end_date is None:
-            return start, None
-        end = datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=zone).astimezone(
-            UTC
-        )
-        return start, end
+    return term_effective_window(start_date, end_date, zone)
 
 
 def _clip_interval(
@@ -166,47 +154,11 @@ def _accrue_term(
     window_end: datetime,
     zone: ZoneInfo,
 ) -> Decimal:
-    try:
-        from spend_app.plans_value_periods import accrue_term_cost
+    from spend_app.plans_value_periods import accrue_term_cost
 
-        return accrue_term_cost(
-            amount_usd, cadence, term_start, term_end, window_start, window_end, zone
-        )
-    except ImportError:
-        return _accrue_term_local(
-            amount_usd, cadence, term_start, term_end, window_start, window_end, zone
-        )
-
-
-def _accrue_term_local(
-    amount_usd: Any,
-    cadence: str,
-    term_start: date,
-    term_end: date | None,
-    window_start: datetime,
-    window_end: datetime,
-    zone: ZoneInfo,
-) -> Decimal:
-    """Fallback calendar accrual when periods helper is not yet importable."""
-    if window_end <= window_start:
-        return ZERO
-    term_start_utc, term_end_utc = term_window_utc(term_start, term_end, zone)
-    clipped = _clip_interval(term_start_utc, term_end_utc, window_start, window_end)
-    if clipped is None:
-        return ZERO
-    start, end = clipped
-    total = ZERO
-    cursor = start.astimezone(zone).date()
-    last = (end - timedelta(microseconds=1)).astimezone(zone).date()
-    while cursor <= last:
-        day = local_day(cursor, zone)
-        overlap, day_seconds = overlap_seconds(start, end, day)
-        if overlap > 0 and day_seconds > 0:
-            if term_start <= cursor and (term_end is None or cursor <= term_end):
-                rate = daily_cost(float(_as_decimal(amount_usd)), cadence, cursor)
-                total += rate * Decimal(str(overlap / day_seconds))
-        cursor += timedelta(days=1)
-    return total
+    return accrue_term_cost(
+        amount_usd, cadence, term_start, term_end, window_start, window_end, zone
+    )
 
 
 @dataclass
