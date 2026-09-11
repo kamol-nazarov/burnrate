@@ -212,7 +212,7 @@ jobs:
 
       - name: Upload sanitized browser report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: required-browser-results
           path: test-results/required-browser.xml
