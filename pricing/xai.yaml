@@ -10,7 +10,7 @@ provider: xai
 exactness: derived
 prices:
   - model_key: xai:grok-4.6
-    aliases: [supergrok:grok-4.6]
+    aliases: [supergrok:grok-4.6, opencode:grok-4.6]
     input_per_mtok: 2.00
     cached_input_per_mtok: 0.50
     cache_write_per_mtok: 0.00

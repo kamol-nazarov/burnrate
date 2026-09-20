@@ -5,6 +5,7 @@ provider: openai
 exactness: exact
 prices:
   - model_key: gpt-6-astra
+    aliases: [opencode:gpt-6-astra]
     # Standard API rates verified 2026-09-04; this is an assertion floor,
     # not a claim about the model's launch date. Processing-tier premiums
     # and discounts are not inferred from missing telemetry.

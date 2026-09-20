@@ -104,6 +104,13 @@ Forecasts are labeled as forecasts. Method text names the basis (for example mon
 
 Rates change. Read the YAML `source_url` rather than copying numbers out of this document.
 
+Beta.6 recognizes current Cursor model effort/speed identifiers, OpenCode
+sessions whose recorded provider is OpenAI, xAI or Cursor, and ZCode GLM-5.3
+Coding Plan usage. Those remain published-rate equivalents, not subscription
+invoices. DeepSeek Flash and OpenRouter DeepSeek V4.1 Flash remain unpriced:
+their published rates vary by UTC time window, which this date-based card format
+cannot express without inventing a rate for peak traffic.
+
 Antigravity / Gemini attribution cites Google’s published API pricing (`https://ai.google.dev/gemini-api/docs/pricing`), not a third-party listing, and does not treat aggregator cache-write SKUs as Google storage fees. Cursor model rows follow Cursor’s own usage-rate table.
 
 Direct xAI has a derived card so diagnostics can say “no telemetry”; there is no ingest adapter.

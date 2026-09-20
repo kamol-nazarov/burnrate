@@ -35,3 +35,12 @@ prices:
     output_per_mtok: 0.50
     effective_from: 2026-09-09T16:00:00Z
     source_url: https://docs.z.ai/guides/overview/pricing.md
+  - model_key: zcode:glm-5.3
+    input_per_mtok: 1.40
+    cached_input_per_mtok: 0.26
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 4.40
+    # Assertion floor is the first persisted Coding Plan observation. Z.AI's
+    # rate table lists cache writes as Limited-time Free, not a per-token fee.
+    effective_from: 2026-09-10T13:01:10.039000Z
+    source_url: https://docs.z.ai/guides/overview/pricing.md
