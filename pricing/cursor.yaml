@@ -9,11 +9,20 @@ provider: cursor
 exactness: derived
 prices:
   - model_key: cursor:grok-4.6
+    aliases: [cursor:cursor-grok-4.6-high, cursor:cursor-grok-4.6-xhigh]
     input_per_mtok: 2.00
     cached_input_per_mtok: 0.50
     cache_write_per_mtok: 0.00
     output_per_mtok: 6.00
     effective_from: 2026-08-12T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:grok-4.6-fast
+    aliases: [cursor:cursor-grok-4.6-low-fast, cursor:cursor-grok-4.6-medium-fast, cursor:cursor-grok-4.6-high-fast, cursor:cursor-grok-4.6-xhigh-fast]
+    input_per_mtok: 4.00
+    cached_input_per_mtok: 1.00
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 12.00
+    effective_from: 2026-09-04T23:35:46.457000Z
     source_url: https://cursor.com/docs/models-and-pricing
   - model_key: cursor:gemini-3.7-flash
     # Billed from the Other Models pool at the model's API rate.
@@ -48,4 +57,46 @@ prices:
     cache_write_per_mtok: 0.00
     output_per_mtok: 2.50
     effective_from: 2026-05-18T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:composer-2.5-fast
+    input_per_mtok: 3.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 15.00
+    effective_from: 2026-05-18T00:00:00Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:muse-spark-1.3
+    aliases: [cursor:muse-spark-1.3-high, cursor:muse-spark-1.3-max, opencode:muse-spark-1.3-1m]
+    input_per_mtok: 1.25
+    cached_input_per_mtok: 0.15
+    cache_write_per_mtok: 0.00
+    output_per_mtok: 4.25
+    # Assertion floor is the first recorded provider=cursor usage, not a
+    # claim about Meta's release date.
+    effective_from: 2026-09-10T15:38:18.153000Z
+    source_url: https://cursor.com/docs/models/muse-spark-1-3
+  - model_key: cursor:gpt-5.6-luna
+    aliases: [cursor:gpt-5.6-luna-low, cursor:gpt-5.6-luna-medium, opencode:gpt-5.6-luna, opencode:gpt-5.6-luna-low]
+    input_per_mtok: 0.20
+    cached_input_per_mtok: 0.02
+    cache_write_per_mtok: 0.25
+    output_per_mtok: 1.20
+    effective_from: 2026-09-20T19:32:47.072000Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:gpt-5.6-sol
+    aliases: [cursor:gpt-5.6-sol-medium]
+    input_per_mtok: 4.00
+    cached_input_per_mtok: 0.40
+    cache_write_per_mtok: 5.00
+    output_per_mtok: 20.00
+    effective_from: 2026-09-05T15:03:02.285000Z
+    source_url: https://cursor.com/docs/models-and-pricing
+  - model_key: cursor:claude-opus-5
+    aliases: [cursor:claude-opus-5-thinking-high]
+    input_per_mtok: 5.00
+    cached_input_per_mtok: 0.50
+    cache_write_per_mtok: 6.25
+    cache_write_1h_per_mtok: 10.00
+    output_per_mtok: 25.00
+    effective_from: 2026-09-05T15:03:02.285000Z
     source_url: https://cursor.com/docs/models-and-pricing

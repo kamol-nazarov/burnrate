@@ -9,6 +9,12 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+## [0.3.0-beta.6] - 2026-09-20
+
+- Add dated published-rate aliases for current Cursor, OpenCode, ZCode, xAI and
+  OpenAI model identifiers. Preserve explicit gaps where a provider uses
+  time-of-day pricing that the current card format cannot represent faithfully.
+
 ## [0.3.0-beta.5] - 2026-09-10
 
 - Add in-app Action Center v1 for proven quota thresholds, monitored-source

@@ -497,6 +497,39 @@ def test_luna_cites_its_own_model_page() -> None:
     assert "/compare" not in price.source_url
 
 
+def test_new_cursor_and_opencode_model_aliases_use_published_rates() -> None:
+    engine = PricingEngine.load(ROOT / "pricing")
+    when = datetime(2026, 9, 20, 20, tzinfo=UTC)
+    cases = {
+        "opencode:gpt-6-astra": ("gpt-6-astra", "openai", Decimal("10.00")),
+        "opencode:grok-4.6": ("xai:grok-4.6", "xai", Decimal("2.00")),
+        "cursor:muse-spark-1.3-max": ("cursor:muse-spark-1.3", "cursor", Decimal("1.25")),
+        "opencode:muse-spark-1.3-1m": ("cursor:muse-spark-1.3", "cursor", Decimal("1.25")),
+        "cursor:gpt-5.6-luna-medium": ("cursor:gpt-5.6-luna", "cursor", Decimal("0.20")),
+        "opencode:gpt-5.6-luna-low": ("cursor:gpt-5.6-luna", "cursor", Decimal("0.20")),
+        "cursor:cursor-grok-4.6-xhigh-fast": ("cursor:grok-4.6-fast", "cursor", Decimal("4.00")),
+        "cursor:composer-2.5-fast": ("cursor:composer-2.5-fast", "cursor", Decimal("3.00")),
+        "cursor:claude-opus-5-thinking-high": ("cursor:claude-opus-5", "cursor", Decimal("5.00")),
+        "cursor:gpt-5.6-sol-medium": ("cursor:gpt-5.6-sol", "cursor", Decimal("4.00")),
+        "zcode:glm-5.3": ("zcode:glm-5.3", "zai", Decimal("1.40")),
+    }
+    for alias, (canonical, provider, input_price) in cases.items():
+        price = engine.resolve(alias, when)
+        assert (price.model_key, price.provider, price.input_per_mtok) == (
+            canonical,
+            provider,
+            input_price,
+        )
+
+
+def test_time_of_day_priced_models_remain_unpriced_until_the_card_format_can_represent_them() -> None:
+    engine = PricingEngine.load(ROOT / "pricing")
+    when = datetime(2026, 9, 20, 20, tzinfo=UTC)
+    for model in ("opencode:deepseek-flash", "openrouter:deepseek/deepseek-v4.1-flash"):
+        with pytest.raises(UnpricedModelError):
+            engine.resolve(model, when)
+
+
 def test_future_dated_zai_revision_names_official_announcement() -> None:
     engine = PricingEngine.load(ROOT / "pricing")
     price = engine.resolve("opencode:glm-5.3-flash", datetime(2026, 9, 9, 16, tzinfo=UTC))
