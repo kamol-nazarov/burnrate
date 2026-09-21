@@ -205,6 +205,42 @@ def add_event(
         )
 
 
+def test_opencode_grok_activity_is_a_route_note_not_a_build_quota(tmp_path: Path) -> None:
+    database = tmp_path / "opencode-grok-route.db"
+    initialize(database)
+    pricing = PricingEngine.load(ROOT / "pricing")
+    now = datetime(2026, 9, 3, 18, tzinfo=UTC)
+    add_event(
+        database,
+        pricing,
+        raw_id="opencode-grok-route",
+        tool="opencode",
+        model="opencode:grok-4.6",
+        session="opencode-grok-session",
+        occurred=now,
+        input_tokens=10,
+        cached=0,
+        writes=0,
+        output=1,
+        source="opencode_local",
+    )
+    summary = aggregate_summary(
+        database_path=database,
+        pricing=pricing,
+        window_key="1d",
+        tool="all",
+        timezone=TZ,
+        cache_threshold=0.75,
+        now=now,
+        quotas=[],
+        activity=[],
+    )
+    grok = next(card for card in summary["capacity"] if card["providerKey"] == "grok")
+    assert grok["activityObservedAt"] == "2026-09-03T18:00:00Z"
+    assert "OpenCode Grok activity" in grok["activityNote"]
+    assert grok["rows"][0]["pct"] is None
+
+
 def fixture_database(tmp_path: Path) -> tuple[Path, PricingEngine]:
     database = tmp_path / "spend.db"
     initialize(database)

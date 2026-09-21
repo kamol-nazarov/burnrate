@@ -145,8 +145,8 @@ def test_quota_comes_from_the_newest_local_billing_snapshot(tmp_path: Path, monk
     assert "2026-09-02T01:16:49.969Z" in payload["detail"]
     samples = grok_quota_samples(payload, source=payload["source"])
     assert samples[0].pct == 53.0 and samples[0].resets_at == "2026-09-03T03:40:35Z" and samples[0].source == "grok_local_billing"
-    stale = limits._grok_limits_from_log(log, now=datetime(2026, 9, 4, tzinfo=UTC))
-    assert stale["status"] == "unavailable" and "predates the current weekly period" in stale["detail"]
+    stale = limits._grok_limits_from_log(log, now=datetime(2026, 9, 2, 1, 32, tzinfo=UTC))
+    assert stale["status"] == "unavailable" and "older than 15 minutes" in stale["detail"]
     assert limits._grok_limits_from_log(tmp_path / "absent.jsonl")["status"] == "unavailable"
 
     def no_traycer(*_args, **_kwargs):
@@ -155,6 +155,27 @@ def test_quota_comes_from_the_newest_local_billing_snapshot(tmp_path: Path, monk
     monkeypatch.setattr(limits, "_traycer_profile_rate_limits", no_traycer)
     uncached = limits._grok_limits_uncached(log, now=now)
     assert uncached["source"] == "grok_local_billing", "the local snapshot wins over the Traycer path"
+
+
+def test_stale_local_and_traycer_snapshots_leave_grok_quota_unavailable(tmp_path: Path, monkeypatch) -> None:
+    log = tmp_path / "unified.jsonl"
+    _write_log(log, [_billing("2026-09-02T01:00:00Z", 0.0, "2026-09-03T03:40:35.074896+00:00")])
+    now = datetime(2026, 9, 2, 1, 16, tzinfo=UTC)
+    monkeypatch.setattr(
+        limits,
+        "_traycer_profile_rate_limits",
+        lambda _provider: {
+            "rateLimits": {
+                "available": True,
+                "subscriptionTier": "SuperGrok Heavy",
+                "period": {"usedPercent": 0.0, "resetsAt": int((now + timedelta(days=1)).timestamp() * 1000)},
+            },
+            "usageUpdatedAt": int((now - timedelta(minutes=16)).timestamp() * 1000),
+        },
+    )
+    payload = limits._grok_limits_uncached(log, now=now)
+    assert payload["status"] == "unavailable"
+    assert "older than 15 minutes" in payload["detail"]
 
 
 def test_live_sessions_need_a_running_pid_and_carry_title_and_model(tmp_path: Path) -> None:

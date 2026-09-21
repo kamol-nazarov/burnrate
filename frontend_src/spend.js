@@ -927,10 +927,10 @@ function renderCapacity(data) {
     setAttr(node, "data-tone", laneTone(easedPeak));
     // The full note (used of allowance, source, reset) stays available on hover
     // and in Data health; the lane surface shows only what changes a decision.
-    setAttr(node, "title", rows.map(row => `${row.label || "Limit"}: ${capacityNote(row)}`).join("\n"));
+    setAttr(node, "title", rows.map(row => `${row.label || "Limit"}: ${capacityNote(row)}`).join("\n") + (provider.activityNote ? `\n${provider.activityNote}` : ""));
     setStyle(node.querySelector(".lane-who > i"), "background", color);
     setText(node.querySelector(".lane-who b"), provider.providerName || "");
-    setText(node.querySelector(".lane-sub"), [provider.plan, leadModel ? shortLimitLabel(leadModel.label, provider.providerName) : ""].filter(Boolean).join(" · "));
+    setText(node.querySelector(".lane-sub"), [provider.plan, leadModel ? shortLimitLabel(leadModel.label, provider.providerName) : "", provider.activityNote ? "OpenCode Grok activity observed" : ""].filter(Boolean).join(" · "));
     setText(node.querySelector(".lane-sub-eta"), leadModel && leadModel.eta.value !== unknown ? ` · ${leadModel.eta.value} ${leadModel.eta.label}` : "");
     const tracks = node.querySelector(".lane-tracks");
     reconcileChildren(tracks, models, model => "bar:" + model.rowKey, () => nodeFrom(`<div class="track"><i data-quota-color="1"></i></div>`), (bar, model, index, fresh) => {
@@ -971,6 +971,7 @@ function renderCapacity(data) {
     } else {
       text = provider.reason || rows.map(row => row.reason).find(Boolean) || labelReason || "quota unavailable";
     }
+    if (provider.activityNote) text += ` · ${provider.activityNote}`;
     const detected = (window.productSourceGuidance || []).some(source => source.state === "detected_without_history" && window.ProductLogic?.capacitySourceKey(source.source) === provider.providerKey);
     setText(node.querySelector("span"), detected ? "detected, no history yet" : text);
     if (detected) setStyle(node.querySelector("i"), "background", "var(--amber)");
