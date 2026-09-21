@@ -42,6 +42,10 @@ _CACHE_LOCK = threading.Lock()
 TRAYCER_ACTIVITY_TTL_SECONDS = 15
 TRAYCER_ACTIVITY_FALLBACK_SECONDS = 90
 GROK_ACTIVITY_MAX_AGE_SECONDS = 5 * 60
+# A reset date cannot make an old billing snapshot current. Fifteen minutes
+# matches the normal quota-poll cadence while allowing a just-finished Grok
+# Build session to settle before BURNRATE marks its reading unavailable.
+GROK_QUOTA_MAX_AGE_SECONDS = 15 * 60
 CODEX_ACTIVITY_MAX_AGE_SECONDS = 6 * 60 * 60
 CODEX_STATE_DB = Path.home() / ".codex" / "state_5.sqlite"
 CODEX_HISTORY_DB = Path.home() / ".codex" / "thread_history_1.sqlite"
@@ -890,7 +894,7 @@ def _zai_limits_uncached() -> dict:
     }
 
 
-def _grok_from_traycer_result(data: dict) -> dict:
+def _grok_from_traycer_result(data: dict, *, now: datetime | None = None) -> dict:
     rate_limits = data.get("rateLimits") if isinstance(data, dict) else None
     if not isinstance(rate_limits, dict) or not rate_limits.get("available"):
         return {
@@ -911,6 +915,38 @@ def _grok_from_traycer_result(data: dict) -> dict:
             "windows": [],
             "detail": "Experimental Traycer CLI profile-rate-limits omitted the Grok Build weekly percentage.",
         }
+    observed_at = _iso_from_millis(data.get("usageUpdatedAt"))
+    if observed_at is None:
+        return {
+            "key": "grok",
+            "name": "Grok Build",
+            "plan": rate_limits.get("subscriptionTier") or "SuperGrok",
+            "status": "unavailable",
+            "windows": [],
+            "detail": "Experimental Traycer CLI profile-rate-limits omitted when its Grok Build percentage was observed.",
+        }
+    try:
+        observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+    except ValueError:
+        observed = None
+    if observed is None or observed.tzinfo is None:
+        return {
+            "key": "grok",
+            "name": "Grok Build",
+            "plan": rate_limits.get("subscriptionTier") or "SuperGrok",
+            "status": "unavailable",
+            "windows": [],
+            "detail": "Experimental Traycer CLI profile-rate-limits did not contain a usable Grok Build observation time.",
+        }
+    if now is not None and now.astimezone(UTC) - observed.astimezone(UTC) > timedelta(seconds=GROK_QUOTA_MAX_AGE_SECONDS):
+        return {
+            "key": "grok",
+            "name": "Grok Build",
+            "plan": rate_limits.get("subscriptionTier") or "SuperGrok",
+            "status": "unavailable",
+            "windows": [],
+            "detail": "Experimental Traycer CLI Grok Build percentage is older than 15 minutes and is not reused.",
+        }
     on_demand_cap = float(rate_limits.get("onDemandCap") or 0)
     on_demand_used = float(rate_limits.get("onDemandUsed") or 0)
     used = max(0.0, float(used))
@@ -919,7 +955,7 @@ def _grok_from_traycer_result(data: dict) -> dict:
         "name": "Grok Build",
         "plan": rate_limits.get("subscriptionTier") or "SuperGrok",
         "status": "exact",
-        "observedAt": _iso_from_millis(data.get("usageUpdatedAt")),
+        "observedAt": observed_at,
         "windows": [
             {
                 "key": "weekly",
@@ -1155,6 +1191,18 @@ def _grok_limits_from_log(path: Path = GROK_LOG_PATH, *, now: datetime | None = 
     config = ctx.get("config") if isinstance(ctx.get("config"), dict) else {}
     plan = str(ctx.get("subscriptionTier") or "SuperGrok")
     observed = str(record.get("ts") or "")
+    current = (now or datetime.now(UTC)).astimezone(UTC)
+    try:
+        observed_at = datetime.fromisoformat(observed.replace("Z", "+00:00"))
+    except ValueError:
+        observed_at = None
+    if observed_at is None or observed_at.tzinfo is None:
+        return _grok_unavailable("The local Grok Build billing snapshot has no usable observation time.", plan)
+    if current - observed_at.astimezone(UTC) > timedelta(seconds=GROK_QUOTA_MAX_AGE_SECONDS):
+        return _grok_unavailable(
+            f"The last local Grok Build billing snapshot ({observed}) is older than 15 minutes and is not reused.",
+            plan,
+        )
     used = config.get("creditUsagePercent")
     period = config.get("currentPeriod") if isinstance(config.get("currentPeriod"), dict) else {}
     if isinstance(used, bool) or not isinstance(used, (int, float)):
@@ -1179,7 +1227,6 @@ def _grok_limits_from_log(path: Path = GROK_LOG_PATH, *, now: datetime | None = 
             reset_at = datetime.fromisoformat(reset_raw.replace("Z", "+00:00"))
         except ValueError:
             reset_at = None
-    current = now or datetime.now(UTC)
     if reset_at is not None and reset_at.tzinfo is not None and reset_at <= current:
         return _grok_unavailable(
             f"The last local Grok Build billing snapshot ({observed}) predates the current weekly period; "
@@ -1217,12 +1264,15 @@ def _grok_limits_from_log(path: Path = GROK_LOG_PATH, *, now: datetime | None = 
 
 
 def _grok_limits_uncached(log_path: Path | None = None, *, now: datetime | None = None) -> dict:
-    local = _grok_limits_from_log(log_path or GROK_LOG_PATH, now=now)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
+    local = _grok_limits_from_log(log_path or GROK_LOG_PATH, now=current)
     if local.get("status") == "exact":
         return local
     try:
-        payload = _grok_from_traycer_result(_traycer_profile_rate_limits("grok"))
+        payload = _grok_from_traycer_result(_traycer_profile_rate_limits("grok"), now=current)
         payload["source"] = "traycer_profile"
+        if payload.get("status") != "exact":
+            payload["detail"] = f"{local.get('detail')} {payload.get('detail')}"
         return payload
     except Exception as exc:
         return {

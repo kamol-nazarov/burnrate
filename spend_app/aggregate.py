@@ -1375,6 +1375,37 @@ def _unavailable_limit_row(provider_key: str, limit_key: str, label: str) -> dic
     }
 
 
+def _attach_observed_grok_routes(capacity: list[dict], connection) -> None:
+    """Expose OpenCode Grok activity without treating it as a Build quota.
+
+    OpenCode records token activity but no Grok Build allowance or account
+    linkage. This is intentionally an explanatory route marker, never an
+    input to the Grok Build percentage.
+    """
+    observed_at = connection.execute(
+        """
+        SELECT MAX(occurred_at) FROM (
+            SELECT occurred_at FROM usage_events
+            WHERE source='opencode_local' AND tool_key='opencode'
+              AND lower(model_key) LIKE 'opencode:grok%'
+            UNION ALL
+            SELECT occurred_at FROM unpriced_usage_events
+            WHERE source='opencode_local' AND tool_key='opencode'
+              AND lower(model_key) LIKE 'opencode:grok%'
+        )
+        """
+    ).fetchone()[0]
+    if not observed_at:
+        return
+    for provider in capacity:
+        if provider["providerKey"] == "grok":
+            provider["activityNote"] = (
+                "OpenCode Grok activity is observed separately; it cannot determine the Grok Build percentage."
+            )
+            provider["activityObservedAt"] = observed_at
+            return
+
+
 def _capacity_limit_rank(provider_key: str, limit_key: str) -> int:
     order = CAPACITY_LIMIT_ORDER.get(provider_key, ())
     try:
@@ -2222,6 +2253,7 @@ def aggregate_summary(
         quota_rows = quotas if quotas is not None else _load_quota_rows(connection, now=now)
         activity_rows = activity if activity is not None else _load_activity_rows(connection)
         capacity = _capacity_from_rows(quota_rows, now=now, month_to_date=month_usage)
+        _attach_observed_grok_routes(capacity, connection)
         activity_payload = _activity_from_rows(activity_rows)
         status, failing_source, _last_refresh, _stale = _ingest_status(
             connection, now, cadence_seconds

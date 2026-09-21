@@ -99,6 +99,24 @@ def test_traycer_grok_quota_is_kept_distinct_from_grok_bot() -> None:
     assert "Grok Bot" not in result["detail"]
 
 
+def test_stale_traycer_grok_quota_is_not_reused() -> None:
+    now = limits.datetime(2026, 9, 3, 12, tzinfo=limits.UTC)
+    result = _grok_from_traycer_result(
+        {
+            "rateLimits": {
+                "provider": "grok",
+                "available": True,
+                "subscriptionTier": "SuperGrok Heavy",
+                "period": {"usedPercent": 0, "resetsAt": int((now + limits.timedelta(days=4)).timestamp() * 1000)},
+            },
+            "usageUpdatedAt": int((now - limits.timedelta(minutes=16)).timestamp() * 1000),
+        },
+        now=now,
+    )
+    assert result["status"] == "unavailable"
+    assert "older than 15 minutes" in result["detail"]
+
+
 def test_traycer_claude_quota_includes_model_scoped_limits() -> None:
     result = _claude_from_traycer_result(
         {

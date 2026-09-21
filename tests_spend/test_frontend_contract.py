@@ -105,6 +105,7 @@ def test_capacity_rows_sorted_and_missing_pct_stays_unknown() -> None:
     assert "function sortQuotaRows" in JS
     assert "return sortQuotaRows(rows)" in JS
     assert "sortQuotaRows((provider.rows" in JS
+    assert 'provider.activityNote ? "OpenCode Grok activity observed"' in JS
     assert "finite(lead.peakPct) || 0" not in JS
     assert "finite(provider.peakPct) || 0" not in JS
     assert "peak == null" in JS
