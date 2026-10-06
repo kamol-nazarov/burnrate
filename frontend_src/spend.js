@@ -80,6 +80,12 @@ const finite = value => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 };
+const finiteDate = value => {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+};
+const RESET_ALERTS_SEEN = "burnrate:reset-alerts:seen";
 const unknown = "—";
 const mixItem = (rows, key) => (rows || []).find(item => item.key === key);
 
@@ -706,10 +712,11 @@ function quotaRowModels(rows, idPrefix) {
     if (usedNow == null && pctRaw != null && finite(row.allowance) != null) usedNow = finite(row.allowance) * pctRaw / 100;
     if (!payg && usedNow != null) ease(usedKey, usedNow);
     const noteCore = capacityNote(row);
+    const paceNote = row.forecast && row.forecast.line ? String(row.forecast.line).replace(/^pace → /, "") : "";
     return {
       rowKey: row.limitKey || index,
       label: row.label || "Limit",
-      easeKey, payg, skipPct, eased, color, eta, etaColor, noteCore
+      easeKey, payg, skipPct, eased, color, eta, etaColor, noteCore, paceNote
     };
   });
 }
@@ -871,6 +878,13 @@ function renderCapacity(data) {
   const all = [...(data.capacity || [])].sort((a, b) => {
     if (a.isPayg && !b.isPayg) return 1;
     if (b.isPayg && !a.isPayg) return -1;
+    const ad = finiteDate(a.forecast && a.forecast.projectedRunDry);
+    const bd = finiteDate(b.forecast && b.forecast.projectedRunDry);
+    if (ad != null || bd != null) {
+      if (ad == null) return 1;
+      if (bd == null) return -1;
+      if (ad !== bd) return ad - bd;
+    }
     const ap = finite(a.peakPct);
     const bp = finite(b.peakPct);
     if (ap == null && bp == null) return 0;
@@ -905,7 +919,10 @@ function renderCapacity(data) {
       headline.innerHTML = `${esc(lead.providerName)} ${esc(shortLimitLabel(leadRow?.label, lead.providerName))} at <span data-ease="capPeak" data-fmt="pct"></span><span class="capacity-headline-eta"></span>`;
     }
     setText(headline.querySelector("[data-ease='capPeak']"), peak == null ? unknown : pct(peak));
-    setText(headline.querySelector(".capacity-headline-eta"), leadEta.value === unknown ? "" : ` · ${leadEta.value} ${leadEta.label}`);
+    const leadDry = lead.forecast && lead.forecast.state === "dry" && lead.forecast.line
+      ? ` · ${String(lead.forecast.line).replace(/^pace → /, "")}`
+      : "";
+    setText(headline.querySelector(".capacity-headline-eta"), (leadEta.value === unknown ? "" : ` · ${leadEta.value} ${leadEta.label}`) + leadDry);
   }
   if (!shell.querySelector(".capacity-lanes")) {
     setEmpty(shell, `<div class="capacity-lanes"></div><div class="capacity-foot" hidden></div>`);
@@ -914,7 +931,7 @@ function renderCapacity(data) {
   const foot = shell.querySelector(".capacity-foot");
   reconcileChildren(body, providers, provider => "provider:" + provider.providerKey, () => nodeFrom(`<div class="capacity-lane">
       <div class="lane-who"><i></i><div><b></b><em><span class="lane-sub"></span><span class="lane-sub-eta"></span></em></div></div>
-      <div class="lane-bars"><div class="lane-tracks"></div><div class="lane-win"></div></div>
+      <div class="lane-bars"><div class="lane-tracks"></div><p class="lane-pace" hidden></p><div class="lane-win"></div></div>
       <b class="lane-pct"></b>
       <div class="lane-eta"><strong></strong><span></span></div>
     </div>`), (node, provider) => {
@@ -924,7 +941,14 @@ function renderCapacity(data) {
     const peakValue = finite(provider.peakPct);
     const easedPeak = peakValue == null ? ease("peak-" + provider.providerKey, null) : ease("peak-" + provider.providerKey, peakValue);
     const color = colorFor(provider.providerKey);
-    setAttr(node, "data-tone", laneTone(easedPeak));
+    const forecastState = provider.forecast && provider.forecast.state || "";
+    let tone = laneTone(easedPeak);
+    if (forecastState === "safe") tone = "quiet";
+    else if (forecastState === "tight") tone = "warm";
+    else if (forecastState === "dry") tone = "hot";
+    setAttr(node, "data-tone", tone);
+    setAttr(node, "data-forecast", forecastState === "tight" || forecastState === "dry" ? forecastState : null);
+    const barColor = forecastState === "dry" ? "#dc6c78" : forecastState === "tight" ? "#d9a441" : color;
     // The full note (used of allowance, source, reset) stays available on hover
     // and in Data health; the lane surface shows only what changes a decision.
     setAttr(node, "title", rows.map(row => `${row.label || "Limit"}: ${capacityNote(row)}`).join("\n") + (provider.activityNote ? `\n${provider.activityNote}` : ""));
@@ -937,7 +961,7 @@ function renderCapacity(data) {
       bar.classList.toggle("thin", index > 0);
       const fill = bar.querySelector("i");
       bindWidth(fill, model.easeKey, model.eased, fresh);
-      setStyle(fill, "background", color);
+      setStyle(fill, "background", barColor);
       setStyle(fill, "animationDelay", `${index * 90}ms`);
     });
     const win = node.querySelector(".lane-win");
@@ -945,11 +969,17 @@ function renderCapacity(data) {
       reconcileChildren(win, models, model => "win:" + model.rowKey, () => nodeFrom(`<span><span></span> <b></b><em></em></span>`), (span, model) => {
         setText(span.firstElementChild, shortLimitLabel(model.label, provider.providerName));
         bindEase(span.querySelector("b"), model.skipPct ? "" : model.easeKey, "pct", model.eased == null ? unknown : pct(model.eased));
-        setText(span.querySelector("em"), model.eta.value === unknown ? "" : ` · ${model.eta.value}`);
+        const etaText = model.eta.value === unknown ? "" : ` · ${model.eta.value}`;
+        setText(span.querySelector("em"), etaText + (model.paceNote ? ` · ${model.paceNote}` : ""));
       });
     } else {
       setEmpty(win, "");
     }
+    const pace = node.querySelector(".lane-pace");
+    const paceLine = provider.forecast && provider.forecast.line || "";
+    pace.hidden = !paceLine;
+    setText(pace, paceLine);
+    setAttr(pace, "data-state", paceLine ? forecastState : null);
     bindEase(node.querySelector(".lane-pct"), peakValue == null ? "" : "peak-" + provider.providerKey, "pct", easedPeak == null ? unknown : pct(easedPeak));
     const eta = node.querySelector(".lane-eta");
     setText(eta.querySelector("strong"), leadModel ? leadModel.eta.value : unknown);
@@ -1559,6 +1589,124 @@ function renderHeat(data) {
   setText($("heat-unit"), data.heatmapUnit || "reference usage (USD at documented rates)");
 }
 
+function seenResetAlerts() {
+  try { return JSON.parse(localStorage.getItem(RESET_ALERTS_SEEN) || "{}"); }
+  catch { return {}; }
+}
+function notifyResetAlerts(alerts) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const seen = seenResetAlerts();
+  let changed = false;
+  for (const alert of alerts) {
+    if (!alert || !alert.id || seen[alert.id]) continue;
+    try {
+      const note = new Notification(alert.title || "Capacity alert", {body: alert.body || "", tag: alert.id});
+      note.onclick = () => { window.focus(); note.close(); };
+    } catch {}
+    seen[alert.id] = Date.now();
+    changed = true;
+  }
+  if (!changed) return;
+  const ids = Object.keys(seen);
+  for (const id of ids.slice(0, Math.max(0, ids.length - 100))) delete seen[id];
+  localStorage.setItem(RESET_ALERTS_SEEN, JSON.stringify(seen));
+}
+function renderResetAlerts(data) {
+  const banner = $("reset-alert-banner");
+  const list = $("reset-alert-list");
+  if (!banner || !list) return;
+  const alerts = (data.capacityForecast && data.capacityForecast.alerts) || [];
+  banner.hidden = !alerts.length;
+  const allow = $("reset-alert-notify");
+  if (allow) allow.hidden = typeof Notification === "undefined" || Notification.permission !== "default";
+  reconcileChildren(list, alerts, alert => alert.id, () => nodeFrom(`<article class="reset-alert-item"><div><strong></strong><p class="reset-alert-detail"></p><p class="reset-alert-suggestion"></p></div><button type="button" data-dismiss-alert>Dismiss</button></article>`), (node, alert) => {
+    setText(node.querySelector("strong"), alert.title || "");
+    const eta = etaFromReset(alert.resetsAt);
+    const until = eta.value === unknown ? "" : `${eta.value} ${eta.label}`;
+    setText(node.querySelector(".reset-alert-detail"), [alert.limitLabel, finite(alert.pct) == null ? "" : `${pct(alert.pct)} used`, until, alert.line].filter(Boolean).join(" · "));
+    setText(node.querySelector(".reset-alert-suggestion"), alert.suggestion || "");
+    const button = node.querySelector("[data-dismiss-alert]");
+    button.dataset.dismissAlert = alert.id;
+  });
+  notifyResetAlerts(alerts);
+  const form = $("capacity-alert-form");
+  const preferences = data.capacityForecast && data.capacityForecast.preferences;
+  if (!form || !preferences || form.contains(document.activeElement)) return;
+  $("capacity-alert-threshold").value = preferences.threshold;
+  $("capacity-alert-escalate").checked = Boolean(preferences.escalate);
+  $("capacity-alert-quiet-start").value = preferences.quietStart || "22:00";
+  $("capacity-alert-quiet-end").value = preferences.quietEnd || "07:00";
+  const providers = (data.capacity || []).filter(provider => !provider.isPayg && provider.providerKey);
+  const overrides = $("capacity-alert-overrides");
+  reconcileChildren(overrides, providers, provider => provider.providerKey, () => nodeFrom(`<label><span></span><input type="number" min="1" max="99" step="1" placeholder="Default"></label>`), (node, provider) => {
+    setText(node.querySelector("span"), provider.providerName || provider.providerKey);
+    const input = node.querySelector("input");
+    input.dataset.provider = provider.providerKey;
+    const value = preferences.overrides && preferences.overrides[provider.providerKey];
+    if (document.activeElement !== input) input.value = value == null ? "" : value;
+  });
+}
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    cache: "no-store",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let detail = "";
+    try { detail = (await response.json()).error || ""; } catch {}
+    throw new Error(detail || `${response.status}`);
+  }
+  return response.json();
+}
+function bindResetAlerts() {
+  const form = $("capacity-alert-form");
+  const banner = $("reset-alert-banner");
+  if (form) form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const status = $("capacity-alert-status");
+    const overrides = {};
+    form.querySelectorAll("#capacity-alert-overrides input").forEach(input => {
+      if (input.value !== "") overrides[input.dataset.provider] = Number(input.value);
+    });
+    try {
+      const saved = await postJson("/api/capacity/forecast-preferences", {
+        threshold: Number($("capacity-alert-threshold").value),
+        escalate: $("capacity-alert-escalate").checked,
+        quietStart: $("capacity-alert-quiet-start").value,
+        quietEnd: $("capacity-alert-quiet-end").value,
+        overrides,
+      });
+      if (state.summary) state.summary.capacityForecast = saved;
+      if (status) status.textContent = "Saved";
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not save";
+    }
+  });
+  if (!banner) return;
+  banner.addEventListener("click", async event => {
+    const button = event.target.closest("[data-dismiss-alert]");
+    if (button && button.dataset.dismissAlert) {
+      try {
+        const saved = await postJson("/api/capacity/forecast-alerts/dismiss", {id: button.dataset.dismissAlert});
+        if (state.summary) {
+          state.summary.capacityForecast = {...(state.summary.capacityForecast || {}), ...saved};
+          renderResetAlerts(state.summary);
+        }
+      } catch (error) {
+        const status = $("capacity-alert-status");
+        if (status) status.textContent = error.message || "Could not dismiss";
+      }
+      return;
+    }
+    if (event.target.id !== "reset-alert-notify" || typeof Notification === "undefined") return;
+    const permission = await Notification.requestPermission();
+    if (permission === "granted" && state.summary) renderResetAlerts(state.summary);
+    else if ($("reset-alert-notify")) $("reset-alert-notify").hidden = permission !== "default";
+  });
+}
+
 function renderOverview() {
   const data = state.summary;
   if (state.view !== "overview" || !summaryMatches()) return;
@@ -1568,6 +1716,7 @@ function renderOverview() {
   renderCoverage(data);
   renderRanges(false);
   renderCapacity(data);
+  renderResetAlerts(data);
   renderActivity(data);
   renderKpis(data);
   renderChart(data);
@@ -2098,6 +2247,7 @@ window.addEventListener("keydown", event => {
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshCurrent(); });
 bindChartHits();
+bindResetAlerts();
 bindRangeKeys($("range-switch"));
 bindRangeKeys($("detail-ranges"));
 renderRanges(true);

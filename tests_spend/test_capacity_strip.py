@@ -85,6 +85,22 @@ def test_mobile_lane_hides_the_eta_column_and_moves_it_into_the_subtitle() -> No
     assert ".capacity-lane{grid-template-columns:minmax(0,1fr)56px" in phone
 
 
+def test_pace_line_and_forecast_tone_are_part_of_the_strip() -> None:
+    fn = _capacity_fn()
+    assert "projectedRunDry" in fn
+    assert 'class="lane-pace"' in fn
+    assert 'data-forecast' in fn
+    assert 'forecastState === "dry"' in fn
+    assert 'forecastState === "tight"' in fn
+    assert 'forecastState === "safe"' in fn
+    assert ".lane-pace[data-state=\"safe\"]" in CSS
+    assert ".lane-pace[data-state=\"dry\"]" in CSS
+    assert "#dc6c78" in CSS
+    assert 'id="reset-alert-banner"' in HTML
+    assert 'id="capacity-alert-settings"' in HTML
+    assert "pace → comfortable" in JS or "forecast.line" in fn
+
+
 def test_window_selector_sits_below_the_capacity_strip() -> None:
     capacity = HTML.index('class="panel capacity-panel"')
     selector = HTML.index('id="range-switch"')

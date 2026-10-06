@@ -78,6 +78,13 @@
       <button type="button" id="retry-button">Retry</button>
     </div>
 
+    <div class="error-banner reset-alert-banner" id="reset-alert-banner" role="alert" hidden>
+      <div id="reset-alert-list"></div>
+      <div class="reset-alert-actions">
+        <button type="button" id="reset-alert-notify" hidden>Allow notifications</button>
+      </div>
+    </div>
+
     <main id="main">
       <section id="setup-guidance" class="panel" aria-labelledby="setup-title" hidden>
         <h2 id="setup-title">Start with local usage</h2>
@@ -104,6 +111,17 @@
                 <button id="capacity-connect" class="ghost-button" type="button">Connect harness</button>
               </div>
             </header>
+            <details class="capacity-alert-settings" id="capacity-alert-settings">
+              <summary>Reset alerts</summary>
+              <form id="capacity-alert-form">
+                <label>Threshold (%)<input id="capacity-alert-threshold" type="number" min="1" max="99" step="1" value="90" required></label>
+                <label class="capacity-alert-check"><input id="capacity-alert-escalate" type="checkbox">Also alert at 97%</label>
+                <label>Quiet hours<input id="capacity-alert-quiet-start" type="time" value="22:00" required><span>to</span><input id="capacity-alert-quiet-end" type="time" value="07:00" required></label>
+                <div id="capacity-alert-overrides"></div>
+                <p id="capacity-alert-status" role="status"></p>
+                <button class="ghost-button" type="submit">Save</button>
+              </form>
+            </details>
             <div id="capacity-body">
               <div class="skel-stack" aria-hidden="true">
                 <span class="skel skel-w50"></span>

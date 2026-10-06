@@ -662,6 +662,7 @@ def poll_quotas(
     skipped = 0
     polled: list[str] = []
     deferred: list[str] = []
+    paced = []
     with connect(path) as connection:
         for provider_key in sorted(resolved):
             if scheduler is not None and not scheduler.due(provider_key):
@@ -704,6 +705,8 @@ def poll_quotas(
                     "ORDER BY polled_at DESC, id DESC LIMIT 1",
                     (sample.provider_key, sample.limit_key),
                 ).fetchone()
+                if sample.pct is not None and not sample.is_payg:
+                    paced.append(sample)
                 if latest is not None and tuple(latest)[1:] == fields:
                     # Same observation: no new history row, but the row now
                     # states the most recent poll that confirmed the value so
@@ -729,6 +732,8 @@ def poll_quotas(
                     is_payg=sample.is_payg,
                 )
                 written += 1
+        from spend_app.capacity_forecast import record_pace_samples
+        record_pace_samples(connection, paced, polled_at)
     if managed_completion and "openrouter" in polled:
         from spend_app.connections import Service
         from spend_app.config import load_settings

@@ -14,6 +14,7 @@ from spend_app.db import EXACT_USAGE_SOURCES, connect
 from spend_app.source_reconcile import reconcile_events
 from spend_app.timeutil import epoch_micros, from_epoch_micros, next_month_start as _next_month_start_utc, parse_utc, previous_calendar_period
 from spend_app.pricing import PricingEngine, UnpricedModelError
+from spend_app.capacity_forecast import alert_fingerprint, apply_forecasts, load_pace_samples, pace_fingerprint, read_forecast_view, active_provider_keys
 from spend_app.quotas import REQUIRED_LIMITS, split_quota_label
 from spend_app.subscriptions import daily_cost
 from spend_app.plan_service import effective_terms
@@ -127,6 +128,8 @@ def _summary_state_fingerprint(connection, window: ResolvedWindow, tool: str) ->
             )
         ),
         tuple(connection.execute("SELECT MAX(id) FROM ingest_runs").fetchone()),
+        pace_fingerprint(connection),
+        alert_fingerprint(connection),
     )
 
 
@@ -2254,6 +2257,13 @@ def aggregate_summary(
         activity_rows = activity if activity is not None else _load_activity_rows(connection)
         capacity = _capacity_from_rows(quota_rows, now=now, month_to_date=month_usage)
         _attach_observed_grok_routes(capacity, connection)
+        apply_forecasts(
+            capacity,
+            load_pace_samples(connection, now),
+            now=now,
+            active=active_provider_keys(connection, now),
+        )
+        capacity_forecast = read_forecast_view(connection)
         activity_payload = _activity_from_rows(activity_rows)
         status, failing_source, _last_refresh, _stale = _ingest_status(
             connection, now, cadence_seconds
@@ -2469,6 +2479,7 @@ def aggregate_summary(
                 "cacheReusePct": _cache_reuse(mix),
             },
             "capacity": capacity,
+            "capacityForecast": capacity_forecast,
             "activity": activity_payload,
             "waste": waste,
             "cacheSavings": _cache_savings(

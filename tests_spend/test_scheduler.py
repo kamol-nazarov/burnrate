@@ -45,6 +45,7 @@ QUOTA_JOB_ID = "quota-poll"
 ACTIVITY_JOB_ID = "activity"
 SCHEDULER_JOB_IDS = (
     "attention",
+    "capacity-forecast",
     "local-ingest",
     "provider-admin",
     "subscriptions",

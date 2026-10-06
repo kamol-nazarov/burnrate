@@ -199,4 +199,6 @@ def create_scheduler(settings: Settings, pricing: PricingEngine) -> BackgroundSc
     )
     from spend_app.attention_store import register
     register(scheduler, settings, pricing)
+    from spend_app.capacity_forecast import register_forecast
+    register_forecast(scheduler, settings)
     return scheduler

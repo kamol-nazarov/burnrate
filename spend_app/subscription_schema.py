@@ -21,6 +21,8 @@ def upgrade_database(path: Path, initialize_base):
     path = Path(path)
     version = 0
     unknown_version = False
+    current = False
+    pace_ready = False
     existing = path.is_file() and path.stat().st_size > 0
     if path.is_file():
         with closing(
@@ -45,12 +47,17 @@ def upgrade_database(path: Path, initialize_base):
                         "PRAGMA table_info(subscription_daily_costs)"
                     )
                 }
-                if (
+                pace_ready = (
+                    source.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='quota_pace_samples'"
+                    ).fetchone()
+                    is not None
+                )
+                current = (
                     version == SCHEMA_VERSION
                     and "plan_id" in columns
                     and "cost_decimal" in daily_columns
-                ):
-                    return
+                )
             except (sqlite3.Error, TypeError, ValueError):
                 unknown_version = existing
                 tables = {
@@ -63,6 +70,15 @@ def upgrade_database(path: Path, initialize_base):
                 # but never initialize an unrelated database in place.
                 if tables - {"sqlite_sequence"} == {"quotas", "agent_runs"}:
                     unknown_version = False
+        if current:
+            # Additive pace history. A current database must not take the
+            # subscription backup path just to gain this table.
+            if not pace_ready:
+                from spend_app.db import connect, ensure_quota_pace_table
+
+                with connect(path) as connection:
+                    ensure_quota_pace_table(connection)
+            return
         if existing:
             target = (
                 path.parent

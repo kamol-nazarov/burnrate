@@ -9,6 +9,13 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+- Project a run-dry pace on each capacity lane from the last hour of quota
+  samples, using the last 24 hours when that hour is flat. Sort "what runs
+  out first" by that time. Alert once per quota window when usage crosses the
+  threshold and the pace runs dry before reset, through an in-app banner and
+  one browser notification. Quiet hours, a 97% escalation, and per-subscription
+  thresholds are configurable. Phone push is not included.
+
 ## [0.3.0-beta.6] - 2026-09-20
 
 - Add dated published-rate aliases for current Cursor, OpenCode, ZCode, xAI and

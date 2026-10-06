@@ -229,6 +229,22 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 CREATE INDEX IF NOT EXISTS idx_agent_runs_last_seen ON agent_runs(last_seen_at);
 """
 
+PACE_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS quota_pace_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_key TEXT NOT NULL,
+    limit_key TEXT NOT NULL,
+    pct REAL NOT NULL,
+    resets_at TEXT,
+    sampled_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quota_pace_samples_window
+    ON quota_pace_samples(provider_key, limit_key, sampled_at);
+"""
+
+ACTIVITY_SCHEMA_SQL += PACE_SCHEMA_SQL
+
 
 @dataclass(frozen=True)
 class UsageEvent:
@@ -408,6 +424,10 @@ def rebuild_ingest_runs_for_partial(connection: sqlite3.Connection) -> None:
         connection.execute("PRAGMA foreign_keys=ON")
 
 
+def ensure_quota_pace_table(connection: sqlite3.Connection) -> None:
+    connection.executescript(PACE_SCHEMA_SQL)
+
+
 def ensure_activity_table_shapes(connection: sqlite3.Connection) -> None:
     quota_columns = {row[1] for row in connection.execute("PRAGMA table_info('quotas')")}
     agent_columns = {row[1] for row in connection.execute("PRAGMA table_info('agent_runs')")}
@@ -447,7 +467,9 @@ REQUIRED_SCHEMA_OBJECTS = frozenset(
         "coverage_gap_events",
         "opencode_session_progress",
         "quotas",
+        "quota_pace_samples",
         "agent_runs",
+        "idx_quota_pace_samples_window",
         "idx_ingest_runs_source_id",
         "idx_ingest_runs_status_finished",
         "idx_ingest_runs_started_at",
@@ -552,6 +574,7 @@ def _initialize_base(path: Path) -> None:
             previous_version = 0
         connection.executescript(SCHEMA_SQL)
         ensure_activity_table_shapes(connection)
+        ensure_quota_pace_table(connection)
         rebuild_subscriptions_for_quarterly(connection)
         rebuild_ingest_runs_for_partial(connection)
         # The rebuild above recreates ingest_runs without its indexes.
