@@ -453,6 +453,82 @@ def test_majority_model_is_named_in_the_suggestion(tmp_path: Path):
     assert state["active"][0]["suggestion"] == "Shift heavy work to Claude Opus 5 until Friday."
 
 
+def _suggestion_for_models(tmp_path: Path, events: list[tuple[str, datetime]]) -> str:
+    database = _database(tmp_path)
+    resets = iso(NOW + timedelta(days=4))
+    claude_reset = iso(NOW + timedelta(days=2))
+    with connect(database) as connection:
+        _quota(connection, provider="grok", pct=90, resets_at=resets, label="Grok Build weekly")
+        _quota(connection, provider="claude-code", pct=10, resets_at=claude_reset, label="Claude weekly window")
+        for row in (
+            pace("grok", "weekly", 80, NOW - timedelta(minutes=30), resets),
+            pace("grok", "weekly", 90, NOW - timedelta(minutes=1), resets),
+            pace("claude-code", "weekly", 9.5, NOW - timedelta(minutes=30), claude_reset),
+            pace("claude-code", "weekly", 10, NOW - timedelta(minutes=1), claude_reset),
+        ):
+            connection.execute(
+                "INSERT INTO quota_pace_samples(provider_key, limit_key, pct, resets_at, sampled_at) VALUES (?,?,?,?,?)",
+                (row["provider_key"], row["limit_key"], row["pct"], row["resets_at"], row["sampled_at"]),
+            )
+        for index, (model_key, occurred) in enumerate(events):
+            upsert_usage_event(connection, UsageEvent(
+                source="claude_local",
+                tool_key="claude-code",
+                model_key=model_key,
+                occurred_at=iso(occurred),
+                session_id="s",
+                project=None,
+                input_tokens=10,
+                cached_input_tokens=0,
+                cache_write_tokens=0,
+                cache_write_1h_tokens=0,
+                output_tokens=10,
+                reasoning_tokens=None,
+                cost_usd=None,
+                computed_cost_usd=0.01,
+                raw_id=f"claude:{index}",
+                ingested_at=iso(NOW),
+                is_exact=True,
+            ))
+    return evaluate_alerts(database, timezone="UTC", now=NOW)["active"][0]["suggestion"]
+
+
+def test_most_used_model_is_named_without_a_strict_majority(tmp_path: Path):
+    recent = NOW - timedelta(hours=1)
+    suggestion = _suggestion_for_models(tmp_path, [
+        ("claude-opus-5", recent),
+        ("claude-opus-5", recent),
+        ("claude-opus-5", recent),
+        ("claude-sonnet-4", recent),
+        ("claude-sonnet-4", recent),
+        ("claude-haiku-4", recent),
+        ("claude-haiku-4", recent),
+    ])
+    assert suggestion == "Shift heavy work to Claude Opus 5 until Friday."
+
+
+def test_tied_models_keep_the_subscription_name(tmp_path: Path):
+    recent = NOW - timedelta(hours=1)
+    suggestion = _suggestion_for_models(tmp_path, [
+        ("claude-opus-5", recent),
+        ("claude-opus-5", recent),
+        ("claude-sonnet-4", recent),
+        ("claude-sonnet-4", recent),
+    ])
+    assert suggestion == "Shift heavy work to Claude Code until Friday."
+
+
+def test_model_choice_ignores_events_older_than_a_day(tmp_path: Path):
+    suggestion = _suggestion_for_models(tmp_path, [
+        ("claude-sonnet-4", NOW - timedelta(hours=30)),
+        ("claude-sonnet-4", NOW - timedelta(hours=30)),
+        ("claude-sonnet-4", NOW - timedelta(hours=30)),
+        ("claude-sonnet-4", NOW - timedelta(hours=30)),
+        ("claude-opus-5", NOW - timedelta(hours=1)),
+    ])
+    assert suggestion == "Shift heavy work to Claude Opus 5 until Friday."
+
+
 def test_preferences_endpoint_is_on_the_summary(tmp_path: Path):
     database = tmp_path / "http.db"
     settings = Settings(

@@ -522,6 +522,12 @@ def _model_label(model_key: str) -> str:
 
 
 def majority_model_names(connection, now: datetime) -> dict[str, str]:
+    """Most-used measured model per tool over the last 24 hours.
+
+    A strict majority is not required. The model is named only when it was
+    in ``usage_events`` and it is the unique top count. A tie keeps the
+    subscription name rather than picking a model arbitrarily.
+    """
     if not _table_exists(connection, "usage_events"):
         return {}
     rows = connection.execute(
@@ -534,15 +540,18 @@ def majority_model_names(connection, now: datetime) -> dict[str, str]:
         (_iso(now - DAY),),
     ).fetchall()
     grouped: dict[str, list[tuple[int, str]]] = {}
-    totals: dict[str, int] = {}
     for row in rows:
+        if not row["model_key"]:
+            continue
         grouped.setdefault(row["tool_key"], []).append((int(row["n"]), row["model_key"]))
-        totals[row["tool_key"]] = totals.get(row["tool_key"], 0) + int(row["n"])
     names = {}
     for tool, pairs in grouped.items():
-        count, key = max(pairs)
-        if totals[tool] and count / totals[tool] > 0.5:
-            names[tool] = _model_label(key)
+        top = max(count for count, _key in pairs)
+        if top <= 0:
+            continue
+        leaders = [key for count, key in pairs if count == top]
+        if len(leaders) == 1:
+            names[tool] = _model_label(leaders[0])
     return names
 
 

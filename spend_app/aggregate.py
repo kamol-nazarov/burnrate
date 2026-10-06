@@ -1320,6 +1320,35 @@ def _heatmap_window(window: ResolvedWindow, now: datetime, timezone: str) -> tup
     return start_local.astimezone(UTC), local_now.astimezone(UTC), True
 
 
+def plan_value_comparison(
+    usage_month: Decimal,
+    *,
+    complete: bool,
+    accrual_to_date: Decimal,
+) -> tuple[Decimal | None, str, float | None]:
+    """Month-to-date usage versus accrued plan cost.
+
+    A complete month is a ratio, including a measured zero. Priced usage with
+    some unpriced rows is still a lower bound, not a blank. An incomplete month
+    with no priced usage stays unknown rather than a fake zero.
+    """
+    if accrual_to_date > 0 and complete:
+        basis = "ratio"
+        shown: Decimal | None = usage_month
+    elif accrual_to_date > 0 and usage_month > 0:
+        basis = "lower_bound"
+        shown = usage_month
+    else:
+        basis = "unavailable"
+        shown = usage_month if complete else None
+    multiple = (
+        float(shown / accrual_to_date)
+        if shown is not None and accrual_to_date > 0 and basis != "unavailable"
+        else None
+    )
+    return shown, basis, multiple
+
+
 def _eta_label(resets_at: str | None, now: datetime) -> str | None:
     if not resets_at:
         return None
@@ -2393,19 +2422,17 @@ def aggregate_summary(
             else month_accrual.get("opencode" if tool == "zcode" else tool, Decimal(0))
         )
         usage_month = month_parts.priced + month_parts.published
-        projected_value = usage_month if month_parts.complete else None
-        if accrual_to_date > 0 and projected_value is not None:
-            multiple_basis = "ratio"
-        elif accrual_to_date > 0 and usage_month > 0:
-            multiple_basis = "lower_bound"
-        else:
-            multiple_basis = "unavailable"
+        projected_value, multiple_basis, multiple = plan_value_comparison(
+            usage_month,
+            complete=month_parts.complete,
+            accrual_to_date=accrual_to_date,
+        )
         projected = {
             "value": _money(projected_value),
             "valueBasis": "reference usage, month to date",
             "planCost": float(accrual_to_date),
             "fullMonthPlanCost": float(plan_cost),
-            "multiple": float(projected_value / accrual_to_date) if projected_value is not None and accrual_to_date > 0 else None,
+            "multiple": multiple,
             "multipleBasis": multiple_basis,
             "method": (
                 "Month-to-date reference usage versus configured accrual over the same elapsed days. "
@@ -2469,7 +2496,11 @@ def aggregate_summary(
                 # the window has no rows at all.
                 "knownValue": _money(parts.known) if parts.records else None,
                 "unpricedModels": [
-                    {"modelKey": model_key, "records": count}
+                    {
+                        "modelKey": model_key,
+                        "name": display_model(model_key),
+                        "records": count,
+                    }
                     for model_key, count in sorted(parts.unpriced_models.items())
                 ],
                 "tokens": parts.tokens,

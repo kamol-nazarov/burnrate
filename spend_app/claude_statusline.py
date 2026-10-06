@@ -37,8 +37,10 @@ def snapshot_path(database):
 
 
 def atomic_write(path, snapshot):
+    from spend_app.connection_paths import is_junction
+
     parent = path.parent
-    if parent.is_symlink() or parent.is_junction():
+    if parent.is_symlink() or is_junction(parent):
         raise ValueError("Snapshot directory cannot be a link.")
     parent.mkdir(parents=True, exist_ok=True)
     temporary = None
@@ -77,7 +79,9 @@ def read_snapshot(database):
     root = os.getenv("CLAUDE_CONFIG_DIR") or Path.home() / ".claude"
     path = snapshot_path(database)
     try:
-        if path.is_symlink() or path.parent.is_symlink() or path.parent.is_junction():
+        from spend_app.connection_paths import is_junction
+
+        if path.is_symlink() or path.parent.is_symlink() or is_junction(path.parent):
             raise ValueError("Snapshot links are not supported.")
         with path.open("rb") as stream:
             raw = stream.read(MAX_BYTES + 1)

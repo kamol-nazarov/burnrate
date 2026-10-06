@@ -505,7 +505,71 @@ def test_cursor_limits_keep_included_window_out_of_required_keys(
     assert "cursor_models" in keys
     assert "other_models" in keys
     models = next(window for window in result["windows"] if window["key"] == "cursor_models")
+    other = next(window for window in result["windows"] if window["key"] == "other_models")
+    included = next(window for window in result["windows"] if window["key"] == "included")
     assert models["usedPct"] == 55.0
+    assert included["resetAt"]
+    assert models["resetAt"] == included["resetAt"]
+    assert other["resetAt"] == included["resetAt"]
+
+
+def test_cursor_model_bars_stay_null_without_a_billing_cycle_end(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("BURNRATE_ENABLE_CURSOR_USAGE_SERVICE", "1")
+    database = (
+        tmp_path
+        / "AppData"
+        / "Roaming"
+        / "Cursor"
+        / "User"
+        / "globalStorage"
+        / "state.vscdb"
+    )
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.execute("CREATE TABLE ItemTable (key TEXT, value TEXT)")
+        connection.execute(
+            "INSERT INTO ItemTable(key, value) VALUES('cursorAuth/accessToken', 'fixture-token')"
+        )
+
+    monkeypatch.setattr("spend_app.limits.Path.home", lambda: tmp_path)
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            request = httpx.Request("POST", url)
+            if url.endswith("GetCurrentPeriodUsage"):
+                payload = {
+                    "planUsage": {
+                        "autoPercentUsed": 12.0,
+                        "apiPercentUsed": 3.0,
+                        "totalSpend": 100,
+                        "limit": 40000,
+                    }
+                }
+            elif url.endswith("GetPlanInfo"):
+                payload = {"planInfo": {"planName": "Ultra", "includedAmountCents": 40000}}
+            else:
+                payload = {"noUsageBasedAllowed": True}
+            return httpx.Response(200, request=request, json=payload)
+
+    monkeypatch.setattr("spend_app.limits.httpx.Client", FakeClient)
+    result = _cursor_limits_uncached()
+    by_key = {window["key"]: window for window in result["windows"]}
+    assert by_key["cursor_models"]["usedPct"] == 12.0
+    assert by_key["other_models"]["usedPct"] == 3.0
+    assert by_key["cursor_models"]["resetAt"] is None
+    assert by_key["other_models"]["resetAt"] is None
+    assert by_key["included"]["resetAt"] is None
 
 
 def test_cursor_included_window_stays_null_when_total_spend_is_omitted(

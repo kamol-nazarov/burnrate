@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import threading
 from collections import OrderedDict
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -25,7 +25,11 @@ from spend_app.plans_value_groups import (
     canonical_tool_key,
     event_tool_keys_for,
 )
-from spend_app.plans_value_periods import resolve_period_bounds
+from spend_app.plans_value_periods import (
+    SUPPORTED_PERIODS,
+    cycle_window_for_limits,
+    resolve_period_bounds,
+)
 from spend_app.providers import REGISTRY
 from spend_app.source_evidence import sanitize_reason, source_reason_text
 from spend_app.timeutil import epoch_micros, from_epoch_micros, iso_utc, parse_utc
@@ -527,6 +531,224 @@ def _flatten_plans_for_groups(connection, today: date) -> list[dict]:
     return flat
 
 
+def _stored_resets_by_provider(connection) -> dict[str, list[tuple[str, str | None]]]:
+    """Latest stored quota reset per provider and limit. Pay-as-you-go rows are skipped."""
+    try:
+        rows = _rows(
+            connection.execute(
+                "SELECT provider_key, limit_key, resets_at, is_payg, polled_at, id "
+                "FROM quotas ORDER BY polled_at DESC, id DESC"
+            )
+        )
+    except Exception:
+        return {}
+    seen: set[tuple[str, str]] = set()
+    grouped: dict[str, list[tuple[str, str | None]]] = {}
+    for row in rows:
+        provider = str(row["provider_key"])
+        limit_key = str(row["limit_key"])
+        if row["is_payg"]:
+            continue
+        identity = (provider, limit_key)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        grouped.setdefault(provider, []).append((limit_key, row["resets_at"]))
+    return grouped
+
+
+def _quota_reset_fingerprint(connection) -> tuple:
+    stored = _stored_resets_by_provider(connection)
+    return tuple(
+        (provider, limit_key, resets_at)
+        for provider in sorted(stored)
+        for limit_key, resets_at in stored[provider]
+    )
+
+
+def _resets_for_canonical(
+    stored: dict[str, list[tuple[str, str | None]]], canonical: str
+) -> list[tuple[str, str | None]]:
+    keys = {canonical, *event_tool_keys_for(canonical)}
+    limits: list[tuple[str, str | None]] = []
+    for key in keys:
+        limits.extend(stored.get(key, []))
+    return limits
+
+
+def _unavailable_cycle_row(group) -> dict:
+    reason = (
+        "Cycle comparison is unavailable for this plan because no future "
+        "quota reset is stored."
+    )
+    plan_rows = [
+        {
+            "planId": plan.get("plan_id"),
+            "name": plan.get("name"),
+            "toolKey": plan.get("tool_key"),
+        }
+        for plan in group.plans
+    ]
+    return {
+        "groupId": group.group_id,
+        "name": group.name,
+        "toolKeys": list(group.tool_keys),
+        "planIds": list(group.plan_ids),
+        "plans": plan_rows,
+        "configuredCostUsd": None,
+        "usageValueUsd": None,
+        "usageValueStatus": "unavailable",
+        "multiple": None,
+        "multipleBasis": "unavailable",
+        "multipleReason": reason,
+        "cycleAvailable": False,
+        "cycleReason": reason,
+        "pricingCoverage": {
+            "status": "none",
+            "label": "Cycle comparison unavailable",
+            "unpricedModels": [],
+        },
+        "collectionEvidence": {"status": "unknown", "label": "Not used for this cycle"},
+        "attribution": {
+            "basis": "configured_tool_association",
+            "label": "Configured tool association",
+        },
+        "explanation": {
+            "period": {"note": reason},
+            "configuredCost": {"note": reason},
+            "multiple": {
+                "note": (
+                    "Configured cost and recorded usage are not compared without "
+                    "a stored quota reset. This is not a calendar-month fallback."
+                )
+            },
+        },
+    }
+
+
+def _cycle_label(limit_key: str) -> str:
+    if limit_key in {"5h", "five_hour", "gemini-5h", "3p-5h"}:
+        return "5-hour session window"
+    return "Weekly quota window"
+
+
+def _annotate_cycle(row: dict, cycle) -> dict:
+    row["cycleAvailable"] = True
+    row["cycleLimitKey"] = cycle.limit_key
+    row["cycleResetsAt"] = iso_utc(cycle.resets_at)
+    row["cycleFromUtc"] = iso_utc(cycle.start_utc)
+    row["cycleToUtc"] = iso_utc(cycle.end_utc)
+    row["cycleLabel"] = _cycle_label(cycle.limit_key)
+    period = row.setdefault("explanation", {}).setdefault("period", {})
+    period["note"] = (
+        f"{row['cycleLabel']} {row['cycleFromUtc']} – {row['cycleToUtc']} "
+        f"(stored reset {row['cycleResetsAt']}). "
+        "Weekly is used when both a weekly reset and a 5-hour reset are stored."
+    )
+    return row
+
+
+def _assemble_cycle_report(
+    *,
+    connection,
+    pricing: Any,
+    as_of_utc: datetime,
+    zone: ZoneInfo,
+    plans: list[dict],
+    sources_data: list[dict],
+    assemble_group_valuation,
+    assemble_plans_value_report,
+    assemble_unassigned_summary,
+) -> dict:
+    # Identity of current plans, not their calendar-month cost. Groups with
+    # no future reset stay in the report and say the cycle is unavailable.
+    identity = build_groups(
+        plans,
+        as_of_utc - timedelta(seconds=1),
+        as_of_utc + timedelta(seconds=1),
+        zone,
+    )
+    plans_by_tool: dict[str, list[dict]] = {}
+    for plan in plans:
+        tool_key = str(plan.get("tool_key") or "").strip().lower()
+        if not tool_key:
+            continue
+        plans_by_tool.setdefault(canonical_tool_key(tool_key), []).append(plan)
+    stored = _stored_resets_by_provider(connection)
+    real_groups = []
+    cycles = {}
+    groups_data = []
+    for shell in identity:
+        canonical = shell.group_id.removeprefix("tool:")
+        cycle = cycle_window_for_limits(_resets_for_canonical(stored, canonical), as_of_utc)
+        built = (
+            build_groups(plans_by_tool.get(canonical, []), cycle.start_utc, cycle.end_utc, zone)
+            if cycle is not None
+            else []
+        )
+        if cycle is None or not built:
+            groups_data.append(_unavailable_cycle_row(shell))
+            continue
+        group = built[0]
+        real_groups.append(group)
+        cycles[group.group_id] = cycle
+        groups_data.append(group)
+
+    if cycles:
+        start_utc = min(cycle.start_utc for cycle in cycles.values())
+        end_utc = max(cycle.end_utc for cycle in cycles.values())
+        priced = load_priced_usage_events(connection, start_utc, end_utc)
+        unpriced = load_unpriced_usage_events(connection, start_utc, end_utc)
+    else:
+        start_utc = end_utc = as_of_utc
+        priced = []
+        unpriced = []
+    group_priced, unassigned_priced = assign_events_to_groups(priced, real_groups)
+    group_unpriced, unassigned_unpriced = assign_events_to_groups(unpriced, real_groups)
+    covered = {tool for group in real_groups for tool in group.tool_keys}
+    for row in groups_data:
+        if isinstance(row, dict) and row.get("cycleAvailable") is False:
+            covered.update(row.get("toolKeys") or [])
+    unassigned_priced = [
+        event for event in unassigned_priced
+        if str(event.get("tool_key") or "").strip().lower() not in covered
+    ]
+    unassigned_unpriced = [
+        event for event in unassigned_unpriced
+        if str(event.get("tool_key") or "").strip().lower() not in covered
+    ]
+    valued = []
+    for row in groups_data:
+        if not isinstance(row, dict):
+            valued.append(
+                _annotate_cycle(
+                    assemble_group_valuation(
+                        row,
+                        group_priced.get(row.group_id, []),
+                        group_unpriced.get(row.group_id, []),
+                        sources_data,
+                        pricing=pricing,
+                        as_of=as_of_utc,
+                    ),
+                    cycles[row.group_id],
+                )
+            )
+        else:
+            valued.append(row)
+    report = assemble_plans_value_report(
+        "this_cycle",
+        as_of_utc,
+        zone,
+        valued,
+        assemble_unassigned_summary(unassigned_priced, unassigned_unpriced, pricing=pricing),
+        sources_data,
+        start_utc,
+        end_utc,
+    )
+    report["periodLabel"] = "Each plan's current quota window"
+    return report
+
+
 def _assemble_report(
     *,
     connection,
@@ -543,18 +765,31 @@ def _assemble_report(
 
     zone = ZoneInfo(settings.timezone)
     as_of_utc = as_of.astimezone(UTC) if as_of.tzinfo else as_of.replace(tzinfo=UTC)
+    today = as_of_utc.astimezone(zone).date()
+    plans = _flatten_plans_for_groups(connection, today)
+    sources_data = load_source_health(connection, as_of=as_of_utc)
+    if period == "this_cycle":
+        return _assemble_cycle_report(
+            connection=connection,
+            pricing=pricing,
+            as_of_utc=as_of_utc,
+            zone=zone,
+            plans=plans,
+            sources_data=sources_data,
+            assemble_group_valuation=assemble_group_valuation,
+            assemble_plans_value_report=assemble_plans_value_report,
+            assemble_unassigned_summary=assemble_unassigned_summary,
+        )
+
     start_utc, end_utc, _local_start, _local_end = resolve_period_bounds(
         period, as_of_utc, zone
     )
-    today = as_of_utc.astimezone(zone).date()
-    plans = _flatten_plans_for_groups(connection, today)
     groups = build_groups(plans, start_utc, end_utc, zone)
 
     priced = load_priced_usage_events(connection, start_utc, end_utc)
     unpriced = load_unpriced_usage_events(connection, start_utc, end_utc)
     group_priced, unassigned_priced = assign_events_to_groups(priced, groups)
     group_unpriced, unassigned_unpriced = assign_events_to_groups(unpriced, groups)
-    sources_data = load_source_health(connection, as_of=as_of_utc)
 
     groups_data = [
         assemble_group_valuation(
@@ -597,11 +832,19 @@ def fetch_plans_value_report(
     pricing identity, and the bounded usage/ingest fingerprint so plan edits
     and new events invalidate without a process restart.
     """
-    if period not in ("this_month", "last_month"):
+    if period not in SUPPORTED_PERIODS:
         raise ValueError(f"unsupported period: {period}")
     as_of_utc = (as_of or datetime.now(UTC)).astimezone(UTC)
     zone = ZoneInfo(settings.timezone)
-    start_utc, end_utc, _, _ = resolve_period_bounds(period, as_of_utc, zone)
+    if period == "this_cycle":
+        # Longest recognized quota window is 7 days, so this bounds the fingerprint.
+        fingerprint = (
+            _usage_fingerprint(connection, as_of_utc - timedelta(days=7), as_of_utc),
+            _quota_reset_fingerprint(connection),
+        )
+    else:
+        start_utc, end_utc, _, _ = resolve_period_bounds(period, as_of_utc, zone)
+        fingerprint = _usage_fingerprint(connection, start_utc, end_utc)
     key = (
         _connection_identity(connection),
         period,
@@ -609,7 +852,7 @@ def fetch_plans_value_report(
         settings.timezone,
         id(pricing),
         _plan_revision(connection),
-        _usage_fingerprint(connection, start_utc, end_utc),
+        fingerprint,
     )
     return _memo(
         key,

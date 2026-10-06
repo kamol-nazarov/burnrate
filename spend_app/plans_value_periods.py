@@ -13,12 +13,22 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from spend_app.subscriptions import daily_cost
-from spend_app.timeutil import local_day, month_start, overlap_seconds, previous_calendar_period
+from spend_app.timeutil import local_day, month_start, overlap_seconds, parse_utc, previous_calendar_period
 
 UTC = timezone.utc
 ZERO = Decimal(0)
 
-SUPPORTED_PERIODS = ("this_month", "last_month")
+CALENDAR_PERIODS = ("this_month", "last_month")
+SUPPORTED_PERIODS = (*CALENDAR_PERIODS, "this_cycle")
+
+# A 5-hour bar is a session limit. When a tool also has a weekly reset, the
+# cycle comparison uses the weekly window: the fee is weekly or monthly.
+_WEEKLY_LIMITS = frozenset({"weekly", "seven_day", "gemini-weekly", "3p-weekly"})
+_SESSION_LIMITS = frozenset({"5h", "five_hour", "gemini-5h", "3p-5h"})
+_CYCLE_DURATIONS = {
+    **{key: timedelta(days=7) for key in _WEEKLY_LIMITS},
+    **{key: timedelta(hours=5) for key in _SESSION_LIMITS},
+}
 
 
 @dataclass(frozen=True)
@@ -47,16 +57,71 @@ def _inclusive_local_end(start_utc: datetime, end_utc: datetime, zone: ZoneInfo)
     return (end_utc - timedelta(microseconds=1)).astimezone(zone).date()
 
 
+@dataclass(frozen=True)
+class CycleWindow:
+    """One subscription's current quota window, half-open ``[start, end)``."""
+
+    limit_key: str
+    resets_at: datetime
+    start_utc: datetime
+    end_utc: datetime
+
+
+def cycle_window_for_limits(
+    limits: list[tuple[str, datetime | str | None]],
+    as_of: datetime,
+) -> CycleWindow | None:
+    """Resolve this cycle from stored quota resets.
+
+    ``limits`` is ``(limit_key, resets_at)`` already stored on quotas. Window
+    start is that future reset minus the duration the limit key implies
+    (7 days or 5 hours). Keys with no implied duration are ignored, so a
+    billing-cycle timestamp is not turned into an invented calendar. When
+    both a weekly window and a 5-hour window have a future reset, the weekly
+    window wins.
+    """
+    moment = _ensure_utc(as_of)
+    weekly: list[CycleWindow] = []
+    session: list[CycleWindow] = []
+    for limit_key, raw in limits:
+        key = str(limit_key or "")
+        duration = _CYCLE_DURATIONS.get(key)
+        if duration is None or not raw:
+            continue
+        reset = raw if isinstance(raw, datetime) else parse_utc(raw)
+        if reset is None:
+            continue
+        reset = _ensure_utc(reset)
+        if reset <= moment:
+            continue
+        start = reset - duration
+        if moment <= start:
+            continue
+        window = CycleWindow(key, reset, start, moment)
+        if key in _WEEKLY_LIMITS:
+            weekly.append(window)
+        else:
+            session.append(window)
+    pool = weekly or session
+    if not pool:
+        return None
+    pool.sort(key=lambda item: item.resets_at)
+    return pool[0]
+
+
 def resolve_period_bounds(
     period_key: str, as_of: datetime, zone: ZoneInfo
 ) -> tuple[datetime, datetime, date, date]:
     """Resolve ``this_month`` / ``last_month`` in ``zone``.
 
+    ``this_cycle`` is not a calendar span. Callers resolve it per plan with
+    ``cycle_window_for_limits`` from stored quota resets.
+
     Returns ``(start_utc, end_utc, local_start_date, local_end_date)`` where the
     UTC pair is half-open and the local dates are the inclusive calendar span
     that intersects that interval.
     """
-    if period_key not in SUPPORTED_PERIODS:
+    if period_key not in CALENDAR_PERIODS:
         raise ValueError(f"unsupported period key: {period_key}")
 
     as_of_utc = _ensure_utc(as_of)

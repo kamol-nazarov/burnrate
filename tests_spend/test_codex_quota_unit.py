@@ -144,6 +144,9 @@ class DB:
             for row in self.rows:
                 if row['id']==args[1]:row['polled_at']=args[0]
             return None
+        # This fake has no pace-sample table. The poll may ask; absence skips the write.
+        if sql.startswith('SELECT 1 FROM sqlite_master'):
+            return SimpleNamespace(fetchone=lambda: None)
         raise AssertionError(sql)
 
 

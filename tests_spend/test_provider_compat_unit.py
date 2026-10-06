@@ -345,7 +345,7 @@ def test_snapshot_atomic_replacement_failure_cleans_only_owned_temp(monkeypatch)
             return False
     stream = Stream()
     monkeypatch.setattr(Path, "is_symlink", lambda _: False)
-    monkeypatch.setattr(Path, "is_junction", lambda _: False)
+    monkeypatch.setattr(Path, "is_junction", lambda _: False, raising=False)
     monkeypatch.setattr(Path, "mkdir", Mock())
     unlink = Mock()
     monkeypatch.setattr(Path, "unlink", lambda path, **kwargs: unlink(str(path)))
@@ -674,7 +674,7 @@ def test_transcript_permission_patterns_preserve_narrow_roots(monkeypatch):
     from pathlib import Path
     from spend_app.connection_paths import transcript_patterns
     monkeypatch.setattr(Path, "is_symlink", lambda path: False)
-    monkeypatch.setattr(Path, "is_junction", lambda path: False)
+    monkeypatch.setattr(Path, "is_junction", lambda path: False, raising=False)
     monkeypatch.setattr(Path, "is_dir", lambda path: False)
     assert transcript_patterns("codex_local", "C:/user/.codex") == ["sessions/**/*.jsonl", "archived_sessions/**/*.jsonl"]
     assert transcript_patterns("codex_local", "C:/user/.codex/sessions") == ["**/*.jsonl"]

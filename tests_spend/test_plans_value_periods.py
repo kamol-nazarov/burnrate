@@ -79,6 +79,52 @@ def test_unsupported_period_key_raises():
         resolve_period_bounds("ytd", datetime(2026, 9, 1, tzinfo=UTC), NY)
 
 
+def test_this_cycle_is_not_resolved_as_a_calendar_month():
+    with pytest.raises(ValueError, match="unsupported period"):
+        resolve_period_bounds("this_cycle", datetime(2026, 9, 9, tzinfo=UTC), NY)
+
+
+def test_cycle_window_prefers_weekly_over_five_hour():
+    from spend_app.plans_value_periods import cycle_window_for_limits
+
+    as_of = datetime(2026, 9, 9, 12, tzinfo=UTC)
+    weekly_reset = as_of + timedelta(days=2)
+    session_reset = as_of + timedelta(hours=3)
+    window = cycle_window_for_limits(
+        [("5h", session_reset), ("weekly", weekly_reset.isoformat())],
+        as_of,
+    )
+    assert window is not None
+    assert window.limit_key == "weekly"
+    assert window.resets_at == weekly_reset
+    assert window.start_utc == weekly_reset - timedelta(days=7)
+    assert window.end_utc == as_of
+
+
+def test_cycle_window_uses_five_hour_when_it_is_the_only_future_reset():
+    from spend_app.plans_value_periods import cycle_window_for_limits
+
+    as_of = datetime(2026, 9, 9, 12, tzinfo=UTC)
+    session_reset = as_of + timedelta(hours=3)
+    window = cycle_window_for_limits([("5h", session_reset)], as_of)
+    assert window is not None
+    assert window.limit_key == "5h"
+    assert window.start_utc == session_reset - timedelta(hours=5)
+
+
+def test_cycle_window_ignores_resets_without_a_known_duration_or_in_the_past():
+    from spend_app.plans_value_periods import cycle_window_for_limits
+
+    as_of = datetime(2026, 9, 9, 12, tzinfo=UTC)
+    assert cycle_window_for_limits(
+        [("cursor_models", as_of + timedelta(days=10))], as_of
+    ) is None
+    assert cycle_window_for_limits(
+        [("weekly", as_of - timedelta(hours=1))], as_of
+    ) is None
+    assert cycle_window_for_limits([("weekly", None)], as_of) is None
+
+
 def test_naive_as_of_treated_as_utc():
     as_of = datetime(2026, 9, 9, 4, 0, 0)  # naive == UTC Sep 9 04:00 == NY Sep 9 00:00
     start, end, local_start, local_end = resolve_period_bounds("this_month", as_of, NY)

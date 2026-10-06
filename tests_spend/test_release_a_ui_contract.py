@@ -79,6 +79,8 @@ def test_forecast_labels_state_the_comparison_basis() -> None:
     assert "accrued (same period)" in JS
     assert "lower bound" in JS
     assert "multipleBasis" in JS
+    assert "no published rate" in JS
+    assert "unpricedModels" in JS
 
 
 def test_probe_reports_heat_targets_separately() -> None:

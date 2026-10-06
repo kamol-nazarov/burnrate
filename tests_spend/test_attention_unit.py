@@ -347,7 +347,8 @@ def test_existing_scheduler_uses_fake_registration_only(monkeypatch):
     settings=SimpleNamespace(database_path=Path('C:/fake/attention.db'),timezone='UTC',local_ingest_interval_seconds=15,admin_ingest_interval_minutes=15,quota_poll_seconds=15,activity_poll_seconds=4)
     assert namespace['create_scheduler'](settings,Prices()) is fake
     attention=[job for job in jobs if job[1]['id']=='attention']
-    assert len(attention)==1 and len(jobs)==6
+    forecast=[job for job in jobs if job[1]['id']=='capacity-forecast']
+    assert len(attention)==1 and len(forecast)==1 and len(jobs)==7
     assert attention[0][1]['coalesce'] and attention[0][1]['max_instances']==1
 
 def drive(coroutine):

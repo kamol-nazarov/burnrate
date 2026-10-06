@@ -466,6 +466,9 @@ def _cursor_limits_uncached() -> dict:
     included_pct = None
     if has_spend and limit_cents:
         included_pct = used_cents / limit_cents * 100
+    # The two capacity bars share the billing-cycle end the payload already
+    # sent. No period length is invented when that timestamp is absent.
+    cycle_reset = _iso_from_millis(usage.get("billingCycleEnd") or plan.get("billingCycleEnd"))
     return {
         "key": "cursor",
         "name": "Cursor",
@@ -480,10 +483,20 @@ def _cursor_limits_uncached() -> dict:
                 "usedUsd": None if used_cents is None else used_cents / 100,
                 "limitUsd": limit_cents / 100 if limit_cents else None,
                 "remainingUsd": None if remaining_cents is None else remaining_cents / 100,
-                "resetAt": _iso_from_millis(usage.get("billingCycleEnd") or plan.get("billingCycleEnd")),
+                "resetAt": cycle_reset,
             },
-            {"key": "cursor_models", "label": "Cursor Models", "usedPct": pool.get("autoPercentUsed")},
-            {"key": "other_models", "label": "Other Models", "usedPct": pool.get("apiPercentUsed")},
+            {
+                "key": "cursor_models",
+                "label": "Cursor Models",
+                "usedPct": pool.get("autoPercentUsed"),
+                "resetAt": cycle_reset,
+            },
+            {
+                "key": "other_models",
+                "label": "Other Models",
+                "usedPct": pool.get("apiPercentUsed"),
+                "resetAt": cycle_reset,
+            },
         ],
         "onDemand": {
             "enabled": not bool(hard_limit.get("noUsageBasedAllowed")),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import types
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -16,6 +16,7 @@ from spend_app.db import (
     UsageEvent,
     connect,
     initialize,
+    upsert_quota,
     upsert_unpriced_event,
     upsert_usage_event,
 )
@@ -521,6 +522,88 @@ def test_load_helpers_exclude_admin_and_respect_bounds(db_with_plan: Path):
     assert all(event["source"] not in store.ADMIN_USAGE_SOURCES for event in unpriced)
     assert {event["raw_id"] for event in priced} == {"priced-1"}
     assert epoch_micros(priced[0]["occurred_at"]) >= epoch_micros(start)
+
+
+def test_this_cycle_uses_a_weekly_reset_and_marks_a_group_without_one(
+    db_with_plan: Path, pricing
+):
+    settings = make_settings(db_with_plan)
+    _mutate(
+        db_with_plan,
+        "add",
+        values=_plan_values(name="Cursor Pro", tool_key="cursor", amount_usd="100.00"),
+    )
+    weekly_reset = AS_OF + timedelta(days=3)
+    before_cycle = datetime(2026, 9, 2, 15, 0, tzinfo=UTC)
+    inside_cycle = datetime(2026, 9, 6, 15, 0, tzinfo=UTC)
+    with connect(db_with_plan) as connection:
+        _add_priced(
+            connection,
+            raw_id="before-cycle",
+            occurred=before_cycle,
+            computed=999.0,
+        )
+        _add_priced(
+            connection,
+            raw_id="cursor-inside",
+            occurred=inside_cycle,
+            tool_key="cursor",
+            source="cursor_local",
+            computed=50.0,
+            model_key="cursor:grok-4.6",
+        )
+        upsert_quota(
+            connection,
+            provider_key="codex",
+            limit_key="5h",
+            label="5-hour",
+            unit="pct",
+            source="test",
+            polled_at=_stamp(AS_OF),
+            pct=4,
+            resets_at=_stamp(AS_OF + timedelta(hours=2)),
+        )
+        upsert_quota(
+            connection,
+            provider_key="codex",
+            limit_key="weekly",
+            label="Weekly",
+            unit="pct",
+            source="test",
+            polled_at=_stamp(AS_OF),
+            pct=10,
+            resets_at=_stamp(weekly_reset),
+        )
+        upsert_quota(
+            connection,
+            provider_key="cursor",
+            limit_key="cursor_models",
+            label="Cursor Models",
+            unit="pct",
+            source="test",
+            polled_at=_stamp(AS_OF),
+            pct=20,
+            resets_at=_stamp(AS_OF + timedelta(days=20)),
+        )
+        report = store.fetch_plans_value_report(
+            connection, settings, pricing, "this_cycle", as_of=AS_OF
+        )
+    assert report["period"] == "this_cycle"
+    assert report["periodLabel"] == "Each plan's current quota window"
+    by_id = {group["groupId"]: group for group in report["groups"]}
+    codex = by_id["tool:codex"]
+    cursor = by_id["tool:cursor"]
+    assert codex["cycleAvailable"] is True
+    assert codex["cycleLimitKey"] == "weekly"
+    assert codex["cycleFromUtc"].startswith("2026-09-05")
+    assert Decimal(codex["configuredCostUsd"]) == Decimal("40")
+    assert Decimal(codex["usageValueUsd"]) == Decimal("2400")
+    assert codex["multipleBasis"] == "lower_bound"
+    assert cursor["cycleAvailable"] is False
+    assert cursor["configuredCostUsd"] is None
+    assert cursor["usageValueUsd"] is None
+    assert "unavailable" in cursor["cycleReason"].lower()
+    assert report["unassigned"]["usageValueStatus"] == "no_records"
 
 
 def test_unsupported_period_raises(db_with_plan: Path, pricing):

@@ -605,6 +605,46 @@ const match = (actual, pattern, message) => {
     match(root.textContent, /No plans are configured/);
   }
 
+  {
+    const document = createDocument();
+    const api = loadApi(document);
+    const root = document.createElement('div');
+    api.renderPlansValue(root, {
+      period: 'this_cycle',
+      periodLabel: "Each plan's current quota window",
+      timezone: 'UTC',
+      groups: [
+        {
+          groupId: 'tool:codex', name: 'Codex', toolKeys: ['codex'], toolLabel: 'codex',
+          plans: [{name: 'Codex Plus'}], configuredCostUsd: '40', usageValueUsd: '2400',
+          usageValueStatus: 'lower_bound', multiple: 60, multipleBasis: 'lower_bound',
+          cycleAvailable: true, cycleLabel: 'Weekly quota window',
+          pricingCoverage: {status: 'partial', label: 'Partial (1 unpriced model)'},
+          collectionEvidence: {status: 'healthy', label: 'Healthy'},
+          attribution: {label: 'Configured tool association'}
+        },
+        {
+          groupId: 'tool:cursor', name: 'Cursor Pro', toolKeys: ['cursor'], toolLabel: 'cursor',
+          plans: [{name: 'Cursor Pro'}], configuredCostUsd: null, usageValueUsd: null,
+          cycleAvailable: false,
+          cycleReason: 'Cycle comparison is unavailable for this plan because no future quota reset is stored.',
+          pricingCoverage: {status: 'none', label: 'Cycle comparison unavailable'},
+          collectionEvidence: {status: 'unknown', label: 'Not used for this cycle'},
+          attribution: {label: 'Configured tool association'}
+        }
+      ]
+    }, {});
+    match(root.textContent, /Each plan's current quota window/);
+    match(root.textContent, /Weekly quota window/);
+    const rows = root.querySelectorAll('.plans-value-row');
+    const codex = rows.find(row => row.textContent.includes('Weekly quota window'));
+    const cursor = rows.find(row => row.textContent.includes('Cursor Pro'));
+    match(codex.querySelector('.plans-value-usage').textContent, /\u2265 \$2,400\.00/);
+    match(cursor.textContent, /Cycle comparison is unavailable/);
+    eq(cursor.querySelector('.plans-value-cost').textContent, 'Unavailable');
+    ok(!cursor.textContent.includes('$0.00'), 'missing reset is not shown as zero cost');
+  }
+
   // --- Accessibility: period buttons and aria attributes ---
   {
     const document = createDocument();
@@ -615,7 +655,8 @@ const match = (actual, pattern, message) => {
     eq(group.getAttribute('role'), 'group');
     eq(group.getAttribute('aria-label'), 'Comparison period');
     const buttons = root.querySelectorAll('button[data-period]');
-    eq(buttons.length, 2);
+    eq(buttons.length, 3);
+    eq(root.querySelector('button[data-period="this_cycle"]').textContent, 'This cycle');
     ok(buttons.every(button => button.getAttribute('aria-label')), 'period buttons labeled');
     ok(root.querySelector('article.plans-value-row').getAttribute('aria-label'), 'row labeled');
     ok(!root.querySelector('.plans-value').getAttribute('aria-live'), 'whole view is not aria-live');

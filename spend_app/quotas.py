@@ -527,16 +527,68 @@ def openrouter_quota_samples(
     ]
 
 
+def _copy_quota_resets(primary: dict, donor: dict | None) -> dict:
+    """Copy a real reset onto a matching 5h or weekly window.
+
+    Desktop history has no reset of its own. A timestamp is attached only
+    when another source already read in this collection has one for the same
+    window. Percentages stay with ``primary``. Nothing is invented when the
+    donor has no reset, or when desktop is the only source.
+    """
+    if not isinstance(donor, dict) or donor.get("status") != "exact":
+        return primary
+    donated: dict[str, str] = {}
+    for window in donor.get("windows") or []:
+        if not isinstance(window, dict):
+            continue
+        key = window.get("key")
+        reset = window.get("resetAt")
+        if key in {"5h", "weekly"} and reset:
+            donated[str(key)] = reset
+    if not donated:
+        return primary
+    windows = []
+    for window in primary.get("windows") or []:
+        if not isinstance(window, dict):
+            windows.append(window)
+            continue
+        key = window.get("key")
+        if window.get("resetAt") or key not in donated:
+            windows.append(window)
+            continue
+        windows.append({**window, "resetAt": donated[str(key)]})
+    return {**primary, "windows": windows}
+
+
+def _claude_reset_donor() -> dict | None:
+    """Traycer, then OAuth — the same fallback order as a desktop miss.
+
+    Used only to borrow resets. A successful Traycer payload is not replaced
+    by OAuth, even when Traycer's resets are empty.
+    """
+    try:
+        return _claude_from_traycer_result(_traycer_profile_rate_limits("claude"))
+    except Exception:
+        payload = _claude_limits_uncached()
+    if isinstance(payload, dict) and payload.get("status") == "exact":
+        return payload
+    return None
+
+
 def _claude_quota_collector() -> list[QuotaSample]:
     def load() -> tuple[dict, str]:
+        # Desktop history still wins the percentages. It does not win by
+        # erasing a reset another source in this same collection already has.
         try:
-            return _claude_desktop_limits_uncached(), "claude_desktop_history"
+            desktop = _claude_desktop_limits_uncached()
         except Exception:
-            pass
-        try:
-            return _claude_from_traycer_result(_traycer_profile_rate_limits("claude")), "traycer_profile"
-        except Exception:
-            return _claude_limits_uncached(), "claude_oauth_usage"
+            desktop = None
+        if desktop is None:
+            try:
+                return _claude_from_traycer_result(_traycer_profile_rate_limits("claude")), "traycer_profile"
+            except Exception:
+                return _claude_limits_uncached(), "claude_oauth_usage"
+        return _copy_quota_resets(desktop, _claude_reset_donor()), "claude_desktop_history"
 
     # The lane scheduler owns the cadence; the short cache only coalesces a
     # poll with a concurrent compatibility /limits read.

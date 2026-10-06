@@ -26,6 +26,7 @@ from spend_app.quotas import (
     quota_note,
     split_quota_label,
     zai_quota_samples,
+    _claude_quota_collector,
 )
 
 
@@ -913,3 +914,98 @@ def test_poll_quotas_fixture_collectors_do_not_call_providers(
         now=lambda: POLLED,
     )
     assert result["written"] == 9
+
+
+def _desktop_claude(five_hour: float, weekly: float) -> dict:
+    return {
+        "status": "exact",
+        "key": "claude-code",
+        "windows": [
+            {"key": "5h", "label": "5-hour window", "usedPct": five_hour, "resetAt": None},
+            {"key": "weekly", "label": "Weekly · all models", "usedPct": weekly, "resetAt": None},
+        ],
+    }
+
+
+def _claude_with_resets(five_hour: str | None, weekly: str | None, *, five_pct=1, weekly_pct=2) -> dict:
+    return {
+        "status": "exact",
+        "windows": [
+            {"key": "5h", "usedPct": five_pct, "resetAt": five_hour},
+            {"key": "weekly", "usedPct": weekly_pct, "resetAt": weekly},
+        ],
+    }
+
+
+def test_claude_desktop_does_not_invent_a_reset_when_it_is_the_only_source(monkeypatch) -> None:
+    limits._CACHE.pop("claude_quota_poll", None)
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_desktop_limits_uncached",
+        lambda: _desktop_claude(9, 3),
+    )
+    monkeypatch.setattr(
+        "spend_app.quotas._traycer_profile_rate_limits",
+        lambda _name: (_ for _ in ()).throw(RuntimeError("no traycer")),
+    )
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_limits_uncached",
+        lambda: {"status": "unavailable", "windows": []},
+    )
+    samples = {sample.limit_key: sample for sample in _claude_quota_collector()}
+    assert samples["5h"].pct == 9
+    assert samples["weekly"].pct == 3
+    assert samples["5h"].resets_at is None
+    assert samples["weekly"].resets_at is None
+    assert samples["5h"].source == "claude_desktop_history"
+    limits._CACHE.pop("claude_quota_poll", None)
+
+
+def test_claude_desktop_keeps_a_traycer_reset_for_the_same_window(monkeypatch) -> None:
+    limits._CACHE.pop("claude_quota_poll", None)
+    oauth_calls = {"n": 0}
+
+    def oauth():
+        oauth_calls["n"] += 1
+        raise AssertionError("OAuth should not run when Traycer already has resets")
+
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_desktop_limits_uncached",
+        lambda: _desktop_claude(9, 3),
+    )
+    monkeypatch.setattr("spend_app.quotas._traycer_profile_rate_limits", lambda _name: {"rateLimits": {}})
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_from_traycer_result",
+        lambda _data: _claude_with_resets("2026-10-06T01:00:00Z", "2026-10-10T01:00:00Z"),
+    )
+    monkeypatch.setattr("spend_app.quotas._claude_limits_uncached", oauth)
+    samples = {sample.limit_key: sample for sample in _claude_quota_collector()}
+    assert samples["5h"].pct == 9
+    assert samples["weekly"].pct == 3
+    assert samples["5h"].resets_at == "2026-10-06T01:00:00Z"
+    assert samples["weekly"].resets_at == "2026-10-10T01:00:00Z"
+    assert samples["weekly"].source == "claude_desktop_history"
+    assert oauth_calls["n"] == 0
+    limits._CACHE.pop("claude_quota_poll", None)
+
+
+def test_claude_desktop_keeps_an_oauth_reset_when_traycer_is_missing(monkeypatch) -> None:
+    limits._CACHE.pop("claude_quota_poll", None)
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_desktop_limits_uncached",
+        lambda: _desktop_claude(9, 3),
+    )
+    monkeypatch.setattr(
+        "spend_app.quotas._traycer_profile_rate_limits",
+        lambda _name: (_ for _ in ()).throw(RuntimeError("no traycer")),
+    )
+    monkeypatch.setattr(
+        "spend_app.quotas._claude_limits_uncached",
+        lambda: _claude_with_resets("2026-10-06T02:00:00Z", "2026-10-11T02:00:00Z", five_pct=40, weekly_pct=50),
+    )
+    samples = {sample.limit_key: sample for sample in _claude_quota_collector()}
+    assert samples["5h"].pct == 9
+    assert samples["weekly"].pct == 3
+    assert samples["5h"].resets_at == "2026-10-06T02:00:00Z"
+    assert samples["weekly"].resets_at == "2026-10-11T02:00:00Z"
+    assert samples["5h"].source == "claude_desktop_history"
+    limits._CACHE.pop("claude_quota_poll", None)

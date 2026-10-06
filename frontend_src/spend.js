@@ -286,13 +286,12 @@ function paintComposite() {
     const denom = (projected || 0) + (planCost || 0);
     $("pace-bar").style.width = denom ? `${(projected / denom) * 100}%` : "0%";
   }
-  if ($("pace-label") && projected != null) $("pace-label").textContent = `usage ${usd(projected)}`;
+  const forecastBasis = state.summary?.projected?.multipleBasis;
+  if ($("projected-marker")) $("projected-marker").textContent = projected == null ? "" : (forecastBasis === "lower_bound" ? "≥" : "≈");
+  if ($("pace-label") && projected != null) $("pace-label").textContent = `${forecastBasis === "lower_bound" ? "usage ≥ " : "usage "}${usd(projected)}`;
   if ($("run-rate") && planCost != null) $("run-rate").textContent = `plans ${usd(planCost)}`;
-  if ($("forecast-delta") && projected != null && planCost) $("forecast-delta").textContent = `${(projected / planCost).toFixed(2)}× plan cost`;
-  if ($("forecast-note") && planCost != null) {
-    const method = state.summary?.projected?.method;
-    $("forecast-note").textContent = method || "Month-to-date reference usage versus configured accrual over the same elapsed days. A comparison at published rates, not a bill.";
-  }
+  if ($("forecast-delta") && projected != null && planCost) $("forecast-delta").textContent = `${(projected / planCost).toFixed(2)}× accrued (same period)${forecastBasis === "lower_bound" ? " · lower bound" : ""}`;
+  if ($("forecast-note") && planCost != null) $("forecast-note").textContent = forecastNote(state.summary);
   if ($("range-label") && state.summary && tokenTotal != null) {
     $("range-label").textContent = `${windowLabel(state.summary.window?.key || state.window)} window · ${tokens(tokenTotal)} tokens · ${number(records)} records`;
   }
@@ -1310,6 +1309,27 @@ function renderWaste(data) {
   setText($("cache-savings"), saved == null ? unknown : "≈" + usd(saved));
 }
 
+function unpricedCause(models) {
+  const names = (Array.isArray(models) ? models : []).map(item => item && (item.name || item.modelKey)).filter(Boolean);
+  if (!names.length) return "";
+  const shown = names.slice(0, 3);
+  const extra = names.length - shown.length;
+  const list = names.length === 1
+    ? shown[0]
+    : extra
+      ? `${shown.join(", ")}, and ${extra} more`
+      : `${shown.slice(0, -1).join(", ")}${shown.length > 2 ? "," : ""} and ${shown[shown.length - 1]}`;
+  return `${list} ${names.length === 1 ? "has" : "have"} no published rate, so this is a lower bound.`;
+}
+
+function forecastNote(data) {
+  const projected = data?.projected || {};
+  const method = projected.method || "Month-to-date reference usage versus configured accrual over the same elapsed days. A comparison at published rates, not a bill.";
+  if (projected.multipleBasis !== "lower_bound") return method;
+  const cause = unpricedCause(data?.totals?.unpricedModels);
+  return cause ? `${method} ${cause}` : method;
+}
+
 function renderForecast(data) {
   const projected = data.projected || {};
   const value = ease("projected", projected.value);
@@ -1317,19 +1337,14 @@ function renderForecast(data) {
   $("forecast-value").dataset.ease = "projected";
   $("forecast-value").dataset.fmt = "usd";
   $("forecast-value").textContent = usd(value);
-  $("projected-marker").textContent = value == null ? "" : "≈";
   const multiple = finite(projected.multiple);
   const multipleBasis = projected.multipleBasis || (multiple == null ? "unavailable" : "ratio");
-  $("forecast-delta").textContent = multiple == null ? "" : `${multiple.toFixed(2)}× accrued (same period)`;
-  if (multiple != null && multipleBasis === "lower_bound") {
-    $("forecast-delta").textContent += " · lower bound";
-  }
-  $("forecast-note").textContent = projected.method
-    ? projected.method
-    : "Month-to-date reference usage versus configured accrual over the same elapsed days. A comparison at published rates, not a bill.";
+  $("projected-marker").textContent = value == null ? "" : (multipleBasis === "lower_bound" ? "≥" : "≈");
+  $("forecast-delta").textContent = multiple == null ? "" : `${multiple.toFixed(2)}× accrued (same period)${multipleBasis === "lower_bound" ? " · lower bound" : ""}`;
+  $("forecast-note").textContent = forecastNote(data);
   const denom = (finite(value) || 0) + (finite(plan) || 0);
   $("pace-bar").style.width = denom ? `${((finite(value) || 0) / denom) * 100}%` : "0%";
-  $("pace-label").textContent = `usage ${usd(value)}`;
+  $("pace-label").textContent = `${multipleBasis === "lower_bound" ? "usage ≥ " : "usage "}${usd(value)}`;
   $("run-rate").textContent = `plans ${usd(plan)}`;
 }
 

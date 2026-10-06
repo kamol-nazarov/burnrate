@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from spend_app.db import connect
 from spend_app.plan_service import PlanConflict, PlanError, apply_mutation, list_plans
+from spend_app.plans_value_periods import SUPPORTED_PERIODS
 
 
 def product_router(settings, pricing=None):
@@ -38,10 +39,13 @@ def product_router(settings, pricing=None):
 
     @router.get("/api/subscriptions/value")
     def subscription_value(period: str = "this_month"):
-        if period not in ("this_month", "last_month"):
+        if period not in SUPPORTED_PERIODS:
             return JSONResponse(
                 {
-                    "error": f"Invalid period '{period}'. Use 'this_month' or 'last_month'."
+                    "error": (
+                        "Invalid period "
+                        f"'{period}'. Use 'this_month', 'last_month', or 'this_cycle'."
+                    )
                 },
                 status_code=422,
             )

@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import stat
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
@@ -25,6 +26,30 @@ class MissingLocation(LocationError):
 
 class SampleLimit(LocationError):
     pass
+
+
+def is_junction(path) -> bool:
+    """True when ``path`` is a Windows junction.
+
+    ``Path.is_junction`` arrived in Python 3.12. A 3.11 Windows scan must
+    still refuse junctions instead of crashing on the missing method.
+    Symlinks stay on ``is_symlink``; this only covers the other reparse point.
+    """
+    candidate = Path(path)
+    method = getattr(candidate, "is_junction", None)
+    if method is not None:
+        try:
+            return bool(method())
+        except OSError:
+            return False
+    if os.name != "nt":
+        return False
+    try:
+        attributes = os.lstat(candidate).st_file_attributes
+    except (OSError, AttributeError):
+        return False
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attributes & reparse) and not candidate.is_symlink()
 
 
 def normalize(raw, meta):
@@ -135,7 +160,7 @@ def source_files(root, suffix, budget=100000):
                 if visited > budget:
                     raise SampleLimit("Inspection limit reached; the sample does not establish whether usage history is present.")
                 # Never traverse links/junctions. Canonical files are checked again at open.
-                if entry.is_symlink() or Path(entry.path).is_junction():
+                if entry.is_symlink() or is_junction(entry.path):
                     continue
                 if entry.is_dir(follow_symlinks=False):
                     relative = Path(entry.path).relative_to(base).parts
@@ -170,7 +195,7 @@ def transcript_patterns(source, root, fallback="**/*.jsonl"):
     if not broader:
         for name in names:
             child = root / name
-            if not child.is_symlink() and not child.is_junction() and child.is_dir():
+            if not child.is_symlink() and not is_junction(child) and child.is_dir():
                 broader = True
     return [name + "/**/*.jsonl" for name in names] if broader else [fallback]
 

@@ -1,12 +1,12 @@
 /* Plans & Value comparison view. Backend owns arithmetic; this module formats and owns request lifetime. */
 (() => {
-  const PERIODS = [{key: "this_month", label: "This month"}, {key: "last_month", label: "Last month"}];
+  const PERIODS = [{key: "this_month", label: "This month"}, {key: "last_month", label: "Last month"}, {key: "this_cycle", label: "This cycle"}];
   const esc = s => String(s ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const finite = v => (v == null || v === "" || !Number.isFinite(+v)) ? null : +v;
   const formatUsd = v => finite(v) == null ? null : "$" + (+v).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
   const formatMultiple = v => finite(v) == null ? null : (+v).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + "×";
   const formatShortDate = d => !/^\d{4}-\d{2}-\d{2}$/.test(d || "") ? (d || "") : new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", year: "numeric", timeZone: "UTC"}).format(new Date(d + "T12:00:00Z"));
-  const periodCaption = p => p?.periodLabel || ((p?.localFrom || p?.localStartDate) && (p?.localTo || p?.localEndDate) ? `${formatShortDate(p.localFrom || p.localStartDate)} – ${formatShortDate(p.localTo || p.localEndDate)} (${p.timezone || ""})` : (p?.timezone ? `(${p.timezone})` : ""));
+  const periodCaption = p => (p?.period === "this_cycle" ? (p.periodLabel || "Each plan's current quota window") : null) || p?.periodLabel || ((p?.localFrom || p?.localStartDate) && (p?.localTo || p?.localEndDate) ? `${formatShortDate(p.localFrom || p.localStartDate)} – ${formatShortDate(p.localTo || p.localEndDate)} (${p.timezone || ""})` : (p?.timezone ? `(${p.timezone})` : ""));
 
   const usageLabel = g => {
     const st = g?.usageValueStatus || g?.usageStatus;
@@ -109,6 +109,7 @@
 
   function renderRow(g, p, ctx) {
     const name = g?.name || "Plan group", pl = includedPlans(g);
+    const cycleOff = p?.period === "this_cycle" && g?.cycleAvailable === false;
     const cov = g?.pricingCoverage || {}, ev = g?.collectionEvidence || {};
     const covCls = cov.status === "complete" ? "badge-complete" : cov.status === "partial" ? "badge-partial" : "badge-warn";
     const evCls = ev.status === "healthy" ? "badge-complete" : "badge-warn";
@@ -118,12 +119,13 @@
         h("div", null,
           h("strong", {className: "plans-value-name", text: name}),
           pl ? h("p", {className: "plans-value-included", text: "Includes: " + pl}) : null,
+          cycleOff ? h("p", {className: "plans-value-included", text: g.cycleReason || "Cycle comparison is unavailable for this plan."}) : (g?.cycleLabel ? h("p", {className: "plans-value-included", text: g.cycleLabel}) : null),
           h("span", {className: "plans-value-tool-badge", text: toolBadge(g)})
         ),
         h("div", {className: "plans-value-metrics"},
-          metric("Configured cost", "plans-value-cost", costLabel(g)),
-          metric("Recorded usage value", "plans-value-usage", usageLabel(g)),
-          metric("Reference-value multiple", "plans-value-multiple", multipleLabel(g))
+          metric("Configured cost", "plans-value-cost", cycleOff ? "Unavailable" : costLabel(g)),
+          metric("Recorded usage value", "plans-value-usage", cycleOff ? "Unavailable" : usageLabel(g)),
+          metric("Reference-value multiple", "plans-value-multiple", cycleOff ? "Unavailable" : multipleLabel(g))
         )
       ),
       h("div", {className: "plans-value-badges", "aria-label": "Coverage and attribution"},
@@ -150,7 +152,8 @@
   }
 
   function renderLoading(cnt, period) {
-    cnt.replaceChildren(h("div", {className: "plans-value-loading", role: "status", "aria-label": "Loading Plans and Value"}, h("p", {text: `Loading ${period === "last_month" ? "last month" : "this month"}…`})));
+    const label = period === "last_month" ? "last month" : period === "this_cycle" ? "this cycle" : "this month";
+    cnt.replaceChildren(h("div", {className: "plans-value-loading", role: "status", "aria-label": "Loading Plans and Value"}, h("p", {text: `Loading ${label}…`})));
   }
 
   function renderError(cnt, err, onRetry) {
