@@ -2150,16 +2150,25 @@ def aggregate_summary(
             model = ensure_model(event["model_key"], event["tool_key"])
             tool_stat = ensure_tool(event["tool_key"])
             measured = _measured(event)
-            api_equivalent_value += event["computed_total"]
-            api_equivalent_tokens += measured
-            model["value"] += event["spend"]
+            computed = event["computed_total"]
+            if computed is None:
+                # A stored row whose model no longer prices must not blank the window.
+                api_equivalent_complete = False
+            else:
+                api_equivalent_value += computed
+                api_equivalent_tokens += measured
+            spend = event["spend"] if event["spend"] is not None else Decimal(0)
+            if event["spend"] is None:
+                model["complete"] = False
+                tool_stat["complete"] = False
+            model["value"] += spend
             model["tokens"] += measured
             model["cached"] += event["cached_input_tokens"]
             model["fresh"] += _fresh(event)
             model["writes"] += int(event.get("cache_write_tokens") or 0)
             if event.get("session_id"):
                 model["runs"].add(event["session_id"])
-            tool_stat["value"] += event["spend"]
+            tool_stat["value"] += spend
             tool_stat["tokens"] += measured
             tool_stat["cached"] += event["cached_input_tokens"]
             tool_stat["fresh"] += _fresh(event)
@@ -2167,14 +2176,16 @@ def aggregate_summary(
             index = _bucket_index(event["when"], window, zone=zone, buckets=buckets)
             tool_stat["series"][index] += measured
             mix.add_event(event)
+            components = event["components"] or {}
             model["inputCost"] += (
-                event["components"]["fresh_input"]
-                + event["components"]["cached_input"]
-                + event["components"]["cache_write"]
+                components.get("fresh_input", Decimal(0))
+                + components.get("cached_input", Decimal(0))
+                + components.get("cache_write", Decimal(0))
             )
-            model["outputCost"] += event["components"]["output"]
-            for key, amount in event["components"].items():
-                component_totals[key] += amount
+            model["outputCost"] += components.get("output", Decimal(0))
+            for key, amount in components.items():
+                if amount is not None:
+                    component_totals[key] += amount
             if _event_is_exact(event):
                 model["exactEvents"] += 1
                 tool_stat["exactEvents"] += 1
