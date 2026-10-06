@@ -1248,7 +1248,7 @@ def _input_share(components: dict[str, Decimal]) -> Decimal | None:
 
 
 def _cached_to_fresh_ratio(price) -> Decimal | None:
-    if price.input_per_mtok <= 0:
+    if price is None or price.input_per_mtok <= 0:
         return None
     return price.cached_input_per_mtok / price.input_per_mtok
 
