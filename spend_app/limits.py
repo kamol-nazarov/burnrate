@@ -125,11 +125,42 @@ def _antigravity_log_path() -> Path:
     return roaming / "Antigravity" / "logs" / "main.log"
 
 
+def _antigravity_process_csrf_tokens() -> list[str]:
+    """CSRF tokens from running language_server processes.
+
+    Current Antigravity builds no longer write ``--csrf_token`` into main.log.
+    The token still exists only on the language-server command line. It is
+    kept in memory for the localhost RPC and is never logged.
+    """
+    if os.name != "nt":
+        return []
+    try:
+        completed = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process -Filter \"Name = 'language_server.exe'\" | "
+                "Select-Object -ExpandProperty CommandLine",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return re.findall(r"--csrf_token\s+(\S+)", completed.stdout)
+
+
 def _antigravity_local_connection(log_path: Path | None = None) -> tuple[str, str]:
     """Return Antigravity's current localhost quota endpoint and CSRF token.
 
     The token authenticates only the app's ephemeral localhost language-server
     RPC. It is read in memory, never returned by the API, persisted, or logged.
+    A token is used only when it comes from the same startup as the port.
+    Older startups in the log are not paired with the current port.
     """
     path = log_path or _antigravity_log_path()
     try:
@@ -139,11 +170,18 @@ def _antigravity_local_connection(log_path: Path | None = None) -> tuple[str, st
             text = handle.read().decode("utf-8", errors="replace")
     except OSError as exc:
         raise RuntimeError("Antigravity local runtime log is unavailable") from exc
-    ports = re.findall(r"Local:\s+https://127\.0\.0\.1:(\d+)/", text)
-    tokens = re.findall(r"--csrf_token\s+([^\s]+)", text)
-    if not ports or not tokens:
-        raise RuntimeError("Antigravity local quota endpoint is unavailable")
-    return f"https://127.0.0.1:{ports[-1]}", tokens[-1]
+    starts = [match.start() for match in re.finditer(r"Starting app", text)] or [0]
+    start = starts[-1]
+    block = text[start:]
+    ports = re.findall(r"Local:\s+https://127\.0\.0\.1:(\d+)/", block)
+    tokens = re.findall(r"--csrf_token\s+([^\s]+)", block)
+    if ports and tokens:
+        return f"https://127.0.0.1:{ports[-1]}", tokens[-1]
+    if ports:
+        process_tokens = list(dict.fromkeys(_antigravity_process_csrf_tokens()))
+        if len(process_tokens) == 1:
+            return f"https://127.0.0.1:{ports[-1]}", process_tokens[0]
+    raise RuntimeError("Antigravity local quota endpoint is unavailable")
 
 
 def _grpc_web_json_payload(content: bytes) -> dict:
@@ -347,11 +385,13 @@ def _cached(name: str, ttl_seconds: int, loader: Callable[[], dict]) -> dict:
 
 def _tail_rate_limit(path: Path, *, now: datetime | None = None) -> tuple[float, dict] | None:
     """Read only bounded metadata; filter the pool BEFORE selecting a record."""
+    from spend_app.adapters.local_common import open_binary_read_only
     from spend_app.codex_quota import observation, newest
+    from spend_app.connection_paths import stat_path
     now = now or datetime.now(UTC)
     try:
-        size = path.stat().st_size
-        with path.open("rb") as handle:
+        size = stat_path(path).st_size
+        with open_binary_read_only(path) as handle:
             handle.seek(max(0, size - 2_000_000))
             data = handle.read(2_000_000).decode("utf-8", errors="replace")
     except OSError:
@@ -370,7 +410,7 @@ def _tail_rate_limit(path: Path, *, now: datetime | None = None) -> tuple[float,
 
 def _codex_limits() -> dict:
     from spend_app.codex_quota import scope, freshness_reason, newest
-    from spend_app.connection_paths import source_files, confined, LocationError
+    from spend_app.connection_paths import LocationError, confined, source_files, stat_path
     from spend_app.providers import default_codex_glob
     root = Path(default_codex_glob().replace("\\", "/").removesuffix("/**/*.jsonl"))
     missing = {"key": "codex", "name": "Codex", "status": "unavailable", "windows": [],
@@ -378,7 +418,7 @@ def _codex_limits() -> dict:
     try:
         root = root.resolve(strict=True)
         candidates = sorted(source_files(root, "**/*.jsonl", budget=5000),
-                            key=lambda path: path.stat().st_mtime, reverse=True)[:40]
+                            key=lambda path: stat_path(path).st_mtime, reverse=True)[:40]
         now = datetime.now(UTC)
         latest = None
         for path in candidates:
@@ -1663,18 +1703,23 @@ def _claude_active_sessions(
     cutoff = current.timestamp() - CLAUDE_ACTIVITY_MAX_AGE_SECONDS
     terminal_reasons = {"end_turn", "stop_sequence", "max_tokens", "refusal"}
     sessions = []
+    from spend_app.adapters.local_common import open_binary_read_only
+    from spend_app.connection_paths import LocationError, SampleLimit, source_files, stat_path
+
     try:
-        candidates = [
-            path
-            for path in projects_dir.rglob("*.jsonl")
-            if path.is_file() and path.stat().st_mtime >= cutoff
-        ]
-    except OSError:
+        candidates = []
+        for path in source_files(projects_dir, "**/*.jsonl"):
+            try:
+                if stat_path(path).st_mtime >= cutoff:
+                    candidates.append(path)
+            except OSError:
+                continue
+    except (OSError, LocationError, SampleLimit):
         return []
     for path in candidates:
         try:
-            size = path.stat().st_size
-            with path.open("rb") as handle:
+            size = stat_path(path).st_size
+            with open_binary_read_only(path) as handle:
                 handle.seek(max(0, size - 1_000_000))
                 lines = handle.read().decode("utf-8", errors="replace").splitlines()
         except OSError:

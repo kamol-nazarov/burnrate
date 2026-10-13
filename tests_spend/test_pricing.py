@@ -103,6 +103,145 @@ def test_anthropic_one_hour_cache_write_uses_distinct_rate() -> None:
     assert cost == Decimal("0.001")
 
 
+def test_october_2026_cards_match_published_rates() -> None:
+    engine = PricingEngine.load(ROOT / "pricing")
+    opus = engine.resolve("claude-opus-5-5", datetime(2026, 10, 4, tzinfo=UTC))
+    assert (
+        opus.input_per_mtok,
+        opus.cached_input_per_mtok,
+        opus.cache_write_per_mtok,
+        opus.cache_write_1h_per_mtok,
+        opus.output_per_mtok,
+        opus.long_context_threshold,
+    ) == (Decimal("4"), Decimal("0.20"), Decimal("5"), Decimal("8"), Decimal("20"), None)
+    assert opus.effective_from == datetime(2026, 9, 22, tzinfo=UTC)
+    with pytest.raises(UnpricedModelError):
+        engine.resolve("claude-opus-5-5", datetime(2026, 9, 21, tzinfo=UTC))
+
+    sonnet = engine.resolve("claude-sonnet-5-5", datetime(2026, 10, 1, tzinfo=UTC))
+    assert (
+        sonnet.input_per_mtok,
+        sonnet.cached_input_per_mtok,
+        sonnet.cache_write_per_mtok,
+        sonnet.cache_write_1h_per_mtok,
+        sonnet.output_per_mtok,
+    ) == (Decimal("2"), Decimal("0.20"), Decimal("2.50"), Decimal("4"), Decimal("10"))
+    assert sonnet.effective_from == datetime(2026, 9, 28, tzinfo=UTC)
+
+    haiku55 = engine.resolve("claude-haiku-5-5", datetime(2026, 10, 12, tzinfo=UTC))
+    assert (
+        haiku55.input_per_mtok,
+        haiku55.cached_input_per_mtok,
+        haiku55.cache_write_per_mtok,
+        haiku55.cache_write_1h_per_mtok,
+        haiku55.output_per_mtok,
+        haiku55.long_context_threshold,
+        haiku55.long_input_multiplier,
+        haiku55.long_output_multiplier,
+        haiku55.long_context_includes_cache_writes,
+        haiku55.long_context_inclusive,
+    ) == (
+        Decimal("0.10"),
+        Decimal("0.01"),
+        Decimal("0.125"),
+        Decimal("0.20"),
+        Decimal("0.50"),
+        100_000,
+        Decimal("5"),
+        Decimal("5"),
+        True,
+        False,
+    )
+    assert haiku55.effective_from == datetime(2026, 10, 7, tzinfo=UTC)
+    with pytest.raises(UnpricedModelError):
+        engine.resolve("claude-haiku-5-5", datetime(2026, 10, 6, tzinfo=UTC))
+    at_cap = engine.compute(
+        model_key="claude-haiku-5-5",
+        occurred_at=datetime(2026, 10, 12, tzinfo=UTC),
+        input_tokens=90_000,
+        cached_input_tokens=0,
+        cache_write_tokens=10_000,
+        output_tokens=0,
+    )
+    over_cap = engine.compute(
+        model_key="claude-haiku-5-5",
+        occurred_at=datetime(2026, 10, 12, tzinfo=UTC),
+        input_tokens=90_000,
+        cached_input_tokens=0,
+        cache_write_tokens=10_001,
+        output_tokens=0,
+    )
+    # 90k input + 10k writes is exactly 100k and stays at $0.10 / $0.125.
+    # One more write token prices the whole request at 5x.
+    assert at_cap == Decimal("90_000") / Decimal("1000000") * Decimal("0.10") + Decimal(
+        "10_000"
+    ) / Decimal("1000000") * Decimal("0.125")
+    assert over_cap == Decimal("5") * (
+        Decimal("90_000") / Decimal("1000000") * Decimal("0.10")
+        + Decimal("10_001") / Decimal("1000000") * Decimal("0.125")
+    )
+
+    haiku = engine.resolve("claude-haiku-4-5-20251001", datetime(2026, 10, 1, tzinfo=UTC))
+    assert haiku.model_key == "claude-haiku-4-5"
+    assert (
+        haiku.input_per_mtok,
+        haiku.cached_input_per_mtok,
+        haiku.cache_write_per_mtok,
+        haiku.cache_write_1h_per_mtok,
+        haiku.output_per_mtok,
+        haiku.long_context_threshold,
+    ) == (Decimal("1"), Decimal("0.10"), Decimal("1.25"), Decimal("2"), Decimal("5"), None)
+
+    sol = engine.resolve("gpt-6.1-sol", datetime(2026, 10, 2, tzinfo=UTC))
+    assert (
+        sol.input_per_mtok,
+        sol.cached_input_per_mtok,
+        sol.cache_write_per_mtok,
+        sol.output_per_mtok,
+        sol.long_context_threshold,
+        sol.long_input_multiplier,
+        sol.long_output_multiplier,
+    ) == (
+        Decimal("2"),
+        Decimal("0.10"),
+        Decimal("2.50"),
+        Decimal("10"),
+        272_000,
+        Decimal("2"),
+        Decimal("1.5"),
+    )
+    short = engine.compute(
+        model_key="gpt-6.1-sol",
+        occurred_at=datetime(2026, 10, 2, tzinfo=UTC),
+        input_tokens=272_000,
+        cached_input_tokens=0,
+        cache_write_tokens=0,
+        output_tokens=0,
+    )
+    long = engine.compute(
+        model_key="gpt-6.1-sol",
+        occurred_at=datetime(2026, 10, 2, tzinfo=UTC),
+        input_tokens=272_001,
+        cached_input_tokens=0,
+        cache_write_tokens=0,
+        output_tokens=0,
+    )
+    assert short == Decimal("272000") / MILLION * Decimal("2")
+    assert long == Decimal("272001") / MILLION * Decimal("4")
+
+    glm = engine.resolve("opencode:glm-5.3", datetime(2026, 9, 21, tzinfo=UTC))
+    assert glm.model_key == "zcode:glm-5.3"
+    assert (
+        glm.input_per_mtok,
+        glm.cached_input_per_mtok,
+        glm.cache_write_per_mtok,
+        glm.output_per_mtok,
+    ) == (Decimal("1.40"), Decimal("0.26"), Decimal("0"), Decimal("4.40"))
+
+    with pytest.raises(UnpricedModelError):
+        engine.resolve("cursor:grok-bot-default", datetime(2026, 10, 7, tzinfo=UTC))
+
+
 def test_sonnet_5_standard_price_is_the_official_intro_rate() -> None:
     # Primary fact from the official Anthropic pricing page: the $2/$10
     # introductory price became the standard price and the scheduled

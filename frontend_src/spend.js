@@ -801,6 +801,8 @@ function renderCoverage(data) {
   $("coverage-title").textContent = unpriced && !exact.length && !derived.length
     ? "Pricing coverage"
     : derived.length ? "Partial pricing coverage" : exact.length ? "Exact pricing coverage" : "Pricing coverage";
+  const banner = $("coverage-banner");
+  if (banner) banner.dataset.state = derived.length ? "partial" : exact.length ? "exact" : "quiet";
   if (coverage.note) {
     $("coverage-note").innerHTML = esc(coverage.note).replace("≈", "<b>≈</b>");
   } else if (total > 0) {
@@ -915,13 +917,15 @@ function renderCapacity(data) {
     const shape = `lead:${lead.providerKey}|row:${leadRow?.limitKey || ""}`;
     if (headline.dataset.shape !== shape) {
       headline.dataset.shape = shape;
-      headline.innerHTML = `${esc(lead.providerName)} ${esc(shortLimitLabel(leadRow?.label, lead.providerName))} at <span data-ease="capPeak" data-fmt="pct"></span><span class="capacity-headline-eta"></span>`;
+      headline.innerHTML = `<span class="capacity-lead-name">${esc(lead.providerName)} <span class="capacity-lead-limit">${esc(shortLimitLabel(leadRow?.label, lead.providerName))}</span></span><span class="capacity-lead-fig" data-ease="capPeak" data-fmt="pct"></span><span class="capacity-headline-eta"></span>`;
     }
+    const pressure = lead.forecast && lead.forecast.state || "";
+    headline.dataset.pressure = pressure === "dry" || pressure === "tight" || pressure === "safe" ? pressure : "";
     setText(headline.querySelector("[data-ease='capPeak']"), peak == null ? unknown : pct(peak));
-    const leadDry = lead.forecast && lead.forecast.state === "dry" && lead.forecast.line
-      ? ` · ${String(lead.forecast.line).replace(/^pace → /, "")}`
-      : "";
-    setText(headline.querySelector(".capacity-headline-eta"), (leadEta.value === unknown ? "" : ` · ${leadEta.value} ${leadEta.label}`) + leadDry);
+    const bits = [];
+    if (leadEta.value !== unknown) bits.push(`${leadEta.value} ${leadEta.label}`);
+    if (pressure === "dry" && lead.forecast.line) bits.push(String(lead.forecast.line).replace(/^pace → /, ""));
+    setText(headline.querySelector(".capacity-headline-eta"), bits.join(" · "));
   }
   if (!shell.querySelector(".capacity-lanes")) {
     setEmpty(shell, `<div class="capacity-lanes"></div><div class="capacity-foot" hidden></div>`);
@@ -1002,7 +1006,10 @@ function renderCapacity(data) {
     }
     if (provider.activityNote) text += ` · ${provider.activityNote}`;
     const detected = (window.productSourceGuidance || []).some(source => source.state === "detected_without_history" && window.ProductLogic?.capacitySourceKey(source.source) === provider.providerKey);
-    setText(node.querySelector("span"), detected ? "detected, no history yet" : text);
+    const detail = detected ? "detected, no history yet" : text;
+    const detailNode = node.querySelector("span");
+    setText(detailNode, detail);
+    if (detailNode) detailNode.title = detail;
     if (detected) setStyle(node.querySelector("i"), "background", "var(--amber)");
     const connect = node.querySelector("button"); connect.hidden = !detected;
     connect.onclick = event => window.openHarnessManager?.(event.currentTarget);
@@ -1021,6 +1028,16 @@ function renderActivity(data) {
   count.classList.remove("burnrate-skeleton");
   count.removeAttribute("aria-label");
   count.textContent = `${liveRows.length} live`;
+  if (liveRows.length) {
+    const figure = document.createElement("span");
+    figure.className = "live-figure";
+    figure.textContent = String(liveRows.length);
+    const word = document.createElement("span");
+    word.className = "live-word";
+    word.textContent = "live";
+    count.replaceChildren(figure, word);
+    count.setAttribute("aria-label", `${liveRows.length} live`);
+  }
   pill.classList.toggle("idle", liveRows.length === 0);
   body.querySelector(":scope > .skel-stack")?.remove();
   if (!liveRows.length) {
@@ -1030,6 +1047,11 @@ function renderActivity(data) {
     return;
   }
   body.querySelector(":scope > .panel-empty")?.remove();
+  const clock = liveRows.map(row => {
+    const started = Date.parse(row.startedAt || "");
+    return Number.isFinite(started) ? Math.max(0, Math.round((Date.now() - started) / 60000)) : null;
+  });
+  const longest = Math.max(1, ...clock.filter(value => value != null));
   const existing = new Map([...body.querySelectorAll(":scope > .activity-row")].map(item => [item.dataset.activityId, item]));
   const keep = new Set();
   liveRows.forEach((row, index) => {
@@ -1042,7 +1064,7 @@ function renderActivity(data) {
       item = document.createElement("div");
       item.className = "activity-row";
       item.dataset.activityId = activityId;
-      item.innerHTML = `<i class="dot"></i><div><strong></strong><small></small></div><em></em>`;
+      item.innerHTML = `<i class="dot"></i><div><strong></strong><small></small><span class="activity-share"></span></div><em></em>`;
     }
     item.classList.toggle("live", liveNow);
     item.classList.toggle("nodata", !liveNow);
@@ -1058,7 +1080,19 @@ function renderActivity(data) {
     if (sweep) sweep.style.animationDelay = `${delay}ms`;
     item.querySelector(".dot").style.animationDelay = `${delay}ms`;
     item.querySelector("strong").textContent = row.name || "Untitled agent";
-    item.querySelector("small").textContent = `${row.modelKey || "model"} · ${liveNow ? "usage posts on turn completion" : "stopped before telemetry was emitted"}`;
+    const mins = clock[index];
+    const age = mins == null ? "" : mins < 1 ? "just now" : mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}h`;
+    item.querySelector("small").textContent = liveNow
+      ? `${row.modelKey || "model"}${age ? ` · ${age}` : ""}`
+      : "stopped before telemetry was emitted";
+    let share = item.querySelector(".activity-share");
+    if (!share) {
+      share = document.createElement("span");
+      share.className = "activity-share";
+      item.querySelector("div").appendChild(share);
+    }
+    const filled = mins == null ? 8 : Math.max(8, Math.round((mins / longest) * 100));
+    share.style.setProperty("--fill", `${filled}%`);
     const status = item.querySelector("em");
     status.style.animationDelay = `${delay}ms`;
     status.textContent = liveNow ? "LIVE" : "NO DATA";
@@ -1101,6 +1135,8 @@ function renderKpis(data) {
   $("tracked-value").textContent = usd(tracked);
   $("tracked-chip").textContent = partial ? "partial" : mixed ? "mixed" : tracked == null ? "unknown" : "exact";
   $("tracked-chip").className = partial || mixed || tracked == null ? "" : "good";
+  const trackedCard = $("tracked-chip").closest("article");
+  if (trackedCard) trackedCard.dataset.tone = partial ? "partial" : mixed ? "mixed" : tracked == null ? "unknown" : "exact";
   const unpricedRows = unpricedModels.reduce((sum, item) => sum + (finite(item.records) || 0), 0);
   const unpricedNames = unpricedModels.map((item) => item.modelKey).join(", ");
   $("tracked-note").dataset.partial = partial ? "1" : "";
@@ -1228,6 +1264,11 @@ function renderChart(data) {
     }, (node, tool) => {
       node.dataset.key = tool.key;
       const value = ease("toolTok-" + tool.key, tool.tokens);
+      const windowTokens = tools.reduce((sum, item) => sum + (finite(item.tokens) || 0), 0);
+      const rawShare = windowTokens ? ((finite(tool.tokens) || 0) / windowTokens) * 100 : 0;
+      const share = rawShare > 0 ? Math.max(8, Math.round(rawShare)) : 0;
+      node.style.setProperty("--share", share + "%");
+      node.style.setProperty("--tool", colorFor(tool.key));
       const spend = ease("toolVal-" + tool.key, tool.value);
       const cache = ease("toolCache-" + tool.key, tool.cachePct);
       const marker = tool.valueMarker ?? (tool.isExact === false ? "≈" : "");
@@ -1375,6 +1416,7 @@ function renderModels(data) {
     const bv = state.sortKey === "name" || state.sortKey === "toolKey" ? String(b[state.sortKey] || "") : finite(b[state.sortKey]) ?? -Infinity;
     return av > bv ? state.sortDir : av < bv ? -state.sortDir : 0;
   });
+  const leader = Math.max(1, ...rows.map(model => finite(model.value) || 0));
   const body = $("model-table-body");
   if (!rows.length) {
     setEmpty(body, `<p class="panel-empty">No models in this window.</p>`);
@@ -1391,6 +1433,7 @@ function renderModels(data) {
           <span class="numeric model-tokens"></span>
           <span class="numeric model-cache"></span>
           <span class="numeric col-runs"></span>
+          <span class="model-share"></span>
         </div>`)
       : nodeFrom(`<button type="button" class="model-card">
           <div class="model-card-top"><strong><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px"></i></strong><span class="model-tool"></span></div>
@@ -1439,6 +1482,10 @@ function renderModels(data) {
       setText(cacheCell, pct(cache));
       setStyle(cacheCell, "color", cacheColor);
       setText(node.querySelector(".col-runs"), number(model.runs));
+      const amount = finite(model.value) || 0;
+      const share = amount > 0 ? (amount >= leader ? 100 : Math.max(3, Math.round(amount / leader * 100))) : 0;
+      node.style.setProperty("--share", share + "%");
+      node.style.setProperty("--tool", colorFor(model.toolKey));
     } else {
       setText(node.querySelector(".card-value"), valueText);
       setText(node.querySelector(".card-tokens"), tokens(tok));
@@ -1498,6 +1545,10 @@ function renderSubs(data) {
     setText(node.querySelector("b"), row.cadence && row.amountUsd != null
       ? usd(row.amountUsd) + suffix
       : (row.amountUsd == null ? "Free" : usd(row.amountUsd)));
+    const equiv = finite(row.monthlyEquivalent ?? row.amountUsd) || 0;
+    const share = monthly ? (equiv > 0 ? Math.max(4, Math.round(equiv / monthly * 100)) : 0) : 0;
+    node.style.setProperty("--share", share + "%");
+    node.style.setProperty("--tool", colorFor(row.toolKey));
   });
 }
 
@@ -1523,6 +1574,105 @@ function moveHeatFocus(cells, currentIndex, delta) {
     applyHeat(target);
   }
 }
+function rateLabel(value) {
+  const n = finite(value);
+  if (n == null) return unknown;
+  if (n >= 100) return "$" + n.toFixed(0);
+  if (n >= 10) return "$" + n.toFixed(2);
+  return "$" + n.toFixed(3);
+}
+
+function renderUnitPrice(data) {
+  const board = $("price-board");
+  if (!board) return;
+  const tools = new Map((data.tools || []).map(tool => [tool.key, tool]));
+  const rows = (data.models || []).flatMap(model => {
+    const value = finite(model.value);
+    const count = finite(model.tokens);
+    if (value == null || !count) return [];
+    const exact = model.isExact !== false && model.valueMarker !== "≈";
+    return [{
+      key: model.key,
+      name: model.name || model.key,
+      tool: tools.get(model.toolKey)?.name || model.toolKey || "",
+      rate: value / count * 1e6,
+      tokens: count,
+      exact,
+      color: colorFor(model.toolKey)
+    }];
+  }).sort((a, b) => b.rate - a.rate);
+  const solid = rows.filter(row => row.tokens >= 10e6);
+  const ranked = solid.length >= 2 ? solid : rows;
+  board.replaceChildren();
+  if (!ranked.length) {
+    const empty = document.createElement("p");
+    empty.className = "panel-empty";
+    empty.textContent = "No priced tokens in this window.";
+    board.appendChild(empty);
+    return;
+  }
+  const leader = ranked[0];
+  const floor = ranked[ranked.length - 1];
+  const times = floor.rate > 0 && rows.length > 1 ? leader.rate / floor.rate : null;
+  const lead = document.createElement("div");
+  lead.className = "price-lead";
+  const kicker = document.createElement("span");
+  kicker.className = "price-kicker";
+  kicker.textContent = "Steepest model";
+  const fig = document.createElement("strong");
+  fig.className = "price-fig";
+  if (!leader.exact) {
+    const marker = document.createElement("span");
+    marker.className = "marker";
+    marker.textContent = "≈";
+    fig.appendChild(marker);
+  }
+  fig.appendChild(document.createTextNode(rateLabel(leader.rate)));
+  const name = document.createElement("span");
+  name.className = "price-name";
+  name.textContent = leader.name;
+  const meta = document.createElement("span");
+  meta.className = "price-meta";
+  meta.textContent = `per million tokens · ${tokens(leader.tokens)} · ${leader.tool}`;
+  lead.append(kicker, fig, name, meta);
+  if (times != null && times > 1.05) {
+    const compare = document.createElement("span");
+    compare.className = "price-times";
+    compare.textContent = `${times.toFixed(1)}× ${floor.name}`;
+    lead.appendChild(compare);
+  }
+  if (ranked.length !== rows.length) {
+    const omitted = document.createElement("span");
+    omitted.className = "price-meta";
+    omitted.textContent = "Models under 10M tokens are left out.";
+    lead.appendChild(omitted);
+  }
+  const ladder = document.createElement("div");
+  ladder.className = "price-ladder";
+  ranked.forEach(row => {
+    const rung = document.createElement("div");
+    rung.className = "price-rung";
+    const who = document.createElement("span");
+    who.className = "price-who";
+    const swatch = document.createElement("i");
+    swatch.style.background = row.color;
+    const label = document.createElement("b");
+    label.textContent = row.name;
+    const tool = document.createElement("small");
+    tool.textContent = row.tool;
+    who.append(swatch, label, tool);
+    const amount = document.createElement("strong");
+    amount.textContent = (row.exact ? "" : "≈") + rateLabel(row.rate);
+    const bar = document.createElement("span");
+    bar.className = "price-bar";
+    bar.style.setProperty("--share", `${Math.max(4, Math.round(row.rate / leader.rate * 100))}%`);
+    bar.style.setProperty("--tool", row.color);
+    rung.append(who, amount, bar);
+    ladder.appendChild(rung);
+  });
+  board.append(lead, ladder);
+}
+
 function renderHeat(data) {
   const cells = data.heatmap || [];
   const short = heatmapIsFallback(data);
@@ -1538,6 +1688,42 @@ function renderHeat(data) {
     const heat = finite(cell.value);
     if (heat != null) max = Math.max(max, heat);
   });
+  const byHour = Array.from({length: 24}, () => 0);
+  let total = 0;
+  map.forEach(cell => {
+    const amount = finite(cell.value);
+    const hour = Number(cell.hour);
+    if (amount == null || hour < 0 || hour > 23) return;
+    total += amount;
+    byHour[hour] += amount;
+  });
+  let peakHour = 0;
+  byHour.forEach((amount, hour) => { if (amount > byHour[peakHour]) peakHour = hour; });
+  const peakShare = total > 0 ? (byHour[peakHour] / total) * 100 : null;
+  const clock = hour => String(hour).padStart(2, "0") + ":00";
+  let band = null;
+  if (total > 0) {
+    const target = total * 0.5;
+    for (let start = 0; start < 24; start++) {
+      let running = 0;
+      for (let len = 1; len <= 24; len++) {
+        running += byHour[(start + len - 1) % 24];
+        if (running + 1e-9 >= target) {
+          if (!band || len < band.len) band = {start, len};
+          break;
+        }
+      }
+    }
+  }
+  const shareEl = $("heat-share");
+  const spanEl = $("heat-span");
+  if (shareEl) setText(shareEl, peakShare == null ? unknown : pct(peakShare));
+  if (spanEl) {
+    if (peakShare == null || !band) setText(spanEl, "No reference usage in this pattern.");
+    else if (band.len >= 24) setText(spanEl, `Spread across the day. ${clock(peakHour)} is the peak hour.`);
+    else if (band.len <= 1) setText(spanEl, `Half of this pattern sits at ${clock(band.start)}. Peak hour ${clock(peakHour)}.`);
+    else setText(spanEl, `Half of this pattern sits in ${clock(band.start)}–${clock((band.start + band.len - 1) % 24)}. Peak hour ${clock(peakHour)}.`);
+  }
   const applyHeat = button => {
     state.heatCell = button;
     setText($("heat-label"), button.dataset.label);
@@ -1556,7 +1742,7 @@ function renderHeat(data) {
     }, (button, hour) => {
       const cell = map.get(`${day}:${hour}`);
       const value = cell ? finite(cell.value) : null;
-      const alpha = value == null ? "0.05" : (0.05 + (value / max) * 0.85).toFixed(3);
+      const alpha = value == null ? "0.16" : (0.22 + (value / max) * 0.78).toFixed(3);
       const shown = value == null ? unknown : heatValueLabel(value);
       const stored = value == null ? "" : String(value);
       if (button.dataset.value !== stored) button.dataset.value = stored;
@@ -1564,6 +1750,7 @@ function renderHeat(data) {
       setAttr(button, "title", `${button.dataset.label} · ${shown}`);
       const heatBg = `rgba(120,168,248,${alpha})`;
       if (button.style.getPropertyValue("--heat-bg") !== heatBg) button.style.setProperty("--heat-bg", heatBg);
+      button.classList.toggle("is-peak", Number(hour) === peakHour && total > 0);
     });
   });
   reconcileChildren($("heat-table-body"), cells, cell => `${cell.weekday}:${cell.hour}`, () => nodeFrom(`<tr><td></td><td></td><td></td></tr>`), (node, cell) => {
@@ -1740,6 +1927,7 @@ function renderOverview() {
   renderModels(data);
   renderMix(data);
   renderSubs(data);
+  renderUnitPrice(data);
   renderHeat(data);
   const totals = data.totals || {};
   $("window-note").textContent = `Usage and value across ${(data.tools || []).length} tools · ${number(totals.records)} records`;

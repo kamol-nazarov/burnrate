@@ -190,6 +190,49 @@ def test_correction_preview_confirmation_conflict_and_retry(tmp_path):
         mutate(db, "end", plan_id=p["id"], expected_version=1, end_date=None)
 
 
+def test_clearing_the_last_term_end_reopens_the_plan(tmp_path):
+    db = tmp_path / "reopen.db"
+    initialize(db)
+    created = mutate(db, "add", values=values())
+    mutate(
+        db,
+        "end",
+        plan_id=created["id"],
+        expected_version=1,
+        end_date="2026-09-20",
+    )
+    with connect(db) as c:
+        ended = list_plans(c, date(2026, 9, 25))["plans"][0]
+        assert ended["end_date"] == "2026-09-20"
+        assert ended["terms"][0]["status"] == "ended"
+        term_id = ended["terms"][0]["id"]
+        version = ended["version"]
+    preview = mutate(
+        db,
+        "correct",
+        plan_id=created["id"],
+        expected_version=version,
+        term_id=term_id,
+        preview=True,
+        values=values(end_date=None),
+    )
+    mutate(
+        db,
+        "correct",
+        plan_id=created["id"],
+        expected_version=version,
+        term_id=term_id,
+        confirmed=True,
+        preview_token=preview["preview_token"],
+        values=values(end_date=None),
+    )
+    with connect(db) as c:
+        reopened = list_plans(c, date(2026, 9, 25))["plans"][0]
+        assert reopened["end_date"] is None
+        assert reopened["terms"][0]["status"] == "active"
+        assert reopened["terms"][0]["end_date"] is None
+
+
 @pytest.mark.parametrize(
     "amount", ["NaN", "Infinity", "-1", "1000001", "1.234", True, None]
 )

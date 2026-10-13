@@ -36,6 +36,7 @@ prices:
     effective_from: 2026-09-09T16:00:00Z
     source_url: https://docs.z.ai/guides/overview/pricing.md
   - model_key: zcode:glm-5.3
+    aliases: [opencode:glm-5.3]
     input_per_mtok: 1.40
     cached_input_per_mtok: 0.26
     cache_write_per_mtok: 0.00

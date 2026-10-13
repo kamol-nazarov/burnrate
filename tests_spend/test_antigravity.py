@@ -75,6 +75,11 @@ def test_antigravity_local_rpc_reads_grouped_quota_without_exposing_token(
         return httpx.Response(200, request=request, content=framed)
 
     monkeypatch.setattr("spend_app.limits.httpx.post", fake_post)
+
+    def unexpected_process_lookup():
+        raise AssertionError("process command line is only for a startup that omitted the token")
+
+    monkeypatch.setattr("spend_app.limits._antigravity_process_csrf_tokens", unexpected_process_lookup)
     result = _antigravity_limits_uncached()
     assert result["status"] == "exact"
     assert result["key"] == "antigravity"
@@ -85,6 +90,41 @@ def test_antigravity_local_rpc_reads_grouped_quota_without_exposing_token(
         "3p-5h",
     }
     assert "fixture-local-secret" not in json.dumps(result)
+
+
+def test_antigravity_uses_the_live_process_token_when_the_current_startup_omits_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    log = tmp_path / "Antigravity" / "logs" / "main.log"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        "Starting app (v2.11.0)\n"
+        "Spawning: language_server.exe --csrf_token stale-log-secret\n"
+        "Local: https://127.0.0.1:1111/\n"
+        "Starting app (v2.19.1)\n"
+        "Local: https://127.0.0.1:62491/\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    monkeypatch.setattr(
+        "spend_app.limits._antigravity_process_csrf_tokens",
+        lambda: ["live-process-secret"],
+    )
+    encoded = json.dumps(PAYLOAD).encode()
+    framed = b"\x00" + struct.pack(">I", len(encoded)) + encoded
+
+    def fake_post(url, *, content, headers, **kwargs):
+        assert url.endswith("/RetrieveUserQuotaSummary")
+        assert "127.0.0.1:62491/" in url
+        assert headers["x-codeium-csrf-token"] == "live-process-secret"
+        request = httpx.Request("POST", url)
+        return httpx.Response(200, request=request, content=framed)
+
+    monkeypatch.setattr("spend_app.limits.httpx.post", fake_post)
+    result = _antigravity_limits_uncached()
+    assert result["status"] == "exact"
+    assert "live-process-secret" not in json.dumps(result)
+    assert "stale-log-secret" not in json.dumps(result)
 
 
 def test_antigravity_quota_samples_store_used_percent_and_real_resets() -> None:

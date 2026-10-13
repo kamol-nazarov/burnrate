@@ -92,13 +92,44 @@ def identity(path):
     return os.path.normcase(os.path.normpath(str(path))).casefold()
 
 
+def _resolve(path, *, strict):
+    """Resolve a path. Windows MAX_PATH failures retry with the extended prefix."""
+    try:
+        resolved = Path(path).resolve(strict=strict)
+    except OSError as exc:
+        if not _long_path_error(exc, path):
+            raise
+        resolved = Path(_extended_path(path)).resolve(strict=strict)
+    return Path(_plain_path(resolved))
+
+
+def stat_path(path):
+    try:
+        return Path(path).stat()
+    except OSError as exc:
+        if not _long_path_error(exc, path):
+            raise
+        return Path(_extended_path(path)).stat()
+
+
+def readonly_fd(path):
+    """Read-only file descriptor. Long Windows paths use the extended prefix."""
+    target = os.fspath(path)
+    try:
+        return os.open(target, os.O_RDONLY)
+    except OSError as exc:
+        if not _long_path_error(exc, target):
+            raise
+        return os.open(_extended_path(target), os.O_RDONLY)
+
+
 def confined(path, root=None):
     root = root or APPROVED_ROOT.get()
     if not root:
         return Path(path)
     base = Path(root)
-    resolved = Path(path).resolve(strict=True)
-    if identity(base.resolve(strict=True)) != identity(base):
+    resolved = _resolve(path, strict=True)
+    if identity(_resolve(base, strict=True)) != identity(base):
         raise LocationError("The saved location changed. Recheck it before collecting.")
     if resolved != base and (base.is_file() or not resolved.is_relative_to(base)):
         raise LocationError("A source link points outside the approved location.")
@@ -119,17 +150,17 @@ def approved(root, revision=0, patterns=None):
 
 
 def cache_identity(database, path, parser_version="0.3.0"):
-    return (identity(Path(database).resolve()), identity(Path(path).resolve()), APPROVED_REVISION.get(), parser_version)
+    return (identity(_resolve(database, strict=False)), identity(_resolve(path, strict=False)), APPROVED_REVISION.get(), parser_version)
 
 
 def file_signature(path, stat=None):
     path = confined(path)
-    stat = stat or path.stat()
-    with path.open("rb") as stream:
+    info = stat or stat_path(path)
+    with os.fdopen(readonly_fd(path), "rb") as stream:
         first = stream.read(4096)
-        stream.seek(max(0, stat.st_size - 4096))
+        stream.seek(max(0, info.st_size - 4096))
         last = stream.read(4096)
-    return (stat.st_size, stat.st_mtime_ns, getattr(stat, "st_ino", 0), getattr(stat, "st_ctime_ns", 0), hashlib.blake2b(first + last, digest_size=16).hexdigest())
+    return (info.st_size, info.st_mtime_ns, getattr(info, "st_ino", 0), getattr(info, "st_ctime_ns", 0), hashlib.blake2b(first + last, digest_size=16).hexdigest())
 
 
 def matches_parts(parts, pattern, *, prefix=False):
@@ -143,6 +174,88 @@ def matches_parts(parts, pattern, *, prefix=False):
     return fnmatch.fnmatchcase(parts[0], pattern[0]) and matches_parts(parts[1:], pattern[1:], prefix=prefix)
 
 
+def _extended_path(path):
+    """Windows extended path. FindFirstFile fails at 259 characters with WinError 3."""
+    text = os.path.abspath(os.fspath(path))
+    if text.startswith("\\\\?\\"):
+        return text
+    if text.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + text[2:]
+    return "\\\\?\\" + text
+
+
+def _plain_path(path):
+    text = os.fspath(path)
+    if text.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + text[8:]
+    if text.startswith("\\\\?\\"):
+        return text[4:]
+    return text
+
+
+def _long_path_error(exc, path=""):
+    """True when Windows rejected a path for length, not because it is absent.
+
+    FindFirstFile reports 3 or 206 past MAX_PATH. Opening the same path can
+    report 2 (file not found) instead, so a long target is retried once.
+    """
+    if os.name != "nt":
+        return False
+    winerror = getattr(exc, "winerror", None)
+    if winerror in {3, 206}:
+        return True
+    text = os.fspath(path or getattr(exc, "filename", "") or "")
+    if len(text) < 260:
+        return False
+    # The C runtime reports a past-MAX_PATH open as errno 2 with no Win32 code.
+    return winerror == 2 or getattr(exc, "errno", None) == 2
+
+
+def _open_scandir(directory):
+    try:
+        return os.scandir(directory)
+    except OSError as exc:
+        if not _long_path_error(exc, directory) or str(directory).startswith("\\\\?\\"):
+            raise
+        return os.scandir(_extended_path(directory))
+
+
+def _entry_kind(entry):
+    """Classify a directory entry. A child past MAX_PATH raises WinError 3 on the plain path."""
+
+    def classify(link, directory, file):
+        if link:
+            return "link"
+        if directory:
+            return "dir"
+        if file:
+            return "file"
+        return "other"
+
+    try:
+        if entry.is_symlink() or is_junction(entry.path):
+            return "link"
+        if entry.is_dir(follow_symlinks=False):
+            return "dir"
+        if entry.is_file(follow_symlinks=False):
+            return "file"
+        return "other"
+    except OSError as exc:
+        if not _long_path_error(exc, entry.path):
+            raise
+    extended = _extended_path(_plain_path(entry.path))
+    try:
+        return classify(
+            os.path.islink(extended) or is_junction(extended),
+            os.path.isdir(extended),
+            os.path.isfile(extended),
+        )
+    except OSError as exc:
+        if _long_path_error(exc, extended):
+            return "other"
+        raise
+
+
 def source_files(root, suffix, budget=100000):
     base = Path(root)
     confined(base, root)
@@ -154,22 +267,30 @@ def source_files(root, suffix, budget=100000):
     stack = [base]
     while stack:
         directory = stack.pop()
-        with os.scandir(directory) as entries:
+        try:
+            scan = _open_scandir(directory)
+        except OSError as exc:
+            if _long_path_error(exc, directory):
+                continue
+            raise
+        with scan as entries:
             for entry in entries:
                 visited += 1
                 if visited > budget:
                     raise SampleLimit("Inspection limit reached; the sample does not establish whether usage history is present.")
                 # Never traverse links/junctions. Canonical files are checked again at open.
-                if entry.is_symlink() or is_junction(entry.path):
+                kind = _entry_kind(entry)
+                if kind == "link":
                     continue
-                if entry.is_dir(follow_symlinks=False):
-                    relative = Path(entry.path).relative_to(base).parts
+                entry_path = Path(_plain_path(entry.path))
+                if kind == "dir":
+                    relative = entry_path.relative_to(base).parts
                     if any(matches_parts(relative, pattern, prefix=True) for pattern in patterns):
-                        stack.append(Path(entry.path))
-                elif entry.is_file(follow_symlinks=False):
-                    relative = Path(entry.path).relative_to(base).as_posix()
+                        stack.append(entry_path)
+                elif kind == "file":
+                    relative = entry_path.relative_to(base).as_posix()
                     if any(matches_parts(relative.split("/"), pattern) for pattern in patterns):
-                        yield confined(entry.path, root)
+                        yield confined(entry_path, root)
 
 
 def opencode_files(root, budget=100000):

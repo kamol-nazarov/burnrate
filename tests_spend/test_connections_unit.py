@@ -2,6 +2,7 @@
 import asyncio
 import copy
 import json
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -338,6 +339,61 @@ def test_discovery_walk_is_bounded_and_skips_links(monkeypatch):
     with pytest.raises(LocationError, match="limit reached"):
         list(paths.source_files("C:/fake", "**/*.jsonl", budget=256))
     assert scanner.call_count == 1
+
+
+def test_source_walk_retries_a_windows_path_at_the_max_path_limit(monkeypatch, tmp_path):
+    from spend_app import connection_paths as paths
+
+    root = tmp_path / "projects"
+    store = root / "demo" / "sdk-agent-store" / "store"
+    store.mkdir(parents=True)
+    (store / "index.db").write_bytes(b"")
+    deep = store / "agents" / ("a" * 40)
+    deep.mkdir(parents=True)
+    monkeypatch.setattr(paths, "confined", lambda path, root=None: Path(path))
+    real_scandir = os.scandir
+    calls = []
+
+    def scanner(path):
+        text = os.fspath(path)
+        calls.append(text)
+        if text.endswith("a" * 40) and not text.startswith("\\\\?\\"):
+            error = FileNotFoundError(3, "The system cannot find the path specified", text)
+            error.winerror = 3
+            raise error
+        return real_scandir(path)
+
+    monkeypatch.setattr(paths.os, "scandir", scanner)
+    found = list(paths.source_files(root, "**/sdk-agent-store/*/index.db"))
+    assert [path.name for path in found] == ["index.db"]
+    assert any(call.startswith("\\\\?\\") and call.endswith("a" * 40) for call in calls)
+
+
+def test_source_walk_reads_a_file_past_the_windows_max_path(tmp_path):
+    if os.name != "nt":
+        return
+    from spend_app import connection_paths as paths
+    from spend_app.adapters.local_common import open_text_read_only
+
+    root = tmp_path / "projects"
+    root.mkdir()
+    folder = root
+    while len(str(folder / "agent.jsonl")) < 270:
+        folder = folder / ("p" * 40)
+    os.makedirs(paths._extended_path(folder))
+    file_path = folder / "agent.jsonl"
+    fd = os.open(paths._extended_path(file_path), os.O_WRONLY | os.O_CREAT, 0o644)
+    try:
+        os.write(fd, b'{"type":"usage"}\n')
+    finally:
+        os.close(fd)
+
+    found = list(paths.source_files(root, "**/*.jsonl"))
+    assert [path.name for path in found] == ["agent.jsonl"]
+    assert len(str(found[0])) >= 270
+    with open_text_read_only(found[0]) as handle:
+        assert "usage" in handle.read()
+    assert paths.file_signature(found[0])[0] > 0
 
 
 def test_cache_scope_and_reconnect_keep_event_identity(monkeypatch):

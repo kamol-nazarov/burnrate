@@ -131,7 +131,9 @@ def _ingest(*, database_path: Path, pricing: PricingEngine, session_glob: str) -
     for file_name in sorted(adapter_files(session_glob)):
         path = Path(file_name)
         try:
-            stat = path.stat()
+            from spend_app.connection_paths import stat_path
+
+            stat = stat_path(path)
         except OSError:
             continue
         from spend_app.connection_paths import cache_identity, file_signature

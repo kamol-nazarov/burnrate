@@ -60,9 +60,16 @@ def sqlite_read_only(path: Path) -> sqlite3.Connection:
 
 def open_text_read_only(path: Path):
     """Open a provider JSONL/text file without write or truncate access."""
-    from spend_app.connection_paths import confined
-    handle = os.open(confined(path), os.O_RDONLY)
-    return os.fdopen(handle, "r", encoding="utf-8", errors="replace")
+    from spend_app.connection_paths import confined, readonly_fd
+
+    return os.fdopen(readonly_fd(confined(path)), "r", encoding="utf-8", errors="replace")
+
+
+def open_binary_read_only(path: Path):
+    """Open a provider file for a bounded binary tail without write access."""
+    from spend_app.connection_paths import confined, readonly_fd
+
+    return os.fdopen(readonly_fd(confined(path)), "rb")
 
 
 def parse_iso_time(value: object) -> datetime | None:

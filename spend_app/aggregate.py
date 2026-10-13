@@ -323,6 +323,14 @@ SUMMARY_CAPACITY_PROVIDERS = (
 UNAVAILABLE_QUOTA_REASON = "no persisted quota snapshot"
 MODEL_NAMES = {
     "gpt-6-astra": "GPT-6 Astra",
+    "gpt-6.1-sol": "GPT-6.1 Sol",
+    "claude-opus-5-5": "Claude Opus 5.5",
+    "claude-sonnet-5-5": "Claude Sonnet 5.5",
+    "claude-haiku-5-5": "Claude Haiku 5.5",
+    "claude-haiku-4-5": "Claude Haiku 4.5",
+    "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
+    "opencode:glm-5.3": "OpenCode GLM 5.3",
+    "zcode:glm-5.3": "ZCode GLM 5.3",
     "supergrok:grok-4.6": "SuperGrok Grok 4.6",
     "cursor:grok-4.6": "Cursor Grok 4.6",
     "cursor:gemini-3.7-flash": "Cursor Gemini 3.7 Flash",

@@ -44,6 +44,16 @@ prices:
     output_per_mtok: 25.00
     effective_from: 2026-07-24T00:00:00Z
     source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-opus-5-5
+    # Released 2026-09-22. Standard card: $4 input, $0.20 cache read (0.05x),
+    # $5 / $8 cache writes, $20 output. The full 1M window uses these rates.
+    input_per_mtok: 4.00
+    cached_input_per_mtok: 0.20
+    cache_write_per_mtok: 5.00
+    cache_write_1h_per_mtok: 8.00
+    output_per_mtok: 20.00
+    effective_from: 2026-09-22T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
   - model_key: claude-sonnet-5
     # Launched 2026-06-30 at introductory $2/$10 per MTok. Anthropic's official
     # pricing page states the scheduled 2026-09-01 increase to $3/$15 will not
@@ -56,6 +66,15 @@ prices:
     output_per_mtok: 10.00
     effective_from: 2026-06-30T00:00:00Z
     source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-sonnet-5-5
+    # Released 2026-09-28. Standard card includes the full 1M window.
+    input_per_mtok: 2.00
+    cached_input_per_mtok: 0.20
+    cache_write_per_mtok: 2.50
+    cache_write_1h_per_mtok: 4.00
+    output_per_mtok: 10.00
+    effective_from: 2026-09-28T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
   - model_key: claude-sonnet-4-6
     input_per_mtok: 3.00
     cached_input_per_mtok: 0.30
@@ -64,7 +83,26 @@ prices:
     output_per_mtok: 15.00
     effective_from: 2026-01-01T00:00:00Z
     source_url: https://platform.claude.com/docs/en/about-claude/pricing
+  - model_key: claude-haiku-5-5
+    # Released 2026-10-07. Prompts up to 100,000 tokens: $0.10 input, $0.01
+    # cache read (0.1x), $0.125 / $0.20 cache writes, $0.50 output. A prompt
+    # over 100,000 tokens — input, cache reads, and cache writes together —
+    # pays 5x on every class. Exactly 100,000 stays on the lower card.
+    input_per_mtok: 0.10
+    cached_input_per_mtok: 0.01
+    cache_write_per_mtok: 0.125
+    cache_write_1h_per_mtok: 0.20
+    output_per_mtok: 0.50
+    long_context_threshold: 100000
+    long_input_multiplier: 5
+    long_output_multiplier: 5
+    long_context_includes_cache_writes: true
+    effective_from: 2026-10-07T00:00:00Z
+    source_url: https://platform.claude.com/docs/en/about-claude/pricing
   - model_key: claude-haiku-4-5
+    # The dated snapshot is the same Haiku 4.5 card. Window is 200K; no
+    # long-context tier is published.
+    aliases: [claude-haiku-4-5-20251001]
     input_per_mtok: 1.00
     cached_input_per_mtok: 0.10
     cache_write_per_mtok: 1.25

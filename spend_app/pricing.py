@@ -46,6 +46,9 @@ class Price:
     provider: str
     is_exact: bool
     long_context_inclusive: bool = False
+    # Anthropic Haiku 5.5 counts cache writes in the prompt length. Other
+    # cards keep the historical check, which uses stored input tokens only.
+    long_context_includes_cache_writes: bool = False
     # True when the card comes from a document declaring
     # `source_policy: owner-asserted`: the product owner vouches for the
     # figures and the source_url is not an official provider page. Only
@@ -235,6 +238,9 @@ class PricingEngine:
                         provider=provider,
                         is_exact=is_exact,
                         long_context_inclusive=bool(row.get("long_context_inclusive", False)),
+                        long_context_includes_cache_writes=bool(
+                            row.get("long_context_includes_cache_writes", False)
+                        ),
                         owner_asserted=owner_asserted,
                     )
                 )
@@ -294,12 +300,15 @@ class PricingEngine:
             raise ValueError("cache_write_1h_tokens cannot exceed cache_write_tokens")
         price = self.resolve(model_key, occurred_at)
         fresh_input = input_tokens - cached_input_tokens
+        prompt_tokens = input_tokens + (
+            cache_write_tokens if price.long_context_includes_cache_writes else 0
+        )
         is_long = (
             price.long_context_threshold is not None
             and (
-                input_tokens >= price.long_context_threshold
+                prompt_tokens >= price.long_context_threshold
                 if price.long_context_inclusive
-                else input_tokens > price.long_context_threshold
+                else prompt_tokens > price.long_context_threshold
             )
         )
         input_multiplier = price.long_input_multiplier if is_long else Decimal(1)

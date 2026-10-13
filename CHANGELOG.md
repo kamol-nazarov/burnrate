@@ -9,6 +9,20 @@ This project is licensed under Apache-2.0.
 
 ## [Unreleased]
 
+- Redesign the dashboard so overview, dialogs, and the tool page share one
+  layout, and replace the visible hour grid with the price of a million tokens
+  by model.
+- Read Antigravity's current language-server token from the running process when
+  the desktop log no longer records it, so the quota call is not sent with a
+  token from an older startup.
+- Keep scanning a local source when one directory sits on Windows' 259-character
+  path limit. Cursor local was failing the whole ingest on an empty agent folder.
+- Price Claude Opus 5.5, Claude Sonnet 5.5, and GPT-6.1 Sol from their published
+  October 2026 cards. The Haiku 4.5 snapshot id and OpenCode GLM 5.3 resolve to
+  cards already on file. Cursor Grok Bot stays unpriced: neither Cursor nor xAI
+  publishes a token rate for that usage row.
+- Price Claude Haiku 5.5 from the published October 7, 2026 card. Prompts over
+  100,000 tokens, counting cache writes, use the 5x rates.
 - Project a run-dry pace on each capacity lane from the last hour of quota
   samples, using the last 24 hours when that hour is flat. Sort "what runs
   out first" by that time. Alert once per quota window when usage crosses the

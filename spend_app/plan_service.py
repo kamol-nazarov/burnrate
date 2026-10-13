@@ -334,7 +334,12 @@ def apply_mutation(connection, body, today):
                 [today]
                 + [iso_date(t["end_date"]) for t in old + terms if t["end_date"]]
             )
-            if plan["end_date"]:
+            if plan["end_date"] and terms[-1].get("id") == body.get("term_id"):
+                revised = iso_date(terms[-1]["end_date"], True)
+                cap = iso_date(plan["end_date"])
+                if revised is not None and revised <= cap:
+                    end = min(end, cap)
+            elif plan["end_date"]:
                 end = min(end, iso_date(plan["end_date"]))
             token = hashlib.sha256(
                 json.dumps([plan_id, plan[0], terms], sort_keys=True).encode()
@@ -392,6 +397,13 @@ def apply_mutation(connection, body, today):
                         term["id"],
                     ),
                 )
+        if op == "correct" and terms[-1].get("id") == body.get("term_id"):
+            # The subscription end lives on the plan. The last term's optional
+            # date is that end, so clearing it makes the plan active again.
+            connection.execute(
+                "UPDATE subscription_plans SET end_date=? WHERE id=?",
+                (terms[-1]["end_date"], plan_id),
+            )
         connection.execute(
             "UPDATE subscription_plans SET version=version+1 WHERE id=?", (plan_id,)
         )
@@ -405,8 +417,18 @@ def apply_mutation(connection, body, today):
         if bounds[0]:
             from spend_app.subscriptions import materialize_subscription_days
 
+            covered_until = iso_date(bounds[1])
+            if op == "end":
+                extends = ending is None or ending > covered_until
+            elif op == "correct" and terms[-1].get("id") == body.get("term_id"):
+                revised = iso_date(terms[-1]["end_date"], True)
+                extends = revised is None or revised > covered_until
+            else:
+                extends = False
+            if extends and covered_until < today:
+                covered_until = today
             materialize_subscription_days(
-                connection, start=iso_date(bounds[0]), end=iso_date(bounds[1])
+                connection, start=iso_date(bounds[0]), end=covered_until
             )
     connection.execute(
         "INSERT INTO subscription_mutations VALUES(?,?,?)",

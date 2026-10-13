@@ -56,9 +56,9 @@
             <span class="burnrate-status-detail" id="nav-status-detail">Waiting for telemetry</span>
           </button>
           <div class="nav-settings" aria-label="Dashboard settings">
-            <button id="nav-connect" class="ghost-button" type="button"><i class="settings-dot" aria-hidden="true"></i><span>Harnesses</span></button>
-            <button id="nav-plans" class="ghost-button" type="button"><span class="mono" id="nav-plans-total">—</span>/mo plans</button>
-            <button id="nav-attention" class="ghost-button" type="button">Attention —</button>
+            <button id="nav-connect" class="nav-chip" type="button"><i class="settings-dot" aria-hidden="true"></i><span>Harnesses</span></button>
+            <button id="nav-plans" class="nav-chip" type="button"><span class="mono" id="nav-plans-total">—</span><span class="nav-chip-suffix">/mo plans</span></button>
+            <button id="nav-attention" class="nav-chip" type="button" data-tone="quiet">Attention —</button>
           </div>
           <!-- Announces state transitions (live/stale/error and the failing
                source), never each poll's timestamp. -->
@@ -66,12 +66,6 @@
         </div>
       </div>
     </header>
-
-    <div class="coverage-banner" id="coverage-banner" role="status">
-      <span class="coverage-banner__mark"><i></i><strong id="coverage-title">Pricing coverage</strong></span>
-      <span class="coverage-banner__note" id="coverage-note">Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated.</span>
-      <span class="coverage-banner__exact mono" id="coverage-exact">exact: —</span>
-    </div>
 
     <div class="error-banner" id="error-banner" role="alert" hidden>
       <strong>Spend data could not be loaded.</strong><span id="error-message"></span>
@@ -86,19 +80,28 @@
     </div>
 
     <main id="main">
+      <div class="coverage-banner" id="coverage-banner" role="status" data-state="quiet">
+        <span class="coverage-banner__mark"><i></i><strong id="coverage-title">Pricing coverage</strong></span>
+        <span class="coverage-banner__note" id="coverage-note">Exact figures use billed or published rates. Derived values are marked ≈. Unpriced usage is never estimated.</span>
+        <span class="coverage-banner__exact mono" id="coverage-exact">exact: —</span>
+      </div>
       <section id="setup-guidance" class="panel" aria-labelledby="setup-title" hidden>
+        <p class="eyebrow">Setup</p>
         <h2 id="setup-title">Start with local usage</h2>
-        <p>BURNRATE is local-first. Supported local usage can appear without credentials; network integrations and configured subscriptions are optional.</p>
-        <p id="setup-timezone"></p>
-        <p>Complete a supported turn, then check Diagnostics for the source's status and next action. Adding a configured plan is optional.</p>
-        <button id="setup-plans" type="button">Manage subscriptions</button>
-        <button id="setup-help" type="button">Connect harness</button>
-        <button id="setup-done" type="button">Done</button>
-        <button id="setup-dismiss" type="button">Remind me later</button>
+        <p class="setup-lead">Local usage can appear without credentials. Finish a turn, then check Diagnostics. Plans and network connections are optional.</p>
+        <p id="setup-timezone" class="setup-meta"></p>
+        <div class="setup-actions">
+          <button id="setup-plans" class="setup-choice" type="button"><span class="setup-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M1.6 4.4 8 1.5l6.4 2.9L8 7.3 1.6 4.4zm0 3.1L8 10.4l6.4-2.9v1.4L8 11.8 1.6 8.9V7.5zm0 3.1L8 13.5l6.4-2.9v1.4L8 14.9 1.6 12V10.6z"/></svg></span><span class="setup-copy"><strong>Manage subscriptions</strong><small>Price, term, and the dates each plan covers.</small></span></button>
+          <button id="setup-help" class="setup-choice" type="button"><span class="setup-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7.1 1.8a5.2 5.2 0 1 0 3.2 9.3l3.1 3.1 1.2-1.2-3.1-3.1A5.2 5.2 0 0 0 7.1 1.8zm0 1.7a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"/></svg></span><span class="setup-copy"><strong>Connect harness</strong><small>Sources on this computer. Nothing is routed or purchased.</small></span></button>
+        </div>
+        <div class="setup-foot">
+          <button id="setup-done" class="setup-done" type="button">Done</button>
+          <button id="setup-dismiss" class="setup-later" type="button">Remind me later</button>
+        </div>
       </section>
       <section id="overview-view">
         <h1 class="overview-h1" id="overview-heading">Spend overview</h1>
-        <div class="split-row">
+        <div class="split-row split-row--start">
           <article class="panel capacity-panel" aria-label="Provider usage limits">
             <header class="panel-header">
               <div>
@@ -108,7 +111,7 @@
               <div class="panel-meta">
                 <div class="capacity-check"><span id="capacity-checked">checked —</span>
                 <strong id="capacity-headline" class="capacity-headline">Loading capacity</strong></div>
-                <button id="capacity-connect" class="ghost-button" type="button">Connect harness</button>
+                <button id="capacity-connect" class="nav-chip" type="button">Connect harness</button>
               </div>
             </header>
             <details class="capacity-alert-settings" id="capacity-alert-settings">
@@ -259,12 +262,12 @@
                 <strong class="big-number mono" id="forecast-value">—</strong>
                 <span id="forecast-delta"></span>
               </div>
-              <p id="forecast-note">—</p>
               <div class="pace-track"><i id="pace-bar"></i><b></b></div>
               <div class="pace-labels mono">
                 <span id="pace-label">usage —</span>
                 <span id="run-rate">plans —</span>
               </div>
+              <p id="forecast-note">—</p>
             </article>
           </div>
         </div>
@@ -315,30 +318,37 @@
         <article class="panel heat-panel">
           <header class="panel-header">
             <div>
-              <p class="eyebrow">Rhythm</p>
-              <h2>When you spend</h2>
+              <p class="eyebrow">Unit price</p>
+              <h2>What a million costs</h2>
             </div>
+          </header>
+          <div id="price-board" class="price-board" aria-label="Cost per million tokens"></div>
+          <div class="heat-archive" hidden aria-hidden="true">
             <div class="hover-readout">
               <span id="heat-label">Peak window</span>
               <strong class="mono" id="heat-value">—</strong>
             </div>
-          </header>
-          <p class="sr-only" id="heat-unit">reference usage (USD at documented rates)</p>
-          <div class="heat-warning" id="heat-warning" hidden>
-            <i></i>
-            <strong>Window too short for a weekly pattern</strong>
-            <span id="heat-note">Showing the trailing 7-day pattern. Switch to 1w or longer for figures that match the selected window.</span>
-          </div>
-          <div class="heatmap" id="heatmap"></div>
-          <div class="heat-legend">
-            <div class="mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
-            <div class="heat-scale">Low<div><i></i><i></i><i></i><i></i></div>High</div>
-          </div>
-          <div class="sr-only">
-            <table>
-              <caption>Reference usage by weekday and hour, in US dollars at documented rates</caption>
-              <tbody id="heat-table-body"></tbody>
-            </table>
+            <p class="sr-only" id="heat-unit">reference usage (USD at documented rates)</p>
+            <div class="heat-hero">
+              <strong id="heat-share" class="mono">—</strong>
+              <p id="heat-span">Share of this pattern in the peak hour.</p>
+            </div>
+            <div class="heat-warning" id="heat-warning" hidden>
+              <i></i>
+              <strong>Window too short for a weekly pattern</strong>
+              <span id="heat-note">Showing the trailing 7-day pattern. Switch to 1w or longer for figures that match the selected window.</span>
+            </div>
+            <div class="heatmap" id="heatmap"></div>
+            <div class="heat-legend">
+              <div class="mono"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+              <div class="heat-scale">Low<div><i></i><i></i><i></i><i></i></div>High</div>
+            </div>
+            <div class="sr-only">
+              <table>
+                <caption>Reference usage by weekday and hour, in US dollars at documented rates</caption>
+                <tbody id="heat-table-body"></tbody>
+              </table>
+            </div>
           </div>
         </article>
       </section>
@@ -462,29 +472,34 @@
       </footer>
     </main>
     <dialog id="plan-manager" class="settings-dialog" aria-labelledby="plan-manager-title">
-      <header class="settings-dialog-header">
-        <div><p class="eyebrow">Fixed costs</p><h2 id="plan-manager-title" tabindex="-1">Plans & Value</h2></div>
-        <div class="dialog-actions">
-          <div class="cadence-control plan-dialog-tabs" role="group" aria-label="Plans view">
-            <button id="tab-plans-value" type="button" class="active" aria-pressed="true">Plans & Value</button>
-            <button id="tab-plans-list" type="button" aria-pressed="false">Manage plans</button>
+      <header class="settings-dialog-header plan-dialog-header">
+        <div class="plan-dialog-top">
+          <span class="plan-dialog-grip" aria-hidden="true"></span>
+          <div class="plan-dialog-identity">
+            <p class="eyebrow">Fixed costs</p>
+            <h2 id="plan-manager-title" tabindex="-1">Plans & Value</h2>
+            <p id="plan-manager-lead" class="plan-dialog-lead">Reference usage set against configured cost.</p>
           </div>
-          <button id="close-plans" class="ghost-button" type="button">Close</button>
+          <button id="close-plans" class="plan-dialog-close" type="button"><span aria-hidden="true">×</span>Close</button>
+        </div>
+        <div class="cadence-control plan-dialog-tabs" role="group" aria-label="Plans view">
+          <button id="tab-plans-value" type="button" class="active" aria-pressed="true">Plans & Value</button>
+          <button id="tab-plans-list" type="button" aria-pressed="false">Manage plans</button>
         </div>
       </header>
       <section id="plans-value-view" aria-label="Plans & Value comparison"></section>
       <section id="plan-list-view" hidden>
         <div class="plan-total-card"><span>Monthly equivalent</span><strong id="plan-monthly-total" class="mono">—</strong></div>
         <div id="plan-history" class="settings-list"></div>
-        <footer class="settings-dialog-footer"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button" type="button">Add a plan</button></footer>
+        <footer class="settings-dialog-footer"><p>Attribution only — not verified payments. Ending a plan here does not cancel it with the provider.</p><button id="new-plan" class="primary-button plan-add" type="button"><span aria-hidden="true"><svg viewBox="0 0 16 16"><path fill="currentColor" d="M7.15 2.9h1.7v4.25h4.25v1.7H8.85v4.25h-1.7V8.85H2.9v-1.7h4.25z"/></svg></span>Add a plan</button></footer>
       </section>
       <form id="plan-form" hidden novalidate>
         <div hidden><select id="plan-action"><option value="add">Add</option><option value="schedule">Schedule</option><option value="end">End</option><option value="correct">Correct</option></select><select id="plan-choice"></select></div>
         <ol id="plan-steps" class="plan-steps" aria-label="Plan steps"><li><span>1</span>Tool</li><li><span>2</span>Price</li><li><span>3</span>Dates</li></ol>
         <div class="plan-wizard-body">
           <section id="plan-step-1"><h3>Which tool is this plan for?</h3><div id="plan-tool-slot"><div id="plan-tool-fields"><label id="plan-tool-label">Tool<select id="plan-tool" class="sr-only" tabindex="-1" aria-hidden="true"></select></label><div id="plan-tool-cards" class="plan-tool-cards" role="group" aria-label="Tool"></div><label id="plan-name-label">Plan name<input id="plan-name" maxlength="80" autocomplete="off"></label></div></div><p class="settings-helper">OpenCode and ZCode share one Z.AI plan. Two plans can use the same tool.</p></section>
-          <section id="plan-step-2" hidden><h3>What does it cost?</h3><label id="term-choice-label" hidden>Historical term<select id="term-choice"></select></label><details id="plan-correction-fields" hidden><summary>Name and tool</summary></details><label id="plan-amount-label">Price per period<span class="money-input"><span aria-hidden="true">$</span><input id="plan-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal"></span></label><label id="plan-cadence-label">Billed every<select id="plan-cadence" hidden><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label><div class="cadence-control" role="group" aria-label="Billed every"><button type="button" data-cadence="monthly">Month</button><button type="button" data-cadence="quarterly">Quarter</button><button type="button" data-cadence="annual">Year</button></div><div class="plan-live-cards"><div><span id="plan-day-label">Per day</span><strong id="plan-per-day" class="mono">—</strong></div><div><span>Monthly equiv</span><strong id="plan-equiv" class="mono">—</strong></div><div><span>Fixed costs after</span><strong id="plan-after" class="mono">—</strong></div></div><p class="settings-helper">Daily cost is the amount divided by days in the calendar period. Not provider billing.</p></section>
-          <section id="plan-step-3" hidden><h3>When does it apply?</h3><label id="plan-start-label">Effective start<input id="plan-start" type="date"></label><label id="plan-end-label"><span id="plan-end-caption">Last active date (optional)</span><input id="plan-end" type="date"></label><p id="plan-end-note" class="settings-warning" hidden>Inclusive. Attribution stops the following day. This does not cancel the plan with the provider.</p><div id="plan-review" class="plan-review"><strong><i class="tool-swatch"></i><span></span></strong><p></p></div><div id="plan-preview" hidden><div class="correction-totals"><div>Before<strong class="mono" id="plan-before-value"></strong></div><span aria-hidden="true">→</span><div>After<strong class="mono" id="plan-after-value"></strong></div></div><p id="plan-affected"></p><p id="plan-preview-note" class="settings-helper"></p></div><label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label></section>
+          <section id="plan-step-2" hidden><h3>What does it cost?</h3><label id="term-choice-label" hidden>Historical term<select id="term-choice"></select></label><details id="plan-correction-fields" hidden><summary>Name and tool</summary></details><label id="plan-amount-label">Price per period<span class="money-input"><span aria-hidden="true">$</span><input id="plan-amount" type="number" min="0" max="1000000" step="0.01" inputmode="decimal"></span></label><label id="plan-cadence-label">Billed every<select id="plan-cadence" hidden><option value="monthly">Month</option><option value="quarterly">Quarter</option><option value="annual">Year</option></select></label><p class="plan-field-label">Billed every</p><div class="cadence-control" role="group" aria-label="Billed every"><button type="button" data-cadence="monthly">Month</button><button type="button" data-cadence="quarterly">Quarter</button><button type="button" data-cadence="annual">Year</button></div><div class="plan-live-cards"><div><span id="plan-day-label">Per day</span><strong id="plan-per-day" class="mono">—</strong></div><div><span>Monthly equiv</span><strong id="plan-equiv" class="mono">—</strong></div><div><span>Fixed costs after</span><strong id="plan-after" class="mono">—</strong></div></div><p class="settings-helper">Daily cost is the amount divided by days in the calendar period. Not provider billing.</p></section>
+          <section id="plan-step-3" hidden><h3>When does it apply?</h3><div class="plan-dates"><label id="plan-start-label">Effective start<input id="plan-start" type="date"></label><label id="plan-end-label"><span id="plan-end-caption">Last active date (optional)</span><input id="plan-end" type="date"></label></div><p id="plan-end-note" class="settings-warning" hidden>Inclusive. Attribution stops the following day. This does not cancel the plan with the provider.</p><div id="plan-review" class="plan-review"><strong><span class="plan-logo" aria-hidden="true"></span><i class="tool-swatch"></i><span class="plan-review-name"></span></strong><p></p></div><div id="plan-preview" hidden><div class="correction-totals"><div>Before<strong class="mono" id="plan-before-value"></strong></div><span aria-hidden="true">→</span><div>After<strong class="mono" id="plan-after-value"></strong></div></div><p id="plan-affected"></p><p id="plan-preview-note" class="settings-helper"></p></div><label id="plan-confirm-label" hidden><input id="plan-confirm" type="checkbox">I confirm this correction changes the historical attribution shown above.</label></section>
           <p id="plan-timezone" class="settings-helper"></p>
         </div>
         <footer class="settings-dialog-footer"><button id="plan-back" class="ghost-button" type="button">Cancel</button><button id="save-plan" class="primary-button" type="submit">Continue</button></footer>
@@ -492,28 +507,39 @@
       <p id="plan-message" role="status" aria-live="polite"></p>
     </dialog>
     <dialog id="harness-manager" class="settings-dialog" aria-labelledby="harness-manager-title">
-      <header class="settings-dialog-header"><div><p class="eyebrow">Sources</p><h2 id="harness-manager-title" tabindex="-1">Connect a harness</h2><p class="harness-intro">Local harness files are read as-is. No credentials are needed. Network integrations are optional and off until you enable them.</p></div><div class="dialog-actions"><button id="rescan-harnesses" class="ghost-button" type="button">Rescan</button><button id="close-harnesses" class="ghost-button" type="button">Close</button></div></header>
+      <header class="settings-dialog-header"><div><p class="eyebrow">Sources</p><h2 id="harness-manager-title" tabindex="-1">Connect a harness</h2><p class="harness-intro">Usage is read on this computer. Optional connections stay off until you enable them.</p></div><div class="dialog-actions harness-header-actions"><button id="rescan-harnesses" class="harness-action" type="button"><span class="harness-rescan-icon" aria-hidden="true"><svg class="harness-rescan-glyph" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M13.836 2.477a.75.75 0 0 1 .75.75v3.182a.75.75 0 0 1-.75.75h-3.182a.75.75 0 0 1 0-1.5h1.37l-.84-.841a4.5 4.5 0 0 0-7.08 2.042.75.75 0 0 1-1.3-.75 6 6 0 0 1 9.44-2.722l.822.822V3.227a.75.75 0 0 1 .75-.75Zm-.911 7.5A.75.75 0 0 1 13.199 11a6 6 0 0 1-9.44 2.722l-.822-.822v1.873a.75.75 0 0 1-1.5 0V10.59a.75.75 0 0 1 .75-.75h3.182a.75.75 0 0 1 0 1.5H4.399l.84.841a4.5 4.5 0 0 0 7.08-2.042.75.75 0 0 1 .606-.462Z"/></svg><svg class="harness-rescan-spin" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 2.6a5.4 5.4 0 1 1-4.7 2.75"/></svg></span><span class="harness-rescan-label">Rescan</span></button><button id="close-harnesses" class="harness-close" type="button"><span aria-hidden="true">×</span>Close</button></div></header>
       <p id="harness-message" role="status" aria-live="polite" hidden></p>
-      <div id="harness-content"><section class="harness-section"><header><p class="eyebrow">Local harnesses</p><span id="harness-scanned" class="settings-helper"></span></header><div id="harness-rows"></div></section><section class="harness-section"><header><p class="eyebrow">Optional network integrations</p><span class="settings-helper">keys stay in .env · never stored in SQLite</span></header><p id="harness-vault-note" class="settings-helper" hidden>Some keys are managed in Windows Credential Manager. Manage saved connections to replace or disconnect them.</p><div id="integration-rows"></div></section></div>
-      <footer class="settings-dialog-footer"><p><i class="settings-dot good-dot" aria-hidden="true"></i>Nothing leaves this machine unless a key or opt-in above is enabled.</p><a id="harness-docs" class="settings-link" target="_blank" rel="noopener noreferrer">Provider documentation →</a></footer>
-      <div class="harness-extra"><button id="managed-connections" class="ghost-button" type="button">Manage saved connections</button><button id="show-setup-help" class="ghost-button" type="button">Setup help</button></div>
+      <div id="harness-content"><section class="harness-section"><header><p class="eyebrow">On this computer</p><span id="harness-scanned" class="settings-helper" role="status"></span></header><div id="harness-rows"></div></section><section class="harness-section"><header><p class="eyebrow">Optional connections</p><span class="settings-helper">Keys stay in your environment. They are not stored here.</span></header><p id="harness-vault-note" class="settings-helper" hidden>Some keys are managed in Windows Credential Manager. Manage saved connections to replace or disconnect them.</p><div id="integration-rows"></div></section></div>
+      <footer class="settings-dialog-footer harness-footer"><p><i class="settings-dot good-dot" aria-hidden="true"></i>Nothing leaves this computer unless you enable a connection above.</p><div class="harness-actions"><button id="managed-connections" class="harness-action" type="button">Saved connections</button><button id="show-setup-help" class="harness-action" type="button">Setup help</button><a id="harness-docs" class="harness-action" target="_blank" rel="noopener noreferrer">Documentation</a></div></footer>
     </dialog>
 
     <dialog id="attention-panel" class="settings-dialog" aria-labelledby="attention-title">
-      <header class="settings-dialog-header"><h2 id="attention-title" tabindex="-1">Attention</h2><button id="attention-close" class="ghost-button" type="button">Close</button></header>
-      <section class="harness-section">
-        <div class="cadence-control" role="group" aria-label="Attention views"><button id="attention-current" type="button">Current</button><button id="attention-history" type="button">History</button></div>
-        <p id="attention-status" class="settings-helper"></p><p id="attention-message" class="settings-helper" role="status"></p>
-        <div id="attention-list" class="settings-list"></div>
-        <details><summary>Preferences</summary><form id="attention-preferences">
-          <label class="settings-row"><input id="attention-quota" type="checkbox" checked>Quota thresholds</label>
-          <label class="settings-row"><input id="attention-source" type="checkbox" checked>Source failures</label>
-          <label class="settings-row"><input id="attention-pricing" type="checkbox" checked>Missing pricing</label>
-          <label class="settings-row">Lower threshold (%)<input id="attention-lower" type="number" min="1" max="100" step="1" value="80" required></label>
-          <label class="settings-row">Higher threshold (%)<input id="attention-higher" type="number" min="1" max="100" step="1" value="95" required></label>
-          <button class="ghost-button" type="submit">Save preferences</button>
+      <header class="settings-dialog-header attention-header">
+        <div>
+          <p class="eyebrow">Signals</p>
+          <h2 id="attention-title" tabindex="-1">Attention</h2>
+          <p class="attention-lead">Quotas, sources, and prices that need a decision.</p>
+        </div>
+        <button id="attention-close" class="harness-close" type="button"><span aria-hidden="true">×</span>Close</button>
+      </header>
+      <div class="attention-body">
+        <div class="attention-tabs" role="group" aria-label="Attention views"><button id="attention-current" type="button" aria-pressed="true">Current</button><button id="attention-history" type="button" aria-pressed="false">History</button></div>
+        <p id="attention-status" class="attention-status"></p>
+        <p id="attention-message" class="attention-message" role="status"></p>
+        <div id="attention-list" class="attention-list"></div>
+        <details class="attention-prefs"><summary>Preferences</summary><form id="attention-preferences">
+          <div class="attention-pref-checks">
+            <label><input id="attention-quota" type="checkbox" checked>Quota thresholds</label>
+            <label><input id="attention-source" type="checkbox" checked>Source failures</label>
+            <label><input id="attention-pricing" type="checkbox" checked>Missing pricing</label>
+          </div>
+          <div class="attention-pref-nums">
+            <label>Lower threshold (%)<input id="attention-lower" type="number" min="1" max="100" step="1" value="80" required></label>
+            <label>Higher threshold (%)<input id="attention-higher" type="number" min="1" max="100" step="1" value="95" required></label>
+          </div>
+          <button class="attention-save" type="submit">Save preferences</button>
         </form></details>
-      </section>
+      </div>
     </dialog>
   </body>
 </html>

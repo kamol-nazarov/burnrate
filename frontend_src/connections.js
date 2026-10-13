@@ -19,22 +19,40 @@
   const dialog = document.createElement("dialog");
   dialog.id = "connection-wizard";
   dialog.setAttribute("aria-labelledby", "connection-title");
-  dialog.innerHTML = '<header><h2 id="connection-title">Connect harness</h2><button type="button" data-close>Close</button></header><p>Locations are on the computer running BURNRATE, not this browser’s computer.</p><p>Connections read usage. They do not route inference, purchase subscriptions or log in to another app.</p><nav aria-label="Connection steps"><button type="button" data-back>Back</button><span data-stage></span></nav><p role="status" aria-live="polite" data-message></p><section data-content></section><details><summary>BURNRATE access token</summary><label>Access token <input type="password" autocomplete="off" data-token></label><p>Only needed when this BURNRATE server requires authentication. Kept in memory until this dialog closes.</p></details>';
+  dialog.innerHTML = '<header class="wizard-header"><div><p class="eyebrow">Connections</p><h2 id="connection-title">Connect harness</h2><p class="wizard-lead">Locations are on the computer running BURNRATE, not this browser. Connections read usage. They do not route inference, purchase a plan, or sign in to another app.</p></div><button type="button" data-close class="harness-close"><span aria-hidden="true">×</span>Close</button></header><div class="wizard-body"><nav class="wizard-nav" aria-label="Connection steps"><button type="button" data-back class="wizard-back">Back</button><span data-stage></span></nav><p class="wizard-message" role="status" aria-live="polite" data-message></p><section data-content></section><details class="wizard-token"><summary>BURNRATE access token</summary><label>Access token <input type="password" autocomplete="off" data-token></label><p>Only needed when this server requires authentication. Kept in memory until this dialog closes.</p></details></div>';
   document.body.append(dialog);
   const content = dialog.querySelector("[data-content]");
   const message = dialog.querySelector("[data-message]");
   let opener, controller, rows = [], busy = false;
   const draft = {source: "codex_local", location: ""};
   const text = value => { message.textContent = value; };
-  const button = (label, action, parent = content) => {
-    const node = document.createElement("button"); node.type = "button"; node.textContent = label;
+  const ICONS = {
+    scan: "M7.1 1.8a5.2 5.2 0 1 0 3.2 9.3l3.1 3.1 1.2-1.2-3.1-3.1A5.2 5.2 0 0 0 7.1 1.8zm0 1.7a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z",
+    folder: "M1.4 3.2h4.2L6.8 4.8h7.8v8.2H1.4V3.2zm1.5 1.5v6.8h10.2V6.2H6.2L5 4.7H2.9z",
+    key: "M9.2 1.8a3.3 3.3 0 0 0-3.2 4.1L2.2 9.7v3.5h2.2v-1.4h1.4V10h1.4l1.1-1.1a3.3 3.3 0 1 0 .9-7.1zm.2 1.6a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4z",
+    status: "M1.8 12.2h2.4V8H1.8v4.2zm4.2 0h2.4V3.8H6v8.4zm4.2 0h2.4V6.2h-2.4v6z",
+    plans: "M1.6 4.4 8 1.5l6.4 2.9L8 7.3 1.6 4.4zm0 3.1L8 10.4l6.4-2.9v1.4L8 11.8 1.6 8.9V7.5zm0 3.1L8 13.5l6.4-2.9v1.4L8 14.9 1.6 12V10.6z"
+  };
+  const icon = name => { const node = document.createElement("span"); node.className = "wizard-mark"; node.setAttribute("aria-hidden", "true"); node.innerHTML = '<svg viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="' + ICONS[name] + '"/></svg>'; return node; };
+  const button = (label, action, parent = content, cls = "wizard-action") => {
+    const node = document.createElement("button"); node.type = "button"; node.className = cls; node.textContent = label;
     node.addEventListener("click", action); parent.append(node); return node;
+  };
+  const choice = spec => {
+    const node = document.createElement("button"); node.type = "button"; node.className = "wizard-choice"; node.setAttribute("aria-label", spec.label);
+    const copy = document.createElement("span"); copy.className = "wizard-copy";
+    const title = document.createElement("strong"); title.textContent = spec.title;
+    const hint = document.createElement("small"); hint.textContent = spec.hint;
+    copy.append(title, hint); node.append(icon(spec.icon), copy);
+    if (spec.tag) { const tag = document.createElement("span"); tag.className = "wizard-tag"; tag.textContent = spec.tag; node.append(tag); }
+    node.addEventListener("click", spec.run); content.append(node); return node;
   };
   const para = (value, parent = content) => { const p = document.createElement("p"); p.textContent = value; parent.append(p); return p; };
   function clearSecret() { content.querySelectorAll('input[type="password"]').forEach(input => { input.value = ""; }); }
   function stage(name) {
     flow.move(name); controller?.abort(); clearSecret(); content.replaceChildren(); busy = false; text("");
-    dialog.querySelector("[data-stage]").textContent = name;
+    dialog.dataset.step = name === "choose" ? "choose" : "step";
+    dialog.querySelector("[data-stage]").textContent = name === "choose" ? "" : name;
     dialog.querySelector("[data-back]").hidden = name === "choose";
     const heading = dialog.querySelector("h2"); heading.tabIndex = -1; heading.focus();
   }
@@ -60,11 +78,11 @@
   async function load() { const data = await request("/api/connections"); rows = data.connections; return data; }
   function choose() {
     stage("choose");
-    button("Auto-detect (recommended)", discover);
-    button("Choose manually", () => manual(false));
-    button("Add provider API", () => manual(true));
-    button("Connection status", statuses);
-    button("Manage subscriptions", () => { dialog.close(); document.getElementById("manage-plans").click(); });
+    choice({label: "Auto-detect (recommended)", title: "Auto-detect", hint: "Scan this computer for known harnesses.", tag: "Recommended", icon: "scan", run: discover});
+    choice({label: "Choose manually", title: "Choose manually", hint: "Point at a sessions folder or database file.", icon: "folder", run: () => manual(false)});
+    choice({label: "Add provider API", title: "Add provider API", hint: "Test a provider key, then connect it.", icon: "key", run: () => manual(true)});
+    choice({label: "Connection status", title: "Connection status", hint: "See what is bound and when it last imported.", icon: "status", run: statuses});
+    choice({label: "Manage subscriptions", title: "Manage subscriptions", hint: "Open price, term, and the dates each plan covers.", icon: "plans", run: () => { dialog.close(); document.getElementById("manage-plans").click(); }});
   }
   function details(row, parent) {
     para(row.name + (row.experimental ? " · Experimental" : ""), parent);
@@ -152,7 +170,7 @@
         if (!checked) return;
         const row = choices.find(row => row.source === select.value);
         await save(row, "connect", checked.location); await statuses();
-      }), form); connect.hidden = true;
+      }), form, "wizard-action is-primary"); connect.hidden = true;
       function edit() {
         flow.move(flow.stage); controller?.abort(); busy = false; checked = null; connect.hidden = true; result.textContent = "";
         draft.source = select.value; if (!api) draft.location = input.value;
